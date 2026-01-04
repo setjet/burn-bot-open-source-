@@ -1,3 +1,4 @@
+require('dotenv').config();
 const { Client, GatewayIntentBits, Collection, ActivityType, EmbedBuilder, ChannelType } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
@@ -1024,7 +1025,11 @@ if (antinukeCommand && antinukeCommand.setup) {
   antinukeCommand.setup(client);
 }
 
-const { token } = require('./config.json');
+const token = process.env.DISCORD_TOKEN;
+if (!token) {
+  console.error('Error: DISCORD_TOKEN is not set in environment variables!');
+  process.exit(1);
+}
 client.login(token);
 
 autoroleCommand.setup(client);
