@@ -150,12 +150,6 @@ async function checkAndPunishAntinuke(guild, userId, moduleName, count, moduleCo
           actionTaken = true;
           actionText = 'Kicked';
         }
-      } else if (punishment === 'warn') {
-        actionTaken = true;
-        actionText = 'Warned';
-      } else if (punishment === 'jail') {
-        actionTaken = true;
-        actionText = 'Jailed';
       } else if (punishment === 'stripstaff') {
         // Strip staff - remove all roles with dangerous permissions
         if (botMember.permissions.has('ManageRoles')) {
@@ -201,53 +195,60 @@ async function checkAndPunishAntinuke(guild, userId, moduleName, count, moduleCo
         }
       }
       
-      // Notify server owner
+      // Log antinuke action
       if (actionTaken) {
-        try {
-          const owner = await guild.fetchOwner().catch(() => null);
-          if (owner) {
-            const notificationEmbed = new EmbedBuilder()
-              .setColor('#838996')
-              .setTitle('<:sh1eld:1363214433136021948> Antinuke Action Taken')
-              .setDescription([
-                `**Action:** ${actionText}`,
-                `**User:** <@${userId}> (\`${member.user.tag}\`)`,
-                `**Module:** ${moduleName}`,
-                `**Count:** ${count} actions`,
-                `**Threshold:** ${threshold}`,
-                '',
-                `**Reason:** ${reason}`
-              ].join('\n'))
-            
-            await owner.send({ embeds: [notificationEmbed] }).catch(() => {});
-          }
-        } catch (error) {
-          // Ignore errors
-        }
+        const logEmbed = new EmbedBuilder()
+          .setColor('#838996')
+          .setTitle('<:sh1eld:1363214433136021948> Antinuke Action Log')
+          .setDescription([
+            `**Action:** ${actionText}`,
+            `**User:** <@${userId}> (\`${member.user.tag}\`)`,
+            `**User ID:** \`${userId}\``,
+            `**Module:** ${moduleName}`,
+            `**Count:** ${count} actions`,
+            `**Threshold:** ${threshold}`,
+            '',
+            `**Reason:** ${reason}`
+          ].join('\n'))
         
-        // Log to configured channel
+        // Try to send to log channel first
+        let sentToChannel = false;
         if (config.logChannel) {
           try {
             const logChannel = await guild.channels.fetch(config.logChannel).catch(() => null);
             if (logChannel) {
-              const logEmbed = new EmbedBuilder()
-                .setColor('#838996')
-                .setTitle('<:sh1eld:1363214433136021948> Antinuke Action Log')
-                .setDescription([
-                  `**Action:** ${actionText}`,
-                  `**User:** <@${userId}> (\`${member.user.tag}\`)`,
-                  `**User ID:** \`${userId}\``,
-                  `**Module:** ${moduleName}`,
-                  `**Count:** ${count} actions`,
-                  `**Threshold:** ${threshold}`,
-                  '',
-                  `**Reason:** ${reason}`
-                ].join('\n'))
-              
               await logChannel.send({ embeds: [logEmbed] }).catch(() => {});
+              sentToChannel = true;
             }
           } catch (error) {
             // Ignore errors
+          }
+        }
+        
+        // If no log channel or channel send failed, send DMs to owner and admins
+        if (!sentToChannel) {
+          // Send to server owner
+          try {
+            const owner = await guild.fetchOwner().catch(() => null);
+            if (owner) {
+              await owner.send({ embeds: [logEmbed] }).catch(() => {});
+            }
+          } catch (error) {
+            // Ignore errors
+          }
+          
+          // Send to all antinuke admins
+          if (config.admins && config.admins.length > 0) {
+            for (const adminId of config.admins) {
+              try {
+                const admin = await guild.members.fetch(adminId).catch(() => null);
+                if (admin && admin.user) {
+                  await admin.user.send({ embeds: [logEmbed] }).catch(() => {});
+                }
+              } catch (error) {
+                // Ignore errors
+              }
+            }
           }
         }
       }
@@ -310,8 +311,6 @@ async function updateModuleConfigMenu(message, moduleName, config, guildId) {
     .addOptions([
       { label: 'Ban', value: 'ban', description: 'Ban the user' },
       { label: 'Kick', value: 'kick', description: 'Kick the user' },
-      { label: 'Warn', value: 'warn', description: 'Warn the user' },
-      { label: 'Jail', value: 'jail', description: 'Jail the user' },
       { label: 'Strip Staff', value: 'stripstaff', description: 'Remove dangerous roles' }
     ]);
   
@@ -522,14 +521,8 @@ async function handleModuleConfig_OLD_DO_NOT_USE(interaction, config, guildId) {
             } else if (interaction.customId === 'antinuke-view-admins') {
               await handleViewAdmins(interaction, config);
             } else if (interaction.customId === 'antinuke-whitelist') {
-              const dataFile = path.join(__dirname, '../../storedata.json');
-              let storedData = {};
-              try {
-                if (fs.existsSync(dataFile)) {
-                  storedData = JSON.parse(fs.readFileSync(dataFile, 'utf8'));
-                }
-              } catch (err) {}
-              const serverPrefix = storedData.serverPrefixes?.[i.guild.id] || ';';
+              const { dbHelpers } = require('../../db');
+              const serverPrefix = dbHelpers.getServerPrefix(i.guild.id) || ';';
               
               const whitelistEmbed = new EmbedBuilder()
                 .setColor('#838996')
@@ -573,7 +566,7 @@ async function handleModuleConfig_OLD_DO_NOT_USE(interaction, config, guildId) {
         '',
         '**What this means:**',
         '• The bot can still **detect** when a vanity URL is changed through audit logs',
-        '• The bot can still **punish** users who change the vanity URL (ban, kick, warn, etc.)',
+        '• The bot can still **punish** users who change the vanity URL (ban, kick, stripstaff, etc.)',
         '• However, the bot **cannot restore** the previous vanity URL if it is changed',
         '',
         '**Recommendation:**',
@@ -700,14 +693,8 @@ async function handleModuleConfig_OLD_DO_NOT_USE(interaction, config, guildId) {
             } else if (interaction.customId === 'antinuke-view-admins') {
               await handleViewAdmins(interaction, config);
             } else if (interaction.customId === 'antinuke-whitelist') {
-              const dataFile = path.join(__dirname, '../../storedata.json');
-              let storedData = {};
-              try {
-                if (fs.existsSync(dataFile)) {
-                  storedData = JSON.parse(fs.readFileSync(dataFile, 'utf8'));
-                }
-              } catch (err) {}
-              const serverPrefix = storedData.serverPrefixes?.[i.guild.id] || ';';
+              const { dbHelpers } = require('../../db');
+              const serverPrefix = dbHelpers.getServerPrefix(i.guild.id) || ';';
               
               const whitelistEmbed = new EmbedBuilder()
                 .setColor('#838996')
@@ -768,8 +755,6 @@ async function handleModuleConfig_OLD_DO_NOT_USE(interaction, config, guildId) {
     .addOptions([
       { label: 'Ban', value: 'ban', description: 'Ban the user' },
       { label: 'Kick', value: 'kick', description: 'Kick the user' },
-      { label: 'Warn', value: 'warn', description: 'Warn the user' },
-      { label: 'Jail', value: 'jail', description: 'Jail the user' },
       { label: 'Strip Staff', value: 'stripstaff', description: 'Remove dangerous roles' }
     ]);
   
@@ -928,8 +913,6 @@ async function handleModuleConfig_OLD_DO_NOT_USE(interaction, config, guildId) {
         .addOptions([
           { label: 'Ban', value: 'ban', description: 'Ban the user' },
           { label: 'Kick', value: 'kick', description: 'Kick the user' },
-          { label: 'Warn', value: 'warn', description: 'Warn the user' },
-          { label: 'Jail', value: 'jail', description: 'Jail the user' },
           { label: 'Strip Staff', value: 'stripstaff', description: 'Remove dangerous roles' }
         ]);
       
@@ -1270,8 +1253,6 @@ function buildModuleConfigComponents(moduleName, module) {
     .addOptions([
       { label: 'Ban', value: 'ban', description: 'Ban the user' },
       { label: 'Kick', value: 'kick', description: 'Kick the user' },
-      { label: 'Warn', value: 'warn', description: 'Warn the user' },
-      { label: 'Jail', value: 'jail', description: 'Jail the user' },
       { label: 'Strip Staff', value: 'stripstaff', description: 'Remove dangerous roles' }
     ]);
 
@@ -1403,14 +1384,8 @@ async function handleInteraction(interaction, config, guildId) {
 
     if (moduleName === 'log') {
       // Get server prefix
-      const dataFile = path.join(__dirname, '../../storedata.json');
-      let storedData = {};
-      try {
-        if (fs.existsSync(dataFile)) {
-          storedData = JSON.parse(fs.readFileSync(dataFile, 'utf8'));
-        }
-      } catch (err) {}
-      const serverPrefix = storedData.serverPrefixes?.[guildId] || ';';
+      const { dbHelpers } = require('../../db');
+      const serverPrefix = dbHelpers.getServerPrefix(guildId) || ';';
       
       const logEmbed = new EmbedBuilder()
         .setColor('#838996')
@@ -2044,14 +2019,8 @@ function setupAuditListeners(client) {
         }
         
         // Get server prefix for DM
-        const dataFile = path.join(__dirname, '../../storedata.json');
-        let storedData = {};
-        try {
-          if (fs.existsSync(dataFile)) {
-            storedData = JSON.parse(fs.readFileSync(dataFile, 'utf8'));
-          }
-        } catch (err) {}
-        const serverPrefix = storedData.serverPrefixes?.[member.guild.id] || ';';
+        const { dbHelpers } = require('../../db');
+        const serverPrefix = dbHelpers.getServerPrefix(member.guild.id) || ';';
         
         // Notify owner about the issue
         const owner = await member.guild.fetchOwner().catch(() => null);

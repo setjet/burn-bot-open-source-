@@ -24,7 +24,7 @@ module.exports = {
               `\`\`\`${prefix}purge <user>\`\`\``,
               '-# <:arrows:1363099226375979058> Delete messages from a user & channel.',
               '',
-              `**Example:** \`${prefix}purge oczs 69\``,
+              `**Example:** \`${prefix}purge @jet 69\``,
               '\n**Aliases:** `c`'
             ].join('\n'))
         ]

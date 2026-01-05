@@ -1,20 +1,5 @@
 const { EmbedBuilder } = require('discord.js');
-const fs = require('fs');
-const path = require('path');
-
-const dataFile = path.join(__dirname, '../../storedata.json');
-
-function getBalance(userId) {
-  try {
-    if (fs.existsSync(dataFile)) {
-      const data = JSON.parse(fs.readFileSync(dataFile, 'utf8'));
-      return (data.economy?.balances?.[userId] || 0);
-    }
-  } catch (error) {
-    console.error('Error reading balance:', error);
-  }
-  return 0;
-}
+const { dbHelpers } = require('../../db');
 
 module.exports = {
   name: 'balance',
@@ -66,7 +51,7 @@ module.exports = {
       }
     }
     
-    const balance = getBalance(targetUser.id);
+    const balance = dbHelpers.getBalance(targetUser.id);
     
     const embed = new EmbedBuilder()
       .setColor('#838996')

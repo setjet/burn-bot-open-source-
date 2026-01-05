@@ -276,7 +276,7 @@ module.exports = {
               '-# <:arrows:1363099226375979058> Gives or removes a role from a user, or creates/deletes roles.',
               '',
               `**Examples:**`,
-              `\`${prefix}role @oczs owner\``,
+              `\`${prefix}role @jet owner\``,
               `\`${prefix}role create fire\``,
               `\`${prefix}role delete @role\``,
               '\n**Aliases:** `r`'

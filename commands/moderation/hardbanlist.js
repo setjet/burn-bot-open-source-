@@ -1,20 +1,5 @@
 const { EmbedBuilder, PermissionFlagsBits } = require('discord.js');
-const fs = require('fs');
-const path = require('path');
-const storeDataPath = path.join(__dirname, '../../storedata.json');
-
-function getStoreData() {
-  try {
-    if (fs.existsSync(storeDataPath)) {
-      const data = fs.readFileSync(storeDataPath, 'utf8');
-      return JSON.parse(data);
-    }
-    return { hardbannedUsers: {} }; 
-  } catch (error) {
-    console.error('Error reading storedata.json:', error);
-    return { hardbannedUsers: {} }; 
-  }
-}
+const { dbHelpers } = require('../../db');
 
 module.exports = {
   name: 'hardbanlist',
@@ -30,17 +15,15 @@ module.exports = {
       return message.reply({ embeds: [embed] });
     }
 
-    const data = getStoreData();
     const guildId = message.guild.id;
+    const hardbannedUsers = dbHelpers.getHardbannedUsers(guildId);
 
-    if (!data.hardbannedUsers || !data.hardbannedUsers[guildId] || data.hardbannedUsers[guildId].length === 0) {
+    if (!hardbannedUsers || hardbannedUsers.length === 0) {
       const embed = new EmbedBuilder()
         .setColor('#838996')
         .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> No **hardbanned** users found for this server.');
       return message.reply({ embeds: [embed] });
     }
-
-    const hardbannedUsers = data.hardbannedUsers[guildId];
 
     try {
       const bans = await message.guild.bans.fetch();

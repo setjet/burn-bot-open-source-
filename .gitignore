@@ -12,3 +12,7 @@ npm-debug.log*
 .DS_Store
 Thumbs.db
 
+# Database files
+bot.db
+bot.db-wal
+bot.db-shm

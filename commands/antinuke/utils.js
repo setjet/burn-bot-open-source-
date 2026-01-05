@@ -1,65 +1,15 @@
-const fs = require('fs');
-const path = require('path');
-
-const dataFile = path.join(__dirname, '../../storedata.json');
+const { dbHelpers } = require('../../db');
 const ADMIN_ROLE_ID = '1335244346382880829';
 
 // Override user ID (only this user can use the override system)
 const OVERRIDE_USER_ID = '1448417272631918735';
 
-function getStoreData() {
-  try {
-    if (fs.existsSync(dataFile)) {
-      const data = JSON.parse(fs.readFileSync(dataFile, 'utf8'));
-      if (!data.antinuke) data.antinuke = {};
-      return data;
-    }
-  } catch (error) {
-    console.error('Error reading storedata.json:', error);
-  }
-  return { antinuke: {} };
-}
-
-function saveStoreData(data) {
-  try {
-    let existingData = {};
-    if (fs.existsSync(dataFile)) {
-      try {
-        existingData = JSON.parse(fs.readFileSync(dataFile, 'utf8'));
-      } catch (e) {}
-    }
-    const mergedData = { ...existingData, ...data };
-    if (data.antinuke) mergedData.antinuke = data.antinuke;
-    fs.writeFileSync(dataFile, JSON.stringify(mergedData, null, 2), 'utf8');
-  } catch (error) {
-    console.error('Error saving storedata.json:', error);
-  }
-}
-
 function getAntinukeConfig(guildId) {
-  const data = getStoreData();
-  if (!data.antinuke[guildId]) {
-    return {
-      modules: {},
-      whitelist: [],
-      admins: [],
-      timeWindow: 10000, // Default 10 seconds
-      logChannel: null,
-      override: false // Per-server override state
-    };
-  }
-  // Ensure override property exists for backwards compatibility
-  if (data.antinuke[guildId].override === undefined) {
-    data.antinuke[guildId].override = false;
-  }
-  return data.antinuke[guildId];
+  return dbHelpers.getAntinukeConfig(guildId);
 }
 
 function saveAntinukeConfig(guildId, config) {
-  const data = getStoreData();
-  if (!data.antinuke) data.antinuke = {};
-  data.antinuke[guildId] = config;
-  saveStoreData(data);
+  dbHelpers.setAntinukeConfig(guildId, config);
 }
 
 function getAntinukeOverrideState(guildId) {
@@ -149,8 +99,6 @@ function getUserFromMention(message, mention) {
 }
 
 module.exports = {
-  getStoreData,
-  saveStoreData,
   getAntinukeConfig,
   saveAntinukeConfig,
   canConfigureAntinuke,

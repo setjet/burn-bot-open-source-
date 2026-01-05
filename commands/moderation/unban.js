@@ -40,7 +40,7 @@ module.exports = {
               `\`\`\`${prefix}unban <user> (reason)\`\`\``,
               '-# <:arrows:1363099226375979058> Unbans the mentioned user.',
               '',
-              `**Example:** \`${prefix}unban oczs goat\``,
+              `**Example:** \`${prefix}unban @jet goat\``,
               '\n**Aliases:** `ub`'
             ].join('\n'))
         ]
@@ -94,18 +94,10 @@ module.exports = {
         return message.reply({ embeds: [embed] }).catch(() => {});
       }
 
-      const dataPath = path.join(__dirname, '../../storedata.json');
-      let storedData = { hardbannedUsers: {} };
-
-      if (fs.existsSync(dataPath)) {
-        storedData = JSON.parse(fs.readFileSync(dataPath, 'utf8'));
-      }
-
+      const { dbHelpers } = require('../../db');
       const guildId = message.guild.id;
-      const isHardbanned =
-        storedData.hardbannedUsers &&
-        Array.isArray(storedData.hardbannedUsers[guildId]) &&
-        storedData.hardbannedUsers[guildId].includes(userId);
+      const hardbannedUsers = dbHelpers.getHardbannedUsers(guildId);
+      const isHardbanned = hardbannedUsers.includes(userId);
 
       if (isHardbanned) {
         if (!message.member.permissions.has(PermissionFlagsBits.Administrator)) {

@@ -1,62 +1,5 @@
 const { EmbedBuilder, PermissionFlagsBits } = require('discord.js');
-const fs = require('fs');
-const path = require('path');
-
-const dataFile = path.join(__dirname, '../../storedata.json');
-
-function getStoreData() {
-  try {
-    if (fs.existsSync(dataFile)) {
-      const data = JSON.parse(fs.readFileSync(dataFile, 'utf8'));
-      if (!data.economy) data.economy = { balances: {}, dailyCooldowns: {}, workCooldowns: {}, shopItems: {} };
-      if (!data.economy.shopItems) data.economy.shopItems = {};
-      if (!data.economy.balances) data.economy.balances = {};
-      return data;
-    }
-  } catch (error) {
-    console.error('Error reading storedata.json:', error);
-  }
-  return { economy: { balances: {}, dailyCooldowns: {}, workCooldowns: {}, shopItems: {} } };
-}
-
-function saveStoreData(data) {
-  try {
-    let existingData = {};
-    if (fs.existsSync(dataFile)) {
-      try {
-        existingData = JSON.parse(fs.readFileSync(dataFile, 'utf8'));
-      } catch (e) {}
-    }
-    // Deep merge economy object
-    if (data.economy) {
-      if (!existingData.economy) existingData.economy = { balances: {}, dailyCooldowns: {}, workCooldowns: {}, shopItems: {} };
-      existingData.economy = {
-        ...existingData.economy,
-        ...data.economy,
-        balances: { ...existingData.economy.balances, ...(data.economy.balances || {}) },
-        dailyCooldowns: { ...existingData.economy.dailyCooldowns, ...(data.economy.dailyCooldowns || {}) },
-        workCooldowns: { ...existingData.economy.workCooldowns, ...(data.economy.workCooldowns || {}) },
-        shopItems: { ...existingData.economy.shopItems, ...(data.economy.shopItems || {}) }
-      };
-    }
-    const mergedData = { ...existingData, ...data };
-    if (data.economy) mergedData.economy = existingData.economy;
-    fs.writeFileSync(dataFile, JSON.stringify(mergedData, null, 2), 'utf8');
-  } catch (error) {
-    console.error('Error saving storedata.json:', error);
-  }
-}
-
-function getBalance(userId) {
-  const data = getStoreData();
-  return data.economy.balances[userId] || 0;
-}
-
-function setBalance(userId, amount) {
-  const data = getStoreData();
-  data.economy.balances[userId] = amount;
-  saveStoreData(data);
-}
+const { dbHelpers } = require('../../db');
 
 module.exports = {
   name: 'shop',
@@ -65,15 +8,10 @@ module.exports = {
   description: '<:arrows:1363099226375979058> Manage and view the server shop.',
   async execute(message, args, { prefix }) {
     const subcommand = args[0]?.toLowerCase();
-    const data = getStoreData();
     const guildId = message.guild.id;
     
-    if (!data.economy.shopItems[guildId]) {
-      data.economy.shopItems[guildId] = [];
-    }
-    
     if (!subcommand || subcommand === 'view' || subcommand === 'list') {
-      const items = data.economy.shopItems[guildId] || [];
+      const items = dbHelpers.getShopItems(guildId);
       
       if (items.length === 0) {
         return message.reply({
@@ -171,8 +109,9 @@ module.exports = {
         description
       };
       
-      data.economy.shopItems[guildId].push(newItem);
-      saveStoreData(data);
+      const currentItems = dbHelpers.getShopItems(guildId);
+      currentItems.push(newItem);
+      dbHelpers.setShopItems(guildId, currentItems);
       
       return message.reply({
         embeds: [
@@ -205,7 +144,7 @@ module.exports = {
       }
       
       const index = parseInt(args[1]) - 1;
-      const items = data.economy.shopItems[guildId] || [];
+      const items = dbHelpers.getShopItems(guildId);
       
       if (isNaN(index) || index < 0 || index >= items.length) {
         return message.reply({
@@ -218,8 +157,8 @@ module.exports = {
       }
       
       const removedItem = items[index];
-      data.economy.shopItems[guildId].splice(index, 1);
-      saveStoreData(data);
+      items.splice(index, 1);
+      dbHelpers.setShopItems(guildId, items);
       
       return message.reply({
         embeds: [
@@ -242,7 +181,7 @@ module.exports = {
       }
       
       const index = parseInt(args[1]) - 1;
-      const items = data.economy.shopItems[guildId] || [];
+      const items = dbHelpers.getShopItems(guildId);
       
       if (isNaN(index) || index < 0 || index >= items.length) {
         return message.reply({
@@ -255,7 +194,7 @@ module.exports = {
       }
       
       const item = items[index];
-      const balance = getBalance(message.author.id);
+      const balance = dbHelpers.getBalance(message.author.id);
       
       if (balance < item.price) {
         return message.reply({
@@ -308,7 +247,7 @@ module.exports = {
       
       // Deduct money and assign role
       const newBalance = balance - item.price;
-      setBalance(message.author.id, newBalance);
+      dbHelpers.setBalance(message.author.id, newBalance);
       
       try {
         await member.roles.add(role, `Purchased from shop: ${item.name}`);
@@ -328,7 +267,7 @@ module.exports = {
         return message.reply({ embeds: [embed] });
       } catch (error) {
         // Refund if role assignment fails
-        setBalance(message.author.id, balance);
+        dbHelpers.setBalance(message.author.id, balance);
         return message.reply({
           embeds: [
             new EmbedBuilder()

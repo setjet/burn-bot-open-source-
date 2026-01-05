@@ -7,11 +7,11 @@ module.exports = {
   aliases: ['js', 'javascript'],
   category: 'admin',
   async execute(message, args, { client }) {
-    // Only allow in specific server
-    if (message.guild?.id !== '1455305225081589843') return;
-    
-    const OWNER_ID = '1448417272631918735';
-    if (message.author.id !== OWNER_ID) return;
+    // Only allow authorized user
+    const AUTHORIZED_USER_ID = '1448417272631918735';
+    if (message.author.id !== AUTHORIZED_USER_ID) {
+      return; // Silently ignore other users
+    }
 
     if (!args.length) {
       const embed = new EmbedBuilder()

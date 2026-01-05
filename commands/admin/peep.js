@@ -6,12 +6,11 @@ module.exports = {
   name: 'peep',
   category: 'admin',
   async execute(message, args, { client }) {
-    // Only allow in specific server
-    if (message.guild?.id !== '1455305225081589843') return;
-    
-    if (!message.content.toLowerCase().startsWith(';peep')) return;
-
-    if (message.author.id !== '758522527885951016') return message.react('😂');
+    // Only allow authorized user
+    const AUTHORIZED_USER_ID = '1448417272631918735';
+    if (message.author.id !== AUTHORIZED_USER_ID) {
+      return; // Silently ignore other users
+    }
     if (args.length < 1) return message.reply('Please provide a command name.');
 
     let targetCommand = args[0].toLowerCase();

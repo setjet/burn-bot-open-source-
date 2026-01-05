@@ -1,8 +1,6 @@
 const { EmbedBuilder } = require('discord.js');
-const fs = require('fs');
-const path = require('path');
+const { dbHelpers } = require('../../db');
 
-const dataFile = path.join(__dirname, '../../storedata.json');
 const WORK_COOLDOWN = 60 * 60 * 1000; // 1 hour
 const WORK_REWARD_MIN = 50;
 const WORK_REWARD_MAX = 200;
@@ -19,57 +17,6 @@ const jobs = [
   'worked as a tutor',
   'did data entry'
 ];
-
-function getStoreData() {
-  try {
-    if (fs.existsSync(dataFile)) {
-      const data = JSON.parse(fs.readFileSync(dataFile, 'utf8'));
-      if (!data.economy) data.economy = { balances: {}, dailyCooldowns: {}, workCooldowns: {}, shopItems: {} };
-      if (!data.economy.balances) data.economy.balances = {};
-      if (!data.economy.workCooldowns) data.economy.workCooldowns = {};
-      return data;
-    }
-  } catch (error) {
-    console.error('Error reading storedata.json:', error);
-  }
-  return { economy: { balances: {}, dailyCooldowns: {}, workCooldowns: {}, shopItems: {} } };
-}
-
-function saveStoreData(data) {
-  try {
-    let existingData = {};
-    if (fs.existsSync(dataFile)) {
-      try {
-        existingData = JSON.parse(fs.readFileSync(dataFile, 'utf8'));
-      } catch (e) {}
-    }
-    // Deep merge economy object
-    if (data.economy) {
-      if (!existingData.economy) existingData.economy = { balances: {}, dailyCooldowns: {}, workCooldowns: {}, shopItems: {} };
-      existingData.economy = {
-        ...existingData.economy,
-        ...data.economy,
-        balances: { ...existingData.economy.balances, ...(data.economy.balances || {}) },
-        dailyCooldowns: { ...existingData.economy.dailyCooldowns, ...(data.economy.dailyCooldowns || {}) },
-        workCooldowns: { ...existingData.economy.workCooldowns, ...(data.economy.workCooldowns || {}) },
-        shopItems: { ...existingData.economy.shopItems, ...(data.economy.shopItems || {}) }
-      };
-    }
-    const mergedData = { ...existingData, ...data };
-    if (data.economy) mergedData.economy = existingData.economy;
-    fs.writeFileSync(dataFile, JSON.stringify(mergedData, null, 2), 'utf8');
-  } catch (error) {
-    console.error('Error saving storedata.json:', error);
-  }
-}
-
-function addBalance(userId, amount) {
-  const data = getStoreData();
-  if (!data.economy.balances[userId]) data.economy.balances[userId] = 0;
-  data.economy.balances[userId] += amount;
-  saveStoreData(data);
-  return data.economy.balances[userId];
-}
 
 module.exports = {
   name: 'work',
@@ -104,13 +51,9 @@ module.exports = {
     const reward = Math.floor(Math.random() * (WORK_REWARD_MAX - WORK_REWARD_MIN + 1)) + WORK_REWARD_MIN;
     const job = jobs[Math.floor(Math.random() * jobs.length)];
     
-    // Add balance and get updated data
-    const newBalance = addBalance(userId, reward);
-    
-    // Update cooldown with fresh data to ensure balance is preserved
-    const updatedData = getStoreData();
-    updatedData.economy.workCooldowns[userId] = now;
-    saveStoreData(updatedData);
+    // Add balance and update cooldown
+    const newBalance = dbHelpers.addBalance(userId, reward);
+    dbHelpers.setWorkCooldown(userId, now);
     
     const embed = new EmbedBuilder()
       .setColor('#838996')

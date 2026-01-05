@@ -31,7 +31,7 @@ module.exports = {
               `\`\`\`${prefix}kick <user> (reason)\`\`\``,
               '-# <:arrows:1363099226375979058> Kicks a user from the server.',
               '',
-              `**Example:** \`${prefix}kick oczs spamming\``,
+              `**Example:** \`${prefix}kick @jet spamming\``,
               '\n**Aliases:** `k`'
             ].join('\n'))
         ]

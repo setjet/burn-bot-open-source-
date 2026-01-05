@@ -31,7 +31,7 @@ module.exports = {
               `\`\`\`${prefix}stripstaff <user>\`\`\``,
               '-# <:arrows:1363099226375979058> Remove staff roles from a user.',
               '',
-              `**Example:** \`${prefix}stripstaff oczs\``,
+              `**Example:** \`${prefix}stripstaff @jet\``,
               '\n**Aliases:** `ss`'
             ].join('\n'))
         ]

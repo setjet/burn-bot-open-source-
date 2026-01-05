@@ -1,61 +1,5 @@
 const { EmbedBuilder } = require('discord.js');
-const fs = require('fs');
-const path = require('path');
-
-const dataFile = path.join(__dirname, '../../storedata.json');
-
-function getStoreData() {
-  try {
-    if (fs.existsSync(dataFile)) {
-      const data = JSON.parse(fs.readFileSync(dataFile, 'utf8'));
-      if (!data.economy) data.economy = { balances: {}, dailyCooldowns: {}, workCooldowns: {}, shopItems: {} };
-      if (!data.economy.balances) data.economy.balances = {};
-      return data;
-    }
-  } catch (error) {
-    console.error('Error reading storedata.json:', error);
-  }
-  return { economy: { balances: {}, dailyCooldowns: {}, workCooldowns: {}, shopItems: {} } };
-}
-
-function saveStoreData(data) {
-  try {
-    let existingData = {};
-    if (fs.existsSync(dataFile)) {
-      try {
-        existingData = JSON.parse(fs.readFileSync(dataFile, 'utf8'));
-      } catch (e) {}
-    }
-    // Deep merge economy object
-    if (data.economy) {
-      if (!existingData.economy) existingData.economy = { balances: {}, dailyCooldowns: {}, workCooldowns: {}, shopItems: {} };
-      existingData.economy = {
-        ...existingData.economy,
-        ...data.economy,
-        balances: { ...existingData.economy.balances, ...(data.economy.balances || {}) },
-        dailyCooldowns: { ...existingData.economy.dailyCooldowns, ...(data.economy.dailyCooldowns || {}) },
-        workCooldowns: { ...existingData.economy.workCooldowns, ...(data.economy.workCooldowns || {}) },
-        shopItems: { ...existingData.economy.shopItems, ...(data.economy.shopItems || {}) }
-      };
-    }
-    const mergedData = { ...existingData, ...data };
-    if (data.economy) mergedData.economy = existingData.economy;
-    fs.writeFileSync(dataFile, JSON.stringify(mergedData, null, 2), 'utf8');
-  } catch (error) {
-    console.error('Error saving storedata.json:', error);
-  }
-}
-
-function getBalance(userId) {
-  const data = getStoreData();
-  return data.economy.balances[userId] || 0;
-}
-
-function setBalance(userId, amount) {
-  const data = getStoreData();
-  data.economy.balances[userId] = amount;
-  saveStoreData(data);
-}
+const { dbHelpers } = require('../../db');
 
 module.exports = {
   name: 'coinflip',
@@ -104,7 +48,7 @@ module.exports = {
       });
     }
     
-    const balance = getBalance(message.author.id);
+    const balance = dbHelpers.getBalance(message.author.id);
     if (balance < bet) {
       return message.reply({
         embeds: [
@@ -125,11 +69,8 @@ module.exports = {
     const result = Math.random() < 0.5 ? 'heads' : 'tails';
     const won = normalizedChoice === result;
     
-    const data = getStoreData();
-    if (!data.economy.balances[message.author.id]) data.economy.balances[message.author.id] = 0;
-    
     if (won) {
-      data.economy.balances[message.author.id] += bet;
+      const newBalance = dbHelpers.addBalance(message.author.id, bet);
       const embed = new EmbedBuilder()
         .setColor('#57F287')
         .setAuthor({ name: message.author.tag, iconURL: message.author.displayAvatarURL({ dynamic: true }) })
@@ -140,12 +81,11 @@ module.exports = {
           '',
           `<:check:1362850043333316659> You won **${bet.toLocaleString()}** coins!`,
           '',
-          `Your new balance: **${data.economy.balances[message.author.id].toLocaleString()}** coins`
+          `Your new balance: **${newBalance.toLocaleString()}** coins`
         ].join('\n'));
-      saveStoreData(data);
       return message.reply({ embeds: [embed] });
     } else {
-      data.economy.balances[message.author.id] -= bet;
+      const newBalance = dbHelpers.addBalance(message.author.id, -bet);
       const embed = new EmbedBuilder()
         .setColor('#FF0000')
         .setAuthor({ name: message.author.tag, iconURL: message.author.displayAvatarURL({ dynamic: true }) })
@@ -156,9 +96,8 @@ module.exports = {
           '',
           `<:excl:1362858572677120252> You lost **${bet.toLocaleString()}** coins.`,
           '',
-          `Your new balance: **${data.economy.balances[message.author.id].toLocaleString()}** coins`
+          `Your new balance: **${newBalance.toLocaleString()}** coins`
         ].join('\n'));
-      saveStoreData(data);
       return message.reply({ embeds: [embed] });
     }
   }

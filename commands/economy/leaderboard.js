@@ -1,22 +1,5 @@
 const { EmbedBuilder } = require('discord.js');
-const fs = require('fs');
-const path = require('path');
-
-const dataFile = path.join(__dirname, '../../storedata.json');
-
-function getStoreData() {
-  try {
-    if (fs.existsSync(dataFile)) {
-      const data = JSON.parse(fs.readFileSync(dataFile, 'utf8'));
-      if (!data.economy) data.economy = { balances: {}, dailyCooldowns: {}, workCooldowns: {}, shopItems: {} };
-      if (!data.economy.balances) data.economy.balances = {};
-      return data;
-    }
-  } catch (error) {
-    console.error('Error reading storedata.json:', error);
-  }
-  return { economy: { balances: {}, dailyCooldowns: {}, workCooldowns: {}, shopItems: {} } };
-}
+const { db } = require('../../db');
 
 module.exports = {
   name: 'leaderboard',
@@ -24,13 +7,11 @@ module.exports = {
   category: 'utilities',
   description: '<:arrows:1363099226375979058> View the richest users.',
   async execute(message, args, { prefix }) {
-    const data = getStoreData();
-    const balances = data.economy.balances || {};
+    // Get all balances from database
+    const rows = db.prepare('SELECT user_id, balance FROM economy_balances ORDER BY balance DESC LIMIT 10').all();
     
     // Sort users by balance
-    const sortedUsers = Object.entries(balances)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 10);
+    const sortedUsers = rows.map(row => [row.user_id, row.balance]);
     
     if (sortedUsers.length === 0) {
       return message.reply({

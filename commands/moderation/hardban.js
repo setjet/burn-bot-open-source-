@@ -1,25 +1,5 @@
 const { PermissionFlagsBits, EmbedBuilder } = require('discord.js');
-const fs = require('fs');
-const path = require('path');
-const storeDataPath = path.join(__dirname, '../../storedata.json');
-
-function getStoreData() {
-  try {
-    const data = fs.readFileSync(storeDataPath, 'utf8');
-    return JSON.parse(data);
-  } catch (error) {
-    console.error('Error reading storedata.json:', error);
-    return {};
-  }
-}
-
-function saveStoreData(data) {
-  try {
-    fs.writeFileSync(storeDataPath, JSON.stringify(data, null, 2), 'utf8');
-  } catch (error) {
-    console.error('Error writing to storedata.json:', error);
-  }
-}
+const { dbHelpers } = require('../../db');
 
 module.exports = {
   name: 'hardban',
@@ -47,7 +27,7 @@ module.exports = {
               `\`\`\`${prefix}hardban <user> (reason)\`\`\``,
               '-# <:arrows:1363099226375979058> Keeps a user banned permanently.',
               '',
-              `**Example:** \`${prefix}hardban oczs retard\``,
+              `**Example:** \`${prefix}hardban @jet retard\``,
               '\n**Aliases:** `hb`'
             ].join('\n'))
         ]
@@ -128,15 +108,12 @@ module.exports = {
     const reason = args.slice(1).join(' ') || 'No reason provided';
 
     try {
-      const data = getStoreData();
       const guildId = message.guild.id;
 
-      if (!data.hardbannedUsers) data.hardbannedUsers = {};
-      if (!data.hardbannedUsers[guildId]) data.hardbannedUsers[guildId] = [];
-
-      if (!data.hardbannedUsers[guildId].includes(target.id)) {
-        data.hardbannedUsers[guildId].push(target.id);
-        saveStoreData(data);
+      // Check if already hardbanned
+      const hardbannedUsers = dbHelpers.getHardbannedUsers(guildId);
+      if (!hardbannedUsers.includes(target.id)) {
+        dbHelpers.addHardbannedUser(guildId, target.id);
       }
 
       await message.guild.bans.create(target.id, {

@@ -2,6 +2,7 @@ require('dotenv').config();
 const { Client, GatewayIntentBits, Collection, ActivityType, EmbedBuilder, ChannelType } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
+const { dbHelpers } = require('./db');
 const autorespond = require('./commands/utilities/autorespond');
 const clearsnipeCommand = require('./commands/utilities/clearsnipe');
 const nwordCommand = require('./commands/fun/nword');
@@ -29,25 +30,10 @@ client.hardbannedUsers = [];
 client.deletedMessages = new Map();
 
 
-const dataFile = path.join(__dirname, 'storedata.json');
-
-// Load server prefixes
-function loadServerPrefixes() {
-  try {
-    if (fs.existsSync(dataFile)) {
-      const data = JSON.parse(fs.readFileSync(dataFile, 'utf8'));
-      return data.serverPrefixes || {};
-    }
-  } catch (err) {
-    console.error('Error loading server prefixes:', err);
-  }
-  return {};
-}
-
 // Get prefix for a specific guild
 function getPrefix(guildId) {
-  const prefixes = loadServerPrefixes();
-  return prefixes[guildId] || DEFAULT_PREFIX;
+  const prefix = dbHelpers.getServerPrefix(guildId);
+  return prefix || DEFAULT_PREFIX;
 }
 
 const commandCooldowns = new Map();
@@ -74,44 +60,12 @@ const BLACKLIST_DURATIONS = {
   [BLACKLIST_LEVELS.ONE_DAY]: 24 * 60 * 60 * 1000 // 1 day in ms
 };
 
-let storeData = {
-  forcedNicknames: {},
-  filteredWords: {},
-  autoResponses: {},
-  birthdays: {},
-  slurCounts: {},
-  hardbannedUsers: {},
-  blacklistedUsers: [], // Permanent blacklist only
-  spamWarnings: {}, // userId -> warning count
-  blacklistLevels: {}, // userId -> blacklist level (1, 2, or 3)
-  blacklistExpirations: {}, // userId -> expiration timestamp
-  economy: {
-    balances: {}, // userId -> balance
-    dailyCooldowns: {}, // userId -> last daily timestamp
-    workCooldowns: {}, // userId -> last work timestamp
-    shopItems: {} // guildId -> { items: [{ name, price, roleId, description }] }
-  }
+// Legacy storeData object for backward compatibility (will be phased out)
+// Most data is now in database, but keeping this for any remaining references
+const storeData = {
+  slurCounts: dbHelpers.getAllSlurCounts(),
+  hardbannedUsers: dbHelpers.getAllHardbannedUsers()
 };
-
-if (fs.existsSync(dataFile)) {
-  try {
-    storeData = JSON.parse(fs.readFileSync(dataFile, 'utf8'));
-   
-    if (!storeData.hardbannedUsers) storeData.hardbannedUsers = {};
-    if (!storeData.slurCounts) storeData.slurCounts = {};
-    if (!storeData.blacklistedUsers) storeData.blacklistedUsers = [];
-    if (!storeData.spamWarnings) storeData.spamWarnings = {};
-    if (!storeData.blacklistLevels) storeData.blacklistLevels = {};
-    if (!storeData.blacklistExpirations) storeData.blacklistExpirations = {};
-    if (!storeData.economy) storeData.economy = { balances: {}, dailyCooldowns: {}, workCooldowns: {}, shopItems: {} };
-    if (!storeData.economy.balances) storeData.economy.balances = {};
-    if (!storeData.economy.dailyCooldowns) storeData.economy.dailyCooldowns = {};
-    if (!storeData.economy.workCooldowns) storeData.economy.workCooldowns = {};
-    if (!storeData.economy.shopItems) storeData.economy.shopItems = {};
-  } catch (error) {
-    console.error('Error loading storedata.json:', error);
-  }
-}
 
 // Check if user is blacklisted (admin role is immune)
 function isBlacklisted(userId, member) {
@@ -121,31 +75,29 @@ function isBlacklisted(userId, member) {
   }
   
   // Check permanent blacklist
-  if (storeData.blacklistedUsers.includes(userId)) {
+  if (dbHelpers.isUserBlacklisted(userId)) {
     return true;
   }
   
   // Check temporary blacklist levels
-  const level = storeData.blacklistLevels[userId] || 0;
+  const level = dbHelpers.getBlacklistLevel(userId);
   if (level === BLACKLIST_LEVELS.PERMANENT) {
     // Add to permanent list if not already there
-    if (!storeData.blacklistedUsers.includes(userId)) {
-      storeData.blacklistedUsers.push(userId);
-      saveData();
+    if (!dbHelpers.isUserBlacklisted(userId)) {
+      dbHelpers.addBlacklistedUser(userId);
     }
     return true;
   }
   
   if (level > 0) {
-    const expiration = storeData.blacklistExpirations[userId];
+    const expiration = dbHelpers.getBlacklistExpiration(userId);
     if (expiration && Date.now() < expiration) {
       // Still blacklisted
       return true;
     } else if (expiration && Date.now() >= expiration) {
       // Blacklist expired, remove it
-      delete storeData.blacklistLevels[userId];
-      delete storeData.blacklistExpirations[userId];
-      saveData();
+      dbHelpers.setBlacklistLevel(userId, 0);
+      dbHelpers.setBlacklistExpiration(userId, null);
       return false;
     }
   }
@@ -312,16 +264,15 @@ function checkSpam(userId, member, commandName = null, clientInstance = null) {
     spamViolations.set(userId, violation);
     
     // Get current warning count
-    const warningCount = storeData.spamWarnings[userId] || 0;
+    const warningCount = dbHelpers.getSpamWarningCount(userId);
     
     if (warningCount < MAX_WARNINGS) {
       // Issue warning
-      storeData.spamWarnings[userId] = warningCount + 1;
-      saveData();
+      dbHelpers.setSpamWarningCount(userId, warningCount + 1);
       return { isSpam: true, warning: true, warningCount: warningCount + 1, commands, isSpamming: true };
     } else {
       // Apply progressive blacklist
-      const currentLevel = storeData.blacklistLevels[userId] || 0;
+      const currentLevel = dbHelpers.getBlacklistLevel(userId);
       let newLevel = BLACKLIST_LEVELS.ONE_HOUR;
       let duration = BLACKLIST_DURATIONS[BLACKLIST_LEVELS.ONE_HOUR];
       
@@ -333,18 +284,18 @@ function checkSpam(userId, member, commandName = null, clientInstance = null) {
         duration = null; // Permanent
       }
       
-      storeData.blacklistLevels[userId] = newLevel;
+      dbHelpers.setBlacklistLevel(userId, newLevel);
       if (duration) {
-        storeData.blacklistExpirations[userId] = Date.now() + duration;
+        dbHelpers.setBlacklistExpiration(userId, Date.now() + duration);
         // Schedule auto-unblacklist (only if client is available)
         if (clientInstance) {
           setTimeout(() => {
-            if (storeData.blacklistExpirations[userId] && Date.now() >= storeData.blacklistExpirations[userId]) {
-              delete storeData.blacklistLevels[userId];
-              delete storeData.blacklistExpirations[userId];
+            const expiration = dbHelpers.getBlacklistExpiration(userId);
+            if (expiration && Date.now() >= expiration) {
+              dbHelpers.setBlacklistLevel(userId, 0);
+              dbHelpers.setBlacklistExpiration(userId, null);
               // Reset warnings after temporary blacklist expires
-              delete storeData.spamWarnings[userId];
-              saveData();
+              dbHelpers.setSpamWarningCount(userId, 0);
               
               // Log unblacklist
               sendBlacklistReport(clientInstance, userId, 'auto-unblacklist', {
@@ -356,14 +307,13 @@ function checkSpam(userId, member, commandName = null, clientInstance = null) {
         }
       } else {
         // Permanent - add to permanent list
-        if (!storeData.blacklistedUsers.includes(userId)) {
-          storeData.blacklistedUsers.push(userId);
+        if (!dbHelpers.isUserBlacklisted(userId)) {
+          dbHelpers.addBlacklistedUser(userId);
         }
       }
       
       // Reset warnings
-      delete storeData.spamWarnings[userId];
-      saveData();
+      dbHelpers.setSpamWarningCount(userId, 0);
       
       return { 
         isSpam: true, 
@@ -380,68 +330,23 @@ function checkSpam(userId, member, commandName = null, clientInstance = null) {
   return { isSpam: false, isSpamming: violation.isSpamming };
 }
 
+// Load in-memory maps from database (for performance)
 const autoResponses = new Map();
 const filteredWords = new Map();
-const birthdays = new Map(Object.entries(storeData.birthdays || {}));
+const birthdays = dbHelpers.getAllBirthdays();
 const forcedNicknames = new Map();
 
-for (const [guildId, guildAutoResponses] of Object.entries(storeData.autoResponses)) {
-  autoResponses.set(guildId, new Map(Object.entries(guildAutoResponses)));
-}
-for (const [guildId, guildFilteredWords] of Object.entries(storeData.filteredWords)) {
-  filteredWords.set(guildId, new Set(guildFilteredWords));
-}
-for (const [guildId, guildForcedNicknames] of Object.entries(storeData.forcedNicknames)) {
-  forcedNicknames.set(guildId, new Map(Object.entries(guildForcedNicknames)));
-}
+// Load auto responses, filtered words, and forced nicknames per guild as needed
+// These will be loaded on-demand or cached when first accessed
 
+// Legacy saveData function - now updates database instead
+// Kept for backward compatibility with commands that might still call it
 function saveData() {
-  // Load existing data to preserve serverPrefixes and other fields
-  let existingData = {};
-  try {
-    if (fs.existsSync(dataFile)) {
-      existingData = JSON.parse(fs.readFileSync(dataFile, 'utf8'));
-    }
-  } catch (error) {
-    console.error('Error loading existing data:', error);
-  }
-
-  const dataToSave = {
-    ...existingData, // Preserve all existing data including serverPrefixes
-    forcedNicknames: Object.fromEntries(
-      Array.from(forcedNicknames.entries()).map(([guildId, nicknames]) => [
-        guildId,
-        Object.fromEntries(nicknames)
-      ])
-    ),
-    filteredWords: Object.fromEntries(
-      Array.from(filteredWords.entries()).map(([guildId, words]) => [
-        guildId,
-        Array.from(words)
-      ])
-    ),
-    autoResponses: Object.fromEntries(
-      Array.from(autoResponses.entries()).map(([guildId, responses]) => [
-        guildId,
-        Object.fromEntries(responses)
-      ])
-    ),
-    birthdays: Object.fromEntries(birthdays),
-    hardbannedUsers: storeData.hardbannedUsers || {}, 
-    slurCounts: storeData.slurCounts || {},
-    blacklistedUsers: storeData.blacklistedUsers || [],
-    spamWarnings: storeData.spamWarnings || {},
-    blacklistLevels: storeData.blacklistLevels || {},
-    blacklistExpirations: storeData.blacklistExpirations || {},
-    economy: storeData.economy || { balances: {}, dailyCooldowns: {}, workCooldowns: {}, shopItems: {} }
-  };
-
-  try {
-    fs.writeFileSync(dataFile, JSON.stringify(dataToSave, null, 2), 'utf8');
-    storeData = dataToSave; 
-  } catch (error) {
-    console.error('Error saving to storedata.json:', error);
-  }
+  // Most data is now saved directly to database when changed
+  // This function is kept for any remaining code that calls it
+  // Update in-memory cache if needed
+  storeData.slurCounts = dbHelpers.getAllSlurCounts();
+  storeData.hardbannedUsers = dbHelpers.getAllHardbannedUsers();
 }
 
 async function getUser(message, input) {
@@ -522,9 +427,20 @@ client.once('ready', async () => {
 });
 
 const dataPath = path.join(__dirname, './storedata.json');
-const logChannelId = '1362347980782436372';
+const logChannelId = '1457555112481259552';
 
 client.on('guildCreate', async (guild) => {
+  // Check if server is blacklisted
+  if (dbHelpers.isServerBlacklisted(guild.id)) {
+    try {
+      await guild.leave();
+      console.log(`Left blacklisted server: ${guild.name} (${guild.id})`);
+    } catch (error) {
+      console.error(`Failed to leave blacklisted server ${guild.name} (${guild.id}):`, error);
+    }
+    return;
+  }
+
   const icon = guild.iconURL({ dynamic: true, size: 1024 });
 
   // Log joining a server
@@ -762,7 +678,7 @@ client.on('messageCreate', async (message) => {
         forcedNicknames,
         saveData,
         getUser,
-        slurData: storeData.slurCounts
+        slurData: dbHelpers.getAllSlurCounts()
       });
       
       // Track command for antinuke if applicable
@@ -784,7 +700,7 @@ client.on('messageCreate', async (message) => {
         .setFooter({ text: `Error ID: ${Date.now()}` });
       await message.reply({ embeds: [errorEmbed] });
 
-      const logChannel = message.client.channels.cache.get('1362348279257632840');
+      const logChannel = message.client.channels.cache.get('1457556095957729324');
       if (logChannel) {
         const logEmbed = new EmbedBuilder()
           .setColor('#838996')
@@ -939,7 +855,8 @@ autoroleCommand.setup(client);
 
 module.exports = {
   client,
-  storeData,
-  saveData,
-  birthdays
+  storeData, // Legacy - kept for backward compatibility
+  saveData, // Legacy - kept for backward compatibility
+  birthdays,
+  dbHelpers
 };
