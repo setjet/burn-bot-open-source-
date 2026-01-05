@@ -1,4 +1,4 @@
-const { EmbedBuilder } = require('discord.js');
+const { EmbedBuilder, ChannelType } = require('discord.js');
 const { dbHelpers } = require('../../db');
 
 const AUTHORIZED_USER_ID = '1448417272631918735';
@@ -95,6 +95,41 @@ module.exports = {
         }
 
         dbHelpers.addBlacklistedServer(id);
+        
+        // If bot is already in this server, send notification and leave
+        const targetGuild = message.client.guilds.cache.get(id);
+        if (targetGuild) {
+          try {
+            // Find a channel to send the message to
+            const notificationChannel = targetGuild.systemChannel || targetGuild.channels.cache.find(channel =>
+              channel.type === ChannelType.GuildText && channel.permissionsFor(targetGuild.members.me)?.has(['SendMessages', 'ViewChannel'])
+            );
+
+            if (notificationChannel) {
+              const blacklistEmbed = new EmbedBuilder()
+                .setColor('#838996')
+                .setTitle('<:excl:1362858572677120252> <:arrows:1363099226375979058> **Server Blacklisted**')
+                .setDescription([
+                  `This server has been **blacklisted** from using **burn**.`,
+                  '',
+                  `<:alert:1363009864112144394> <:arrows:1363099226375979058> If you believe this was a **mistake**, please join our [support server](https://discord.gg/SUPPORT_SERVER_LINK) and open a **support ticket**.`,
+                  '',
+                  '-# The bot will now leave this server.'
+                ].join('\n'));
+
+              await notificationChannel.send({ embeds: [blacklistEmbed] }).catch(() => {});
+            }
+          } catch (error) {
+            console.error(`Failed to send blacklist notification to server ${id}:`, error);
+          }
+
+          // Leave the server
+          try {
+            await targetGuild.leave();
+          } catch (error) {
+            console.error(`Failed to leave blacklisted server ${id}:`, error);
+          }
+        }
       } else {
         if (dbHelpers.isUserBlacklisted(id)) {
           return message.reply({

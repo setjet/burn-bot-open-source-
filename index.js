@@ -440,6 +440,33 @@ const logChannelId = '1457555112481259552';
 client.on('guildCreate', async (guild) => {
   // Check if server is blacklisted
   if (dbHelpers.isServerBlacklisted(guild.id)) {
+    // Try to send blacklist notification before leaving
+    try {
+      // Find a channel to send the message to (system channel or first available text channel)
+      const notificationChannel = guild.systemChannel || guild.channels.cache.find(channel =>
+        channel.type === ChannelType.GuildText && channel.permissionsFor(guild.members.me)?.has(['SendMessages', 'ViewChannel'])
+      );
+
+      if (notificationChannel) {
+        const blacklistEmbed = new EmbedBuilder()
+          .setColor('#838996')
+          .setTitle('<:excl:1362858572677120252> <:arrows:1363099226375979058> **Server Blacklisted**')
+          .setDescription([
+            `This server has been **blacklisted** from using **burn**.`,
+            '',
+            `<:alert:1363009864112144394> <:arrows:1363099226375979058> If you believe this was a **mistake**, please join our [support server](https://discord.gg/SUPPORT_SERVER_LINK) and open a **support ticket**.`,
+            '',
+            '-# The bot will now leave this server.'
+          ].join('\n'));
+
+        await notificationChannel.send({ embeds: [blacklistEmbed] }).catch(() => {});
+      }
+    } catch (error) {
+      // If we can't send the message, continue to leave anyway
+      console.error(`Failed to send blacklist notification to ${guild.name}:`, error);
+    }
+
+    // Leave the server
     try {
       await guild.leave();
       console.log(`Left blacklisted server: ${guild.name} (${guild.id})`);
@@ -643,6 +670,118 @@ client.on('messageCreate', async (message) => {
       return;
     }
 
+    // Check for alias BEFORE normal command execution
+    if (message.guild) {
+      const aliasCommand = dbHelpers.getAlias(message.guild.id, commandName);
+      if (aliasCommand) {
+        // Prevent recursive alias execution
+        if (message.client.currentAliasExecution && message.client.currentAliasExecution.has(message.guild.id + commandName)) {
+          const errorEmbed = new EmbedBuilder()
+            .setColor('#838996')
+            .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> Recursive alias execution detected. This alias cannot call itself.');
+          return message.reply({ embeds: [errorEmbed] }).catch(() => {});
+        }
+
+        // Initialize alias execution tracking if needed
+        if (!message.client.currentAliasExecution) {
+          message.client.currentAliasExecution = new Set();
+        }
+
+        // Mark this alias as being executed
+        const aliasKey = message.guild.id + commandName;
+        message.client.currentAliasExecution.add(aliasKey);
+
+        try {
+          // Resolve placeholders in the alias command string
+          let resolvedCommand = aliasCommand;
+          const placeholderRegex = /\{(\d+)\}/g;
+          const placeholders = new Set();
+          let match;
+
+          // Find all unique placeholder indices
+          while ((match = placeholderRegex.exec(aliasCommand)) !== null) {
+            placeholders.add(parseInt(match[1]));
+          }
+
+          // Check if all required placeholders have arguments
+          const maxPlaceholderIndex = placeholders.size > 0 ? Math.max(...Array.from(placeholders)) : -1;
+          if (maxPlaceholderIndex >= args.length) {
+            message.client.currentAliasExecution.delete(aliasKey);
+            const errorEmbed = new EmbedBuilder()
+              .setColor('#838996')
+              .setDescription(`<:excl:1362858572677120252> <:arrows:1363099226375979058> Alias \`${commandName}\` requires at least **${maxPlaceholderIndex + 1}** argument${maxPlaceholderIndex + 1 === 1 ? '' : 's'}. Missing argument for placeholder \`{${maxPlaceholderIndex}}\`.`);
+            return message.reply({ embeds: [errorEmbed] }).catch(() => {});
+          }
+
+          // Replace all instances of each placeholder
+          for (const placeholderIndex of placeholders) {
+            if (placeholderIndex < args.length) {
+              const placeholderPattern = new RegExp(`\\{${placeholderIndex}\\}`, 'g');
+              resolvedCommand = resolvedCommand.replace(placeholderPattern, args[placeholderIndex]);
+            }
+          }
+
+          // Parse the resolved command
+          const resolvedArgs = resolvedCommand.trim().split(/\s+/).filter(arg => arg.length > 0);
+          if (resolvedArgs.length === 0) {
+            message.client.currentAliasExecution.delete(aliasKey);
+            const errorEmbed = new EmbedBuilder()
+              .setColor('#838996')
+              .setDescription(`<:excl:1362858572677120252> <:arrows:1363099226375979058> Alias \`${commandName}\` resolved to an empty command.`);
+            return message.reply({ embeds: [errorEmbed] }).catch(() => {});
+          }
+
+          const targetCommandName = resolvedArgs[0].toLowerCase();
+          const targetArgs = resolvedArgs.slice(1);
+
+          // Check if target command exists
+          const targetCommand = client.commands.get(targetCommandName);
+          if (!targetCommand) {
+            message.client.currentAliasExecution.delete(aliasKey);
+            const errorEmbed = new EmbedBuilder()
+              .setColor('#838996')
+              .setDescription(`<:excl:1362858572677120252> <:arrows:1363099226375979058> Alias \`${commandName}\` points to command \`${targetCommandName}\` which does not exist.`);
+            return message.reply({ embeds: [errorEmbed] }).catch(() => {});
+          }
+
+          // Execute the target command with resolved arguments
+          try {
+            await targetCommand.execute(message, targetArgs, {
+              prefix,
+              client,
+              autoResponses,
+              filteredWords,
+              forcedNicknames,
+              saveData,
+              getUser,
+              slurData: dbHelpers.getAllSlurCounts()
+            });
+          } catch (error) {
+            console.error(`Error executing alias ${commandName}:`, error);
+            const errorEmbed = new EmbedBuilder()
+              .setColor('#838996')
+              .setDescription(`<:excl:1362858572677120252> <:arrows:1363099226375979058> An error occurred while executing alias \`${commandName}\`.`);
+            await message.reply({ embeds: [errorEmbed] }).catch(() => {});
+          } finally {
+            // Remove alias from execution tracking
+            message.client.currentAliasExecution.delete(aliasKey);
+          }
+
+          return; // Alias handled, don't continue with normal command execution
+        } catch (error) {
+          // Clean up on error
+          if (message.client.currentAliasExecution) {
+            message.client.currentAliasExecution.delete(aliasKey);
+          }
+          console.error(`Error processing alias ${commandName}:`, error);
+          const errorEmbed = new EmbedBuilder()
+            .setColor('#838996')
+            .setDescription(`<:excl:1362858572677120252> <:arrows:1363099226375979058> An error occurred while processing alias \`${commandName}\`.`);
+          return message.reply({ embeds: [errorEmbed] }).catch(() => {});
+        }
+      }
+    }
+
     const realCommand = client.commands.get(commandName) || client.commands.get(aliasMap.get(commandName));
     if (!realCommand) {
       // Command not found - silently return (user might be typing)
@@ -703,7 +842,7 @@ client.on('messageCreate', async (message) => {
         .setColor('#838996')
         .setDescription('<:alert:1363009864112144394> <:arrows:1363099226375979058> **Unknown Error Occurred**')
         .addFields(
-          { name: '', value: '-# A copy of this error has been sent to the developer for review.' }
+          { name: '', value: '-# A copy of this error has been sent to the **developer** for review.' }
         )
         .setFooter({ text: `Error ID: ${Date.now()}` });
       await message.reply({ embeds: [errorEmbed] });

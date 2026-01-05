@@ -34,7 +34,7 @@ module.exports = {
       .setColor('#838996')
       .setTitle('burn help')
       .setDescription('select a category from the dropdown to view available commands.')
-      .addFields({ name: '', value: '-# bot still in beta, expect occasional bugs.' });
+      .addFields({ name: '', value: '-# bot still in **beta**, expect **occasional bugs**.' });
 
     const menu = new StringSelectMenuBuilder()
       .setCustomId('help-menu')

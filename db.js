@@ -139,6 +139,14 @@ function initializeDatabase() {
       guild_id TEXT PRIMARY KEY,
       config_data TEXT
     );
+
+    -- Command aliases (server-specific)
+    CREATE TABLE IF NOT EXISTS command_aliases (
+      guild_id TEXT,
+      alias_name TEXT,
+      command_string TEXT NOT NULL,
+      PRIMARY KEY (guild_id, alias_name)
+    );
   `);
 }
 
@@ -615,6 +623,31 @@ const dbHelpers = {
       }
     });
     insertMany(items);
+  },
+
+  // Command aliases
+  getAlias(guildId, aliasName) {
+    const result = db.prepare('SELECT command_string FROM command_aliases WHERE guild_id = ? AND alias_name = ?').get(guildId, aliasName.toLowerCase());
+    return result ? result.command_string : null;
+  },
+
+  setAlias(guildId, aliasName, commandString) {
+    db.prepare('INSERT OR REPLACE INTO command_aliases (guild_id, alias_name, command_string) VALUES (?, ?, ?)')
+      .run(guildId, aliasName.toLowerCase(), commandString);
+  },
+
+  removeAlias(guildId, aliasName) {
+    db.prepare('DELETE FROM command_aliases WHERE guild_id = ? AND alias_name = ?')
+      .run(guildId, aliasName.toLowerCase());
+  },
+
+  getAllAliases(guildId) {
+    const rows = db.prepare('SELECT alias_name, command_string FROM command_aliases WHERE guild_id = ? ORDER BY alias_name').all(guildId);
+    return rows.map(row => ({ name: row.alias_name, command: row.command_string }));
+  },
+
+  removeAllAliases(guildId) {
+    db.prepare('DELETE FROM command_aliases WHERE guild_id = ?').run(guildId);
   }
 };
 
