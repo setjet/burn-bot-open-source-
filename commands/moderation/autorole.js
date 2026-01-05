@@ -1,37 +1,5 @@
 const { EmbedBuilder, PermissionsBitField, Events } = require('discord.js');
-const fs = require('fs');
-const path = require('path');
-
-const storePath = path.join(__dirname, '../../storedata.json');
-
-// Load autoroles from storedata.json
-function loadAutoRoles() {
-  try {
-    if (fs.existsSync(storePath)) {
-      const data = JSON.parse(fs.readFileSync(storePath, 'utf8'));
-      return new Map(Object.entries(data.autoroles || {}));
-    }
-  } catch (err) {
-    console.error('Error loading autoroles:', err);
-  }
-  return new Map();
-}
-
-// Save autoroles to storedata.json
-function saveAutoRoles(autoRoles) {
-  try {
-    let data = {};
-    if (fs.existsSync(storePath)) {
-      data = JSON.parse(fs.readFileSync(storePath, 'utf8'));
-    }
-    data.autoroles = Object.fromEntries(autoRoles);
-    fs.writeFileSync(storePath, JSON.stringify(data, null, 2));
-  } catch (err) {
-    console.error('Error saving autoroles:', err);
-  }
-}
-
-const serverAutoRoles = loadAutoRoles();
+const { dbHelpers } = require('../../db');
 
 
 const MODERATOR_PERMISSIONS = [
@@ -83,7 +51,7 @@ module.exports = {
     }
 
     if (subcommand === 'view') {
-      const roleId = serverAutoRoles.get(guildId);
+      const roleId = dbHelpers.getAutorole(guildId);
       
       if (!roleId) {
         return message.reply({
@@ -98,7 +66,7 @@ module.exports = {
       const role = message.guild.roles.cache.get(roleId);
       if (!role) {
         // Clean up if role no longer exists
-        serverAutoRoles.delete(guildId);
+        dbHelpers.setAutorole(guildId, null);
         return message.reply({
           embeds: [
             new EmbedBuilder()
@@ -118,7 +86,8 @@ module.exports = {
     }
 
     if (subcommand === 'remove') {
-      if (!serverAutoRoles.has(guildId)) {
+      const roleId = dbHelpers.getAutorole(guildId);
+      if (!roleId) {
         return message.reply({
           embeds: [
             new EmbedBuilder()
@@ -128,8 +97,7 @@ module.exports = {
         });
       }
 
-      serverAutoRoles.delete(guildId);
-      saveAutoRoles(serverAutoRoles);
+      dbHelpers.setAutorole(guildId, null);
       return message.reply({
         embeds: [
           new EmbedBuilder()
@@ -195,7 +163,7 @@ module.exports = {
         });
       }
 
-      const currentRoleId = serverAutoRoles.get(guildId);
+      const currentRoleId = dbHelpers.getAutorole(guildId);
       if (currentRoleId) {
         const currentRole = message.guild.roles.cache.get(currentRoleId);
         if (currentRole) {
@@ -207,13 +175,12 @@ module.exports = {
             ]
           });
         } else {
-    
-          serverAutoRoles.delete(guildId);
+          // Clean up if role no longer exists
+          dbHelpers.setAutorole(guildId, null);
         }
       }
 
-      serverAutoRoles.set(guildId, role.id);
-      saveAutoRoles(serverAutoRoles);
+      dbHelpers.setAutorole(guildId, role.id);
       return message.reply({
         embeds: [
           new EmbedBuilder()
@@ -235,19 +202,19 @@ module.exports = {
 
 
   getAutorole: (guildId) => {
-    return serverAutoRoles.get(guildId);
+    return dbHelpers.getAutorole(guildId);
   },
 
 
   setup: (client) => {
     client.on(Events.GuildMemberAdd, async (member) => {
-      const roleId = serverAutoRoles.get(member.guild.id);
+      const roleId = dbHelpers.getAutorole(member.guild.id);
       if (!roleId) return;
 
       const role = member.guild.roles.cache.get(roleId);
       if (!role) {
-    
-        serverAutoRoles.delete(member.guild.id);
+        // Clean up if role no longer exists
+        dbHelpers.setAutorole(member.guild.id, null);
         return;
       }
 

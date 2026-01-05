@@ -1,35 +1,5 @@
 const { EmbedBuilder, PermissionFlagsBits } = require('discord.js');
-const fs = require('fs');
-const path = require('path');
-
-const storePath = path.join(__dirname, '../../storedata.json');
-
-function loadPrefixes() {
-  try {
-    if (fs.existsSync(storePath)) {
-      const data = JSON.parse(fs.readFileSync(storePath, 'utf8'));
-      return data.serverPrefixes || {};
-    }
-  } catch (err) {
-    console.error('Error loading prefixes:', err);
-  }
-  return {};
-}
-
-function savePrefix(guildId, prefix) {
-  try {
-    let data = {};
-    if (fs.existsSync(storePath)) {
-      data = JSON.parse(fs.readFileSync(storePath, 'utf8'));
-    }
-    if (!data.serverPrefixes) data.serverPrefixes = {};
-    data.serverPrefixes[guildId] = prefix;
-    // Preserve all other data fields
-    fs.writeFileSync(storePath, JSON.stringify(data, null, 2), 'utf8');
-  } catch (err) {
-    console.error('Error saving prefix:', err);
-  }
-}
+const { dbHelpers } = require('../../db');
 
 module.exports = {
   name: 'prefix',
@@ -111,7 +81,7 @@ module.exports = {
       }
 
       // Save the new prefix
-      savePrefix(message.guild.id, newPrefix);
+      dbHelpers.setServerPrefix(message.guild.id, newPrefix);
 
       return message.reply({
         embeds: [
@@ -142,8 +112,5 @@ module.exports = {
     });
   },
 
-  // Export helper functions for use in index.js
-  loadPrefixes,
-  savePrefix
 };
 

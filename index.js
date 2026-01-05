@@ -426,7 +426,6 @@ client.once('ready', async () => {
   }
 });
 
-const dataPath = path.join(__dirname, './storedata.json');
 const logChannelId = '1457555112481259552';
 
 client.on('guildCreate', async (guild) => {
@@ -727,9 +726,7 @@ client.on('messageCreate', async (message) => {
 
 client.on('guildMemberAdd', async (member) => {
   // Hardban check
-  const currentStoreData = JSON.parse(fs.readFileSync('./storedata.json', 'utf8'));
-  const hardbannedUsers = currentStoreData.hardbannedUsers || {};
-  const bannedIds = hardbannedUsers[member.guild.id];
+  const bannedIds = dbHelpers.getHardbannedUsers(member.guild.id);
 
   if (bannedIds && bannedIds.includes(member.id)) {
     try {

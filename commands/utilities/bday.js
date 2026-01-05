@@ -1,18 +1,7 @@
 const { EmbedBuilder } = require('discord.js');
-const fs = require('fs');
-const path = require('path');
 const moment = require('moment');
+const { dbHelpers } = require('../../db');
 const OWNER_ID = "758522527885951016";
-
-const filePath = path.join(__dirname, '../..', 'storedata.json');
-
-function loadStoreData() {
-  return JSON.parse(fs.readFileSync(filePath, 'utf8'));
-}
-
-function saveStoreData(data) {
-  fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
-}
 
 module.exports = {
   name: 'birthday',
@@ -20,11 +9,6 @@ module.exports = {
   category: ['miscellaneous'],
   description: ['<:arrows:1363099226375979058> Set a birthday for yourself.'],
   async execute(message, args, { getUser, prefix }) {
-    const storeData = loadStoreData();
-
-    // Ensure global birthdays object structure exists
-    if (!storeData.birthdays) storeData.birthdays = {};
-
     // --- SET BIRTHDAY ---
     if (args[0] === 'set') {
       let target = message.author;
@@ -65,8 +49,8 @@ module.exports = {
         formattedDate = momentDate.isValid() ? momentDate.format('DD MMMM, YYYY') : date;
       }
 
-      storeData.birthdays[target.id] = moment(formattedDate, 'DD MMMM, YYYY').format('YYYY-MM-DD');
-      saveStoreData(storeData);
+      const birthdayDate = moment(formattedDate, 'DD MMMM, YYYY').format('YYYY-MM-DD');
+      dbHelpers.setBirthday(target.id, birthdayDate);
 
       return message.reply({
         embeds: [new EmbedBuilder().setColor('#838996').setDescription(`<:check:1362850043333316659> <:arrows:1363099226375979058> Your **Birthday** has been set to **${formattedDate}**`)]
@@ -85,7 +69,7 @@ module.exports = {
     }
     if (!target) target = message.author;
 
-    const rawBirthday = storeData.birthdays[target.id];
+    const rawBirthday = dbHelpers.getBirthday(target.id);
     if (!rawBirthday) {
       return message.reply({
         embeds: [new EmbedBuilder().setColor('#838996').setDescription(`<:excl:1362858572677120252> <:arrows:1363099226375979058> You haven't set your **birthday** yet. Use \`${prefix}bday set <date>\``)]

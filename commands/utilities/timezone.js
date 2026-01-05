@@ -1,10 +1,6 @@
 const { EmbedBuilder } = require('discord.js');
 const moment = require('moment-timezone');
-const fs = require('fs');
-const path = require('path');
-
-const storePath = path.join(__dirname, '../../storedata.json');
-const storeData = require(storePath);
+const { dbHelpers } = require('../../db');
 
 const stateToTimezone = {
     "alabama": "America/Chicago",
@@ -65,8 +61,6 @@ module.exports = {
     category: ['miscellaneous'],
     description: ['<:arrows:1363099226375979058> Set a timezone for yourself.'],
     async execute(message, args, { prefix }) {
-        if (!storeData.timezones) storeData.timezones = {};
-
         if (args[0] === 'set') {
             const timezoneInput = args.slice(1).join(' ').toLowerCase();
 
@@ -94,8 +88,7 @@ module.exports = {
                 return message.reply({ embeds: [embed] });
             }
 
-            storeData.timezones[message.author.id] = foundTimezone;
-            fs.writeFileSync(storePath, JSON.stringify(storeData, null, 2));
+            dbHelpers.setUserTimezone(message.author.id, foundTimezone);
 
             const embed = new EmbedBuilder()
                 .setColor('#838996')
@@ -103,7 +96,7 @@ module.exports = {
             return message.reply({ embeds: [embed] });
         }
 
-        const userTimezone = storeData.timezones[message.author.id];
+        const userTimezone = dbHelpers.getUserTimezone(message.author.id);
 
         if (!userTimezone) {
             const embed = new EmbedBuilder()

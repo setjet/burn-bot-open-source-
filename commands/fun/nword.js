@@ -1,38 +1,29 @@
 const { EmbedBuilder } = require('discord.js');
-const fs = require('fs');
-const path = require('path');
-
-const storePath = path.join(__dirname, '../../storedata.json');
+const { dbHelpers } = require('../../db');
 const OWNER_ID = "758522527885951016";
 
-// Load slur counts from storedata.json
-function loadSlurCounts() {
-  try {
-    if (fs.existsSync(storePath)) {
-      const data = JSON.parse(fs.readFileSync(storePath, 'utf8'));
-      return new Map(Object.entries(data.slurCounts || {}));
-    }
-  } catch (err) {
-    console.error('Error loading slur counts:', err);
-  }
-  return new Map();
+// Helper functions for slur counts
+function getSlurCount(userId, type) {
+  const counts = dbHelpers.getSlurCounts(userId);
+  return counts[`${type}_count`] || 0;
 }
 
-// Save slur counts to storedata.json  
-function saveSlurCounts(counts) {
-  try {
-    let data = {};
-    if (fs.existsSync(storePath)) {
-      data = JSON.parse(fs.readFileSync(storePath, 'utf8'));
-    }
-    data.slurCounts = Object.fromEntries(counts);
-    fs.writeFileSync(storePath, JSON.stringify(data, null, 2));
-  } catch (err) {
-    console.error('Error saving slur counts:', err);
-  }
+function setSlurCount(userId, type, count) {
+  const counts = dbHelpers.getSlurCounts(userId);
+  counts[`${type}_count`] = count;
+  dbHelpers.setSlurCounts(userId, counts);
 }
 
-const slurCounts = loadSlurCounts(); 
+function getAllSlurCounts() {
+  const allCounts = dbHelpers.getAllSlurCounts();
+  const result = new Map();
+  for (const [userId, counts] of Object.entries(allCounts)) {
+    for (const [key, value] of Object.entries(counts)) {
+      result.set(key, value);
+    }
+  }
+  return result;
+} 
 
 module.exports = {
     name: 'nword',
@@ -69,9 +60,8 @@ module.exports = {
                 return message.reply('Invalid numbers');
             }
 
-            slurCounts.set(`${targetUser.id}_nigga`, niggaCount);
-            slurCounts.set(`${targetUser.id}_nigger`, niggerCount);
-            saveSlurCounts(slurCounts);
+            setSlurCount(targetUser.id, 'nigga', niggaCount);
+            setSlurCount(targetUser.id, 'nigger', niggerCount);
 
             return message.reply(`Updated ${targetUser.username}'s counts: nigga=${niggaCount}, nigger=${niggerCount}`);
         }
@@ -93,17 +83,16 @@ module.exports = {
                 }
             }
 
-            slurCounts.set(`${targetUser.id}_nigga`, 0);
-            slurCounts.set(`${targetUser.id}_nigger`, 0);
-            saveSlurCounts(slurCounts);
+            setSlurCount(targetUser.id, 'nigga', 0);
+            setSlurCount(targetUser.id, 'nigger', 0);
 
             return message.reply(`👍`);
         }
 
         const targetUser = message.mentions.users.first() || message.author;
         const userId = targetUser.id;
-        const countNigga = slurCounts.get(`${userId}_nigga`) || 0;
-        const countNigger = slurCounts.get(`${userId}_nigger`) || 0;
+        const countNigga = getSlurCount(userId, 'nigga');
+        const countNigger = getSlurCount(userId, 'nigger');
         const totalCount = countNigga + countNigger;
 
         const embed = new EmbedBuilder()
@@ -127,21 +116,14 @@ module.exports = {
         const niggaCount = (content.match(/nigga/g) || []).length;
         const niggerCount = (content.match(/nigger/g) || []).length;
 
-        let updated = false;
         if (niggaCount > 0) {
-            const current = slurCounts.get(`${userId}_nigga`) || 0;
-            slurCounts.set(`${userId}_nigga`, current + niggaCount);
-            updated = true;
+            const current = getSlurCount(userId, 'nigga');
+            setSlurCount(userId, 'nigga', current + niggaCount);
         }
 
         if (niggerCount > 0) {
-            const current = slurCounts.get(`${userId}_nigger`) || 0;
-            slurCounts.set(`${userId}_nigger`, current + niggerCount);
-            updated = true;
-        }
-
-        if (updated) {
-            saveSlurCounts(slurCounts);
+            const current = getSlurCount(userId, 'nigger');
+            setSlurCount(userId, 'nigger', current + niggerCount);
         }
     }
 };

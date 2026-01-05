@@ -98,10 +98,22 @@ function initializeDatabase() {
       PRIMARY KEY (guild_id, user_id)
     );
 
-    -- Slur counts
+    -- Slur counts (stored as JSON to support multiple types)
     CREATE TABLE IF NOT EXISTS slur_counts (
       user_id TEXT PRIMARY KEY,
-      count INTEGER DEFAULT 0
+      counts_data TEXT
+    );
+
+    -- User timezones
+    CREATE TABLE IF NOT EXISTS user_timezones (
+      user_id TEXT PRIMARY KEY,
+      timezone TEXT NOT NULL
+    );
+
+    -- Autoroles (guild-specific)
+    CREATE TABLE IF NOT EXISTS autoroles (
+      guild_id TEXT PRIMARY KEY,
+      role_id TEXT NOT NULL
     );
 
     -- Spam warnings
@@ -328,23 +340,37 @@ const dbHelpers = {
     return result;
   },
 
-  // Slur counts
-  getSlurCount(userId) {
-    const row = db.prepare('SELECT count FROM slur_counts WHERE user_id = ?').get(userId);
-    return row ? row.count : 0;
+  // Slur counts (stored as JSON)
+  getSlurCounts(userId) {
+    const row = db.prepare('SELECT counts_data FROM slur_counts WHERE user_id = ?').get(userId);
+    if (row && row.counts_data) {
+      return JSON.parse(row.counts_data);
+    }
+    return {};
   },
 
-  incrementSlurCount(userId) {
-    const current = this.getSlurCount(userId);
-    db.prepare('INSERT OR REPLACE INTO slur_counts (user_id, count) VALUES (?, ?)').run(userId, current + 1);
-    return current + 1;
+  setSlurCounts(userId, counts) {
+    const countsData = JSON.stringify(counts);
+    db.prepare('INSERT OR REPLACE INTO slur_counts (user_id, counts_data) VALUES (?, ?)').run(userId, countsData);
+  },
+
+  incrementSlurCount(userId, type = 'default') {
+    const counts = this.getSlurCounts(userId);
+    const key = type === 'default' ? 'count' : `${type}_count`;
+    counts[key] = (counts[key] || 0) + 1;
+    this.setSlurCounts(userId, counts);
+    return counts[key];
   },
 
   getAllSlurCounts() {
-    const rows = db.prepare('SELECT user_id, count FROM slur_counts').all();
+    const rows = db.prepare('SELECT user_id, counts_data FROM slur_counts').all();
     const result = {};
     rows.forEach(row => {
-      result[row.user_id] = row.count;
+      if (row.counts_data) {
+        result[row.user_id] = JSON.parse(row.counts_data);
+      } else {
+        result[row.user_id] = {};
+      }
     });
     return result;
   },
@@ -388,6 +414,34 @@ const dbHelpers = {
       db.prepare('INSERT OR REPLACE INTO blacklist_expirations (user_id, expiration) VALUES (?, ?)').run(userId, expiration);
     } else {
       db.prepare('DELETE FROM blacklist_expirations WHERE user_id = ?').run(userId);
+    }
+  },
+
+  // User timezones
+  getUserTimezone(userId) {
+    const row = db.prepare('SELECT timezone FROM user_timezones WHERE user_id = ?').get(userId);
+    return row ? row.timezone : null;
+  },
+
+  setUserTimezone(userId, timezone) {
+    if (timezone) {
+      db.prepare('INSERT OR REPLACE INTO user_timezones (user_id, timezone) VALUES (?, ?)').run(userId, timezone);
+    } else {
+      db.prepare('DELETE FROM user_timezones WHERE user_id = ?').run(userId);
+    }
+  },
+
+  // Autoroles
+  getAutorole(guildId) {
+    const row = db.prepare('SELECT role_id FROM autoroles WHERE guild_id = ?').get(guildId);
+    return row ? row.role_id : null;
+  },
+
+  setAutorole(guildId, roleId) {
+    if (roleId) {
+      db.prepare('INSERT OR REPLACE INTO autoroles (guild_id, role_id) VALUES (?, ?)').run(guildId, roleId);
+    } else {
+      db.prepare('DELETE FROM autoroles WHERE guild_id = ?').run(guildId);
     }
   },
 
