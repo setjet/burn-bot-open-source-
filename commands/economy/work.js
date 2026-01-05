@@ -24,11 +24,10 @@ module.exports = {
   category: 'utilities',
   description: '<:arrows:1363099226375979058> Work to earn coins (1 hour cooldown).',
   async execute(message, args, { prefix }) {
-    const data = getStoreData();
     const userId = message.author.id;
     const now = Date.now();
     
-    const lastWork = data.economy.workCooldowns[userId] || 0;
+    const lastWork = dbHelpers.getWorkCooldown(userId) || 0;
     const timeSinceWork = now - lastWork;
     
     if (timeSinceWork < WORK_COOLDOWN) {

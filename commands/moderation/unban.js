@@ -1,6 +1,4 @@
 const { PermissionFlagsBits, EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder } = require('discord.js');
-const fs = require('fs');
-const path = require('path');
 
 module.exports = {
   name: 'unban',
@@ -142,10 +140,8 @@ module.exports = {
         collector.on('collect', async i => {
           try {
             if (i.customId === 'confirm_unban') {
-              if (storedData.hardbannedUsers[guildId]) {
-                storedData.hardbannedUsers[guildId] = storedData.hardbannedUsers[guildId].filter(id => id !== userId);
-                fs.writeFileSync(dataPath, JSON.stringify(storedData, null, 2));
-              }
+              // Remove from hardbanned users in database
+              dbHelpers.removeHardbannedUser(guildId, userId);
 
               const reason = args.slice(1).join(' ') || 'No reason provided';
               await message.guild.members.unban(userId, `Hardban removed by ${message.author.tag}: ${reason}`);

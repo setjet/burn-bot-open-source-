@@ -1086,15 +1086,9 @@ async function handleModuleConfig_OLD_DO_NOT_USE(interaction, config, guildId) {
           } else if (i.customId === 'antinuke-view-admins') {
             await handleViewAdmins(i, config);
             } else if (i.customId === 'antinuke-whitelist') {
-              // Get prefix from stored data or default
-              const dataFile = path.join(__dirname, '../../storedata.json');
-              let storedData = {};
-              try {
-                if (fs.existsSync(dataFile)) {
-                  storedData = JSON.parse(fs.readFileSync(dataFile, 'utf8'));
-                }
-              } catch (err) {}
-              const serverPrefix = storedData.serverPrefixes?.[i.guild.id] || ';';
+              // Get prefix from database or default
+              const { dbHelpers } = require('../../db');
+              const serverPrefix = dbHelpers.getServerPrefix(i.guild.id) || ';';
               
               const whitelistEmbed = new EmbedBuilder()
                 .setColor('#838996')
@@ -1620,14 +1614,8 @@ async function handleInteraction(interaction, config, guildId) {
       const freshConfig = getAntinukeConfig(guildId);
       await handleViewAdmins(interaction, freshConfig);
     } else if (interaction.customId === 'antinuke-whitelist') {
-      const dataFile = path.join(__dirname, '../../storedata.json');
-      let storedData = {};
-      try {
-        if (fs.existsSync(dataFile)) {
-          storedData = JSON.parse(fs.readFileSync(dataFile, 'utf8'));
-        }
-      } catch (err) {}
-      const serverPrefix = storedData.serverPrefixes?.[guildId] || ';';
+      const { dbHelpers } = require('../../db');
+      const serverPrefix = dbHelpers.getServerPrefix(guildId) || ';';
 
       const whitelistEmbed = new EmbedBuilder()
         .setColor('#838996')
