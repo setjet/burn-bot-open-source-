@@ -15,7 +15,6 @@
     "moment": "^2.29.4",
     "moment-timezone": "^0.5.43",
     "node-fetch": "^2.6.9",
-    "sharp": "^0.33.2",
-    "sql.js": "^1.10.3"
+    "sharp": "^0.33.2"
   }
 }
