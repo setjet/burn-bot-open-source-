@@ -7,7 +7,7 @@ module.exports = {
   aliases: ['h'],
   category: ['miscellaneous'],
   description: ['<:arrows:1363099226375979058> View all available commands.'],
-  async execute(message) {
+  async execute(message, args, { prefix }) {
 
     const categoryOptions = [
       { label: 'utilities', value: 'utilities', emoji: '<:settings:1362876382375317565>' },
@@ -79,7 +79,7 @@ module.exports = {
         } else {
           embed.setDescription([
             `**${category}** (Page ${page + 1}/${totalPages})`, // Reduced spacing here
-            ...pageCommands.map(cmd => `\`• ;${cmd.name}\`\n${cmd.description || '*No description*'}`)
+            ...pageCommands.map(cmd => `\`• ${prefix}${cmd.name}\`\n${cmd.description || '*No description*'}`)
           ].join('\n\n'));
         }
         return embed;
