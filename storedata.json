@@ -169,7 +169,7 @@
       "admins": [],
       "timeWindow": 10000,
       "logChannel": "1457384692377452743",
-      "override": false
+      "override": true
     },
     "1335213460786511954": {
       "modules": {

@@ -27,7 +27,6 @@ client.editedMessages = new Collection();
 const DEFAULT_PREFIX = ';';
 client.hardbannedUsers = [];
 client.deletedMessages = new Map();
-client.leftDueToWhitelist = new Set(); // Track servers the bot leaves due to whitelist
 
 
 const dataFile = path.join(__dirname, 'storedata.json');
@@ -79,7 +78,6 @@ let storeData = {
   forcedNicknames: {},
   filteredWords: {},
   autoResponses: {},
-  serverWhitelists: {},
   birthdays: {},
   slurCounts: {},
   hardbannedUsers: {},
@@ -101,7 +99,6 @@ if (fs.existsSync(dataFile)) {
    
     if (!storeData.hardbannedUsers) storeData.hardbannedUsers = {};
     if (!storeData.slurCounts) storeData.slurCounts = {};
-    if (!storeData.serverWhitelists) storeData.serverWhitelists = {};
     if (!storeData.blacklistedUsers) storeData.blacklistedUsers = [];
     if (!storeData.spamWarnings) storeData.spamWarnings = {};
     if (!storeData.blacklistLevels) storeData.blacklistLevels = {};
@@ -114,21 +111,6 @@ if (fs.existsSync(dataFile)) {
   } catch (error) {
     console.error('Error loading storedata.json:', error);
   }
-}
-
-// Load server whitelists - only include entries where value is true
-const serverWhitelists = new Map();
-for (const [guildId, value] of Object.entries(storeData.serverWhitelists || {})) {
-  if (value === true) {
-    serverWhitelists.set(guildId, true);
-  }
-}
-
-console.log('Loaded server whitelists:', Array.from(serverWhitelists.keys()));
-
-// Function to check if a server is whitelisted (always checks current state)
-function isWhitelisted(guildId) {
-  return serverWhitelists.has(guildId);
 }
 
 // Check if user is blacklisted (admin role is immune)
@@ -444,7 +426,6 @@ function saveData() {
         Object.fromEntries(responses)
       ])
     ),
-    serverWhitelists: Object.fromEntries(serverWhitelists),
     birthdays: Object.fromEntries(birthdays),
     hardbannedUsers: storeData.hardbannedUsers || {}, 
     slurCounts: storeData.slurCounts || {},
@@ -538,36 +519,6 @@ client.once('ready', async () => {
   if (antinukeCommand && antinukeCommand.setup) {
     antinukeCommand.setup(client);
   }
-
-  // Check for non-whitelisted servers on startup
-  for (const guild of client.guilds.cache.values()) {
-    if (!isWhitelisted(guild.id)) {
-      console.log(`Found non-whitelisted server on startup: ${guild.name} (${guild.id})`);
-      try {
-        const targetChannel = guild.systemChannel || guild.channels.cache.find(channel =>
-          channel.type === ChannelType.GuildText && channel.permissionsFor(guild.members.me)?.has(['SendMessages', 'ViewChannel']));
-        
-        if (targetChannel) {
-          const errorEmbed = new EmbedBuilder()
-            .setColor('#838996')
-            .setDescription('<:alert:1363009864112144394> <:arrows:1363099226375979058> **Server is not whitelisted**')
-            .addFields(
-              { name: '', value: '-# This bot is not **whitelisted** to join this server. Contact **oczs** for inquiries.' }
-            )
-            .setFooter({ text: `Log ID: ${Date.now()}` });
-
-          await targetChannel.send({ embeds: [errorEmbed] }).catch(() => {});
-        }
-
-        client.leftDueToWhitelist.add(guild.id);
-        await guild.leave();
-        console.log(`Left non-whitelisted server: ${guild.name} (${guild.id})`);
-      } catch (leaveError) {
-        console.error(`Failed to leave non-whitelisted server ${guild.name} (${guild.id}):`, leaveError);
-        client.leftDueToWhitelist.delete(guild.id);
-      }
-    }
-  }
 });
 
 const dataPath = path.join(__dirname, './storedata.json');
@@ -576,60 +527,7 @@ const logChannelId = '1362347980782436372';
 client.on('guildCreate', async (guild) => {
   const icon = guild.iconURL({ dynamic: true, size: 1024 });
 
-  console.log(`Bot added to server: ${guild.name} (${guild.id}). Whitelisted: ${isWhitelisted(guild.id)}`);
-
-  if (!isWhitelisted(guild.id)) {
-    try {
-      const targetChannel = guild.systemChannel || guild.channels.cache.find(channel =>
-        channel.type === ChannelType.GuildText && channel.permissionsFor(guild.members.me).has(['SendMessages', 'ViewChannel']));
-      
-      if (targetChannel) {
-        const errorEmbed = new EmbedBuilder()
-          .setColor('#838996')
-          .setDescription('<:alert:1363009864112144394> <:arrows:1363099226375979058> **Server is not whitelisted**')
-          .addFields(
-            { name: '', value: '-# This bot is not whitelisted to join this server. Contact **oczs** for inquiries.' }
-          )
-          .setFooter({ text: `Log ID: ${Date.now()}` });
-
-        await targetChannel.send({ embeds: [errorEmbed] }).catch(err => console.error('Failed to send leave message:', err));
-      } else {
-        console.log(`No suitable channel found to send leave message in ${guild.name} (${guild.id})`);
-      }
-
-      try {
-        client.leftDueToWhitelist.add(guild.id); 
-        await guild.leave();
-        console.log(`Left non-whitelisted server: ${guild.name} (${guild.id})`);
-
-        const logEmbed = new EmbedBuilder()
-          .setColor(0xFF0000)
-          .setAuthor({ name: guild.name, iconURL: icon ?? null })
-          .setThumbnail(icon)
-          .setTitle('Left Non-Whitelisted Server')
-          .addFields(
-            { name: 'Server Name', value: `${guild.name}`, inline: true },
-            { name: 'Server ID', value: `${guild.id}`, inline: true },
-            { name: 'Member Count', value: `${guild.memberCount}`, inline: true },
-            { name: 'Force', value: 'Server is not whitelisted', inline: true }
-          )
-          .setTimestamp();
-
-        const logChannel = await client.channels.fetch(logChannelId).catch(() => null);
-        if (logChannel && logChannel.type === ChannelType.GuildText) {
-          logChannel.send({ embeds: [logEmbed] }).catch(console.error);
-        }
-      } catch (leaveError) {
-        console.error(`Failed to leave non-whitelisted server ${guild.name} (${guild.id}):`, leaveError);
-        client.leftDueToWhitelist.delete(guild.id); // Clean up if leave fails
-      }
-    } catch (error) {
-      console.error(`Error handling non-whitelisted server ${guild.name} (${guild.id}):`, error);
-    }
-    return;
-  }
-
-  // Log joining a whitelisted server
+  // Log joining a server
   const logEmbed = new EmbedBuilder()
     .setColor(0x57F287)
     .setAuthor({ name: guild.name, iconURL: icon ?? null })
@@ -657,17 +555,29 @@ client.on('guildCreate', async (guild) => {
       
       const welcomeEmbed = new EmbedBuilder()
         .setColor('#838996')
+        .setTitle('Thank you for using **burn**!')
         .setDescription([
-          `**burn** — multipurpose bot.`,
+          ` Thank you for adding **burn** to your server! We're excited to have you as part of our community.`,
           '',
-          `use \`${prefix}help\` to see available commands`,
-          `change prefix with \`${prefix}prefix set <char>\``,
+          `<:settings:1362876382375317565> **__Prefix Information:__**`,
+          `• **Default Prefix:** \`${DEFAULT_PREFIX}\``,
+          `• **Current Prefix:** \`${prefix}\``,
           '',
-          `-# by [@fwjet](https://discord.com/users/1448417272631918735)`
+          `<:miscellaneous:1363962180101341344> **__Getting Started:__**`,
+          `• Use \`${prefix}help\` to see all available commands`,
+          `• Change the prefix with \`${prefix}prefix set <char>\``,
+          `• Configure bot settings as needed for your server`,
+          '',
+          '<:excl:1362858572677120252> <:arrows:1363099226375979058> **__Note:__**',
+          '',
+          'This bot is fairly new and currently in **beta**. While we\'ve done our best to ensure stability, you may encounter some **mistakes** or **bugs** here and there. We appreciate your patience as we continue to improve!',
+          '',
+          `<:alert:1363009864112144394> <:arrows:1363099226375979058> If you encounter any **issues** or have **suggestions**, please let us know.`,
+          '',
+          `-# Developed by [@fwjet](https://discord.com/users/1448417272631918735)`
         ].join('\n'));
 
       await welcomeChannel.send({ embeds: [welcomeEmbed] });
-      console.log(`Sent welcome message to ${guild.name} (${guild.id})`);
     }
   } catch (err) {
     console.error(`Failed to send welcome message to ${guild.name}:`, err);
@@ -676,12 +586,6 @@ client.on('guildCreate', async (guild) => {
 
 client.on('guildDelete', async (guild) => {
   try {
-
-    if (client.leftDueToWhitelist.has(guild.id)) {
-      client.leftDueToWhitelist.delete(guild.id); 
-      return;
-    }
-
     const icon = guild.iconURL({ dynamic: true, size: 1024 });
 
     
@@ -858,7 +762,6 @@ client.on('messageCreate', async (message) => {
         forcedNicknames,
         saveData,
         getUser,
-        serverWhitelists,
         slurData: storeData.slurCounts
       });
       
