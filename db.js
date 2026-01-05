@@ -145,6 +145,132 @@ function initializeDatabase() {
 // Initialize on load
 initializeDatabase();
 
+// Migrate existing tables if needed (for Railway deployments with old schema)
+function migrateDatabase() {
+  try {
+    // Check if slur_counts table has old structure
+    const tableInfo = db.prepare("PRAGMA table_info(slur_counts)").all();
+    const hasCountColumn = tableInfo.some(col => col.name === 'count');
+    const hasCountsDataColumn = tableInfo.some(col => col.name === 'counts_data');
+    
+    if (hasCountColumn && !hasCountsDataColumn) {
+      console.log('Migrating slur_counts table to new structure...');
+      // Migrate old data to new structure
+      const oldRows = db.prepare('SELECT user_id, count FROM slur_counts').all();
+      
+      // Drop and recreate table with new structure
+      db.exec('DROP TABLE IF EXISTS slur_counts');
+      db.exec(`
+        CREATE TABLE slur_counts (
+          user_id TEXT PRIMARY KEY,
+          counts_data TEXT
+        )
+      `);
+      
+      // Migrate old data (convert single count to JSON format)
+      const insert = db.prepare('INSERT INTO slur_counts (user_id, counts_data) VALUES (?, ?)');
+      for (const row of oldRows) {
+        const countsData = JSON.stringify({ count: row.count || 0 });
+        insert.run(row.user_id, countsData);
+      }
+      console.log(`Migrated ${oldRows.length} slur count records`);
+    }
+  } catch (error) {
+    // Table might not exist yet, that's okay - it will be created with new structure
+  }
+  
+  // Ensure new tables exist
+  try {
+    db.prepare('SELECT 1 FROM user_timezones LIMIT 1').get();
+  } catch (error) {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS user_timezones (
+        user_id TEXT PRIMARY KEY,
+        timezone TEXT NOT NULL
+      )
+    `);
+  }
+  
+  try {
+    db.prepare('SELECT 1 FROM autoroles LIMIT 1').get();
+  } catch (error) {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS autoroles (
+        guild_id TEXT PRIMARY KEY,
+        role_id TEXT NOT NULL
+      )
+    `);
+  }
+}
+
+// Run migrations
+migrateDatabase();
+
+// Migrate existing tables if needed
+function migrateDatabase() {
+  // Check if slur_counts table has old structure
+  try {
+    const tableInfo = db.prepare("PRAGMA table_info(slur_counts)").all();
+    const hasCountColumn = tableInfo.some(col => col.name === 'count');
+    const hasCountsDataColumn = tableInfo.some(col => col.name === 'counts_data');
+    
+    if (hasCountColumn && !hasCountsDataColumn) {
+      console.log('Migrating slur_counts table to new structure...');
+      // Migrate old data to new structure
+      const oldRows = db.prepare('SELECT user_id, count FROM slur_counts').all();
+      
+      // Drop and recreate table with new structure
+      db.exec('DROP TABLE IF EXISTS slur_counts');
+      db.exec(`
+        CREATE TABLE slur_counts (
+          user_id TEXT PRIMARY KEY,
+          counts_data TEXT
+        )
+      `);
+      
+      // Migrate old data (convert single count to JSON format)
+      const insert = db.prepare('INSERT INTO slur_counts (user_id, counts_data) VALUES (?, ?)');
+      for (const row of oldRows) {
+        const countsData = JSON.stringify({ count: row.count || 0 });
+        insert.run(row.user_id, countsData);
+      }
+      console.log(`Migrated ${oldRows.length} slur count records`);
+    }
+  } catch (error) {
+    // Table might not exist yet, that's okay
+    console.log('No migration needed for slur_counts:', error.message);
+  }
+  
+  // Check if user_timezones table exists, create if not
+  try {
+    db.prepare('SELECT 1 FROM user_timezones LIMIT 1').get();
+  } catch (error) {
+    console.log('Creating user_timezones table...');
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS user_timezones (
+        user_id TEXT PRIMARY KEY,
+        timezone TEXT NOT NULL
+      )
+    `);
+  }
+  
+  // Check if autoroles table exists, create if not
+  try {
+    db.prepare('SELECT 1 FROM autoroles LIMIT 1').get();
+  } catch (error) {
+    console.log('Creating autoroles table...');
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS autoroles (
+        guild_id TEXT PRIMARY KEY,
+        role_id TEXT NOT NULL
+      )
+    `);
+  }
+}
+
+// Run migrations
+migrateDatabase();
+
 // Helper functions for common operations
 const dbHelpers = {
   // Blacklisted users
@@ -342,16 +468,42 @@ const dbHelpers = {
 
   // Slur counts (stored as JSON)
   getSlurCounts(userId) {
-    const row = db.prepare('SELECT counts_data FROM slur_counts WHERE user_id = ?').get(userId);
-    if (row && row.counts_data) {
-      return JSON.parse(row.counts_data);
+    try {
+      const row = db.prepare('SELECT counts_data FROM slur_counts WHERE user_id = ?').get(userId);
+      if (row && row.counts_data) {
+        return JSON.parse(row.counts_data);
+      }
+    } catch (error) {
+      // Fallback for old structure
+      if (error.message.includes('no such column')) {
+        try {
+          const row = db.prepare('SELECT count FROM slur_counts WHERE user_id = ?').get(userId);
+          if (row) {
+            return { count: row.count || 0 };
+          }
+        } catch (e) {
+          // Table might not exist
+        }
+      }
     }
     return {};
   },
 
   setSlurCounts(userId, counts) {
-    const countsData = JSON.stringify(counts);
-    db.prepare('INSERT OR REPLACE INTO slur_counts (user_id, counts_data) VALUES (?, ?)').run(userId, countsData);
+    try {
+      const countsData = JSON.stringify(counts);
+      db.prepare('INSERT OR REPLACE INTO slur_counts (user_id, counts_data) VALUES (?, ?)').run(userId, countsData);
+    } catch (error) {
+      // If column doesn't exist, migrate first
+      if (error.message.includes('no such column')) {
+        migrateDatabase();
+        // Retry after migration
+        const countsData = JSON.stringify(counts);
+        db.prepare('INSERT OR REPLACE INTO slur_counts (user_id, counts_data) VALUES (?, ?)').run(userId, countsData);
+      } else {
+        throw error;
+      }
+    }
   },
 
   incrementSlurCount(userId, type = 'default') {
@@ -363,16 +515,56 @@ const dbHelpers = {
   },
 
   getAllSlurCounts() {
-    const rows = db.prepare('SELECT user_id, counts_data FROM slur_counts').all();
-    const result = {};
-    rows.forEach(row => {
-      if (row.counts_data) {
-        result[row.user_id] = JSON.parse(row.counts_data);
-      } else {
-        result[row.user_id] = {};
+    try {
+      const rows = db.prepare('SELECT user_id, counts_data FROM slur_counts').all();
+      const result = {};
+      rows.forEach(row => {
+        if (row.counts_data) {
+          result[row.user_id] = JSON.parse(row.counts_data);
+        } else {
+          result[row.user_id] = {};
+        }
+      });
+      return result;
+    } catch (error) {
+      // Fallback for old structure - try to migrate
+      if (error.message.includes('no such column') || error.message.includes('counts_data')) {
+        try {
+          // Check table structure and migrate if needed
+          const tableInfo = db.prepare("PRAGMA table_info(slur_counts)").all();
+          const hasCountColumn = tableInfo.some(col => col.name === 'count');
+          const hasCountsDataColumn = tableInfo.some(col => col.name === 'counts_data');
+          
+          if (hasCountColumn && !hasCountsDataColumn) {
+            console.log('Auto-migrating slur_counts table...');
+            const oldRows = db.prepare('SELECT user_id, count FROM slur_counts').all();
+            db.exec('DROP TABLE IF EXISTS slur_counts');
+            db.exec(`CREATE TABLE slur_counts (user_id TEXT PRIMARY KEY, counts_data TEXT)`);
+            const insert = db.prepare('INSERT INTO slur_counts (user_id, counts_data) VALUES (?, ?)');
+            for (const row of oldRows) {
+              insert.run(row.user_id, JSON.stringify({ count: row.count || 0 }));
+            }
+            console.log(`Migrated ${oldRows.length} records`);
+            
+            // Retry after migration
+            const rows = db.prepare('SELECT user_id, counts_data FROM slur_counts').all();
+            const result = {};
+            rows.forEach(row => {
+              if (row.counts_data) {
+                result[row.user_id] = JSON.parse(row.counts_data);
+              } else {
+                result[row.user_id] = {};
+              }
+            });
+            return result;
+          }
+        } catch (e) {
+          console.error('Migration failed:', e.message);
+          return {};
+        }
       }
-    });
-    return result;
+      return {};
+    }
   },
 
   // Spam warnings

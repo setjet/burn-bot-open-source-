@@ -62,10 +62,19 @@ const BLACKLIST_DURATIONS = {
 
 // Legacy storeData object for backward compatibility (will be phased out)
 // Most data is now in database, but keeping this for any remaining references
-const storeData = {
-  slurCounts: dbHelpers.getAllSlurCounts(),
-  hardbannedUsers: dbHelpers.getAllHardbannedUsers()
+// Wrap in try-catch to handle migration edge cases
+let storeData = {
+  slurCounts: {},
+  hardbannedUsers: {}
 };
+
+try {
+  storeData.slurCounts = dbHelpers.getAllSlurCounts();
+  storeData.hardbannedUsers = dbHelpers.getAllHardbannedUsers();
+} catch (error) {
+  console.warn('Error loading initial storeData, will retry:', error.message);
+  // Will be populated on first use
+}
 
 // Check if user is blacklisted (admin role is immune)
 function isBlacklisted(userId, member) {
