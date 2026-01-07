@@ -59,8 +59,9 @@ async function handleRoleCreate(message, args, prefix) {
       embeds: [
         new EmbedBuilder()
           .setColor('#838996')
-          .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> You need **Manage Roles** permissions to create roles.')
-      ]
+          .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> You need **Manage Roles** permissions to create roles.')
+      ],
+      allowedMentions: { repliedUser: false }
     });
   }
 
@@ -69,8 +70,9 @@ async function handleRoleCreate(message, args, prefix) {
       embeds: [
         new EmbedBuilder()
           .setColor('#838996')
-          .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> I need **Manage Roles** permissions to create roles.')
-      ]
+          .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> I need **Manage Roles** permissions to create roles.')
+      ],
+      allowedMentions: { repliedUser: false }
     });
   }
 
@@ -79,8 +81,9 @@ async function handleRoleCreate(message, args, prefix) {
       embeds: [
         new EmbedBuilder()
           .setColor('#838996')
-          .setDescription(`<:excl:1362858572677120252> <:arrows:1363099226375979058> Please provide a role name.\n\`\`\`${prefix}role create <name>\`\`\``)
-      ]
+          .setDescription(`<:disallowed:1457808577786806375> <:arrows:1457808531678957784> Please provide a role name.\n\`\`\`${prefix}role create <name>\`\`\``)
+      ],
+      allowedMentions: { repliedUser: false }
     });
   }
 
@@ -99,8 +102,9 @@ async function handleRoleCreate(message, args, prefix) {
       embeds: [
         new EmbedBuilder()
           .setColor('#838996')
-          .setDescription(`<:add:1362880336567992330> <:arrows:1363099226375979058> **Created** role <@&${createdRole.id}>`)
-      ]
+          .setDescription(`<:add:1457809450495905845> <:arrows:1457808531678957784> **Created** role <@&${createdRole.id}>`)
+      ],
+      allowedMentions: { repliedUser: false }
     });
   } catch (error) {
     console.error('Error creating role:', error);
@@ -111,8 +115,9 @@ async function handleRoleCreate(message, args, prefix) {
         embeds: [
           new EmbedBuilder()
             .setColor('#838996')
-            .setDescription(`<:excl:1362858572677120252> <:arrows:1363099226375979058> **Rate Limited** - Please wait **${retryAfter}** seconds before trying again.`)
-        ]
+            .setDescription(`<:disallowed:1457808577786806375> <:arrows:1457808531678957784> **Rate Limited** - Please wait **${retryAfter}** seconds before trying again.`)
+        ],
+        allowedMentions: { repliedUser: false }
       });
     }
 
@@ -120,8 +125,9 @@ async function handleRoleCreate(message, args, prefix) {
       embeds: [
         new EmbedBuilder()
           .setColor('#838996')
-          .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> An error occurred while creating the role. Please try again.')
-      ]
+          .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> An error occurred while creating the role. Please try again.')
+      ],
+      allowedMentions: { repliedUser: false }
     });
   }
 }
@@ -132,8 +138,9 @@ async function handleRoleDelete(message, args, prefix) {
       embeds: [
         new EmbedBuilder()
           .setColor('#838996')
-          .setDescription(`<:excl:1362858572677120252> <:arrows:1363099226375979058> Please provide a role to delete.\n\`\`\`${prefix}role delete <role>\`\`\``)
-      ]
+          .setDescription(`<:disallowed:1457808577786806375> <:arrows:1457808531678957784> Please provide a role to delete.\n\`\`\`${prefix}role delete <role>\`\`\``)
+      ],
+      allowedMentions: { repliedUser: false }
     });
   }
 
@@ -154,8 +161,9 @@ async function handleRoleDelete(message, args, prefix) {
       embeds: [
         new EmbedBuilder()
           .setColor('#838996')
-          .setDescription(`<:excl:1362858572677120252> <:arrows:1363099226375979058> Role \`${roleInput}\` not found.`)
-      ]
+          .setDescription(`<:disallowed:1457808577786806375> <:arrows:1457808531678957784> Role \`${roleInput}\` not found.`)
+      ],
+      allowedMentions: { repliedUser: false }
     });
   }
 
@@ -164,8 +172,9 @@ async function handleRoleDelete(message, args, prefix) {
       embeds: [
         new EmbedBuilder()
           .setColor('#838996')
-          .setDescription(`<:excl:1362858572677120252> <:arrows:1363099226375979058> I can't **delete** <@&${role.id}> because it's **higher or equal to my highest role.**`)
-      ]
+          .setDescription(`<:disallowed:1457808577786806375> <:arrows:1457808531678957784> I can't **delete** <@&${role.id}> because it's **higher or equal to my highest role.**`)
+      ],
+      allowedMentions: { repliedUser: false }
     });
   }
 
@@ -174,8 +183,9 @@ async function handleRoleDelete(message, args, prefix) {
       embeds: [
         new EmbedBuilder()
           .setColor('#838996')
-          .setDescription(`<:excl:1362858572677120252> <:arrows:1363099226375979058> You **can't delete** <@&${role.id}> because it's **higher or equal to your highest role.**`)
-      ]
+          .setDescription(`<:disallowed:1457808577786806375> <:arrows:1457808531678957784> You **can't delete** <@&${role.id}> because it's **higher or equal to your highest role.**`)
+      ],
+      allowedMentions: { repliedUser: false }
     });
   }
 
@@ -184,8 +194,9 @@ async function handleRoleDelete(message, args, prefix) {
       embeds: [
         new EmbedBuilder()
           .setColor('#838996')
-          .setDescription(`<:excl:1362858572677120252> <:arrows:1363099226375979058> I can't delete **bot** or **integration** managed roles.`)
-      ]
+          .setDescription(`<:disallowed:1457808577786806375> <:arrows:1457808531678957784> I can't delete **bot** or **integration** managed roles.`)
+      ],
+      allowedMentions: { repliedUser: false }
     });
   }
 
@@ -198,8 +209,9 @@ async function handleRoleDelete(message, args, prefix) {
       embeds: [
         new EmbedBuilder()
           .setColor('#838996')
-          .setDescription(`<:minus:1362880360056361061> <:arrows:1363099226375979058> **Deleted** role \`${role.name}\``)
-      ]
+          .setDescription(`<:deleted:1457808575316492309> <:arrows:1457808531678957784> **Deleted** role \`${role.name}\``)
+      ],
+      allowedMentions: { repliedUser: false }
     });
   } catch (error) {
     console.error('Error deleting role:', error);
@@ -210,8 +222,9 @@ async function handleRoleDelete(message, args, prefix) {
         embeds: [
           new EmbedBuilder()
             .setColor('#838996')
-            .setDescription(`<:excl:1362858572677120252> <:arrows:1363099226375979058> **Rate Limited** - Please wait **${retryAfter}** seconds before trying again.`)
-        ]
+            .setDescription(`<:disallowed:1457808577786806375> <:arrows:1457808531678957784> **Rate Limited** - Please wait **${retryAfter}** seconds before trying again.`)
+        ],
+        allowedMentions: { repliedUser: false }
       });
     }
 
@@ -219,8 +232,9 @@ async function handleRoleDelete(message, args, prefix) {
       embeds: [
         new EmbedBuilder()
           .setColor('#838996')
-          .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> An error occurred while deleting the role. Please try again.')
-      ]
+          .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> An error occurred while deleting the role. Please try again.')
+      ],
+      allowedMentions: { repliedUser: false }
     });
   }
 }
@@ -229,26 +243,28 @@ module.exports = {
   name: 'role',
   aliases: ['r'],
   category: 'moderation', 
-  description: '<:arrows:1363099226375979058> give or remove a role from a user.',
+  description: '<:arrows:1457808531678957784> give or remove a role from a user.',
   async execute(message, args, { getUser, prefix }) {
     if (!message.member.permissions.has(PermissionFlagsBits.ManageRoles)) {
-      return message.reply({
-        embeds: [
-          new EmbedBuilder()
-            .setColor('#838996')
-            .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> You need **Manage Roles** permissions to use this command.')
-        ]
-      });
+    return message.reply({
+      embeds: [
+        new EmbedBuilder()
+          .setColor('#838996')
+          .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> You need **Manage Roles** permissions to use this command.')
+      ],
+      allowedMentions: { repliedUser: false }
+    });
     }
 
     if (!message.guild.members.me.permissions.has(PermissionFlagsBits.ManageRoles)) {
-      return message.reply({
-        embeds: [
-          new EmbedBuilder()
-            .setColor('#838996')
-            .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> I need **Manage Roles** permissions to manage roles.')
-        ]
-      });
+    return message.reply({
+      embeds: [
+        new EmbedBuilder()
+          .setColor('#838996')
+          .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> I need **Manage Roles** permissions to manage roles.')
+      ],
+      allowedMentions: { repliedUser: false }
+    });
     }
 
     // Handle subcommands
@@ -269,45 +285,33 @@ module.exports = {
           new EmbedBuilder()
             .setColor('#838996')
             .setDescription([
-              '<:settings:1362876382375317565> **Usage:**',
-              `\`\`\`${prefix}role <user> <role>\`\`\``,
-              `\`\`\`${prefix}role create <name>\`\`\``,
-              `\`\`\`${prefix}role delete <role>\`\`\``,
-              '-# <:arrows:1363099226375979058> Gives or removes a role from a user, or creates/deletes roles.',
-              '',
-              `**Examples:**`,
-              `\`${prefix}role @jet owner\``,
-              `\`${prefix}role create fire\``,
-              `\`${prefix}role delete @role\``,
+              '<:settings:1457808572720087266> **Usage:**',
+              `\`\`\`${prefix}role (subcommand) (args)\`\`\``,
+              '-# <:arrows:1457808531678957784> **__Subcommands__**',
+              '<:leese:1457834970486800567> `<user>` to give/remove a role',
+              '<:leese:1457834970486800567> `create` to create a role',
+              '<:tree:1457808523986731008> `delete` to delete a role',
               '\n**Aliases:** `r`'
             ].join('\n'))
-        ]
+        ],
+        allowedMentions: { repliedUser: false }
       });
     }
     
 
 
     const targetInput = args[0];
-    let target = await getUser(message, targetInput);
-    
+    const target = await getUser(message, targetInput);
 
     if (!target) {
-      // Try to find in cache first to avoid expensive fetch
-      const cachedMember = message.guild.members.cache.find(m => 
-        m.displayName.toLowerCase().includes(targetInput.toLowerCase()) ||
-        m.user.username.toLowerCase().includes(targetInput.toLowerCase())
-      );
-      target = cachedMember?.user;
-    }
-
-    if (!target) {
-      return message.reply({
-        embeds: [
-          new EmbedBuilder()
-            .setColor('#838996')
-            .setDescription(`<:excl:1362858572677120252> <:arrows:1363099226375979058> User \`${args[0]}\` not found.`)
-        ]
-      });
+    return message.reply({
+      embeds: [
+        new EmbedBuilder()
+          .setColor('#838996')
+          .setDescription(`<:disallowed:1457808577786806375> <:arrows:1457808531678957784> User \`${args[0]}\` not found.`)
+      ],
+      allowedMentions: { repliedUser: false }
+    });
     }
 
     // Use cache first, only fetch if not in cache
@@ -320,8 +324,9 @@ module.exports = {
         embeds: [
           new EmbedBuilder()
             .setColor('#838996')
-            .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> User not in server.')
-        ]
+            .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> User not in server.')
+        ],
+        allowedMentions: { repliedUser: false }
       });
     }
 
@@ -343,33 +348,36 @@ module.exports = {
     }
 
     if (!role) {
-      return message.reply({
-        embeds: [
-          new EmbedBuilder()
-            .setColor('#838996')
-            .setDescription(`<:excl:1362858572677120252> <:arrows:1363099226375979058> Role \`${roleInput}\` not found.`)
-        ]
-      });
+    return message.reply({
+      embeds: [
+        new EmbedBuilder()
+          .setColor('#838996')
+          .setDescription(`<:disallowed:1457808577786806375> <:arrows:1457808531678957784> Role \`${roleInput}\` not found.`)
+      ],
+      allowedMentions: { repliedUser: false }
+    });
     }
 
     if (role.position >= message.guild.members.me.roles.highest.position) {
-      return message.reply({
-        embeds: [
-          new EmbedBuilder()
-            .setColor('#838996')
-            .setDescription(`<:excl:1362858572677120252> <:arrows:1363099226375979058> I can't **manage** <@&${role.id}> because it's **higher or equal to my highest role.**`)
-        ]
-      });
+    return message.reply({
+      embeds: [
+        new EmbedBuilder()
+          .setColor('#838996')
+          .setDescription(`<:disallowed:1457808577786806375> <:arrows:1457808531678957784> I can't **manage** <@&${role.id}> because it's **higher or equal to my highest role.**`)
+      ],
+      allowedMentions: { repliedUser: false }
+    });
     }
 
     if (role.position >= message.member.roles.highest.position && message.guild.ownerId !== message.author.id) {
-      return message.reply({
-        embeds: [
-          new EmbedBuilder()
-            .setColor('#838996')  
-            .setDescription(`<:excl:1362858572677120252> <:arrows:1363099226375979058> You **can't manage** <@&${role.id}> because it's **higher or equal to your highest role.**`)
-        ]
-      });
+    return message.reply({
+      embeds: [
+        new EmbedBuilder()
+          .setColor('#838996')  
+          .setDescription(`<:disallowed:1457808577786806375> <:arrows:1457808531678957784> You **can't manage** <@&${role.id}> because it's **higher or equal to your highest role.**`)
+      ],
+      allowedMentions: { repliedUser: false }
+    });
     }
 
     const hasRole = member.roles.cache.has(role.id);
@@ -379,8 +387,9 @@ module.exports = {
       embeds: [
         new EmbedBuilder()
           .setColor('#838996')
-          .setDescription('<:arrows:1363099226375979058> Processing role operation...')
-      ]
+          .setDescription('<a:loading:1458064376165564577> Processing role operation...')
+      ],
+      allowedMentions: { repliedUser: false }
     }).catch(() => null);
 
     try {
@@ -397,8 +406,8 @@ module.exports = {
         .setColor('#838996')
         .setDescription(
           hasRole
-            ? `<:minus:1362880360056361061> <:arrows:1363099226375979058> **Removed** <@&${role.id}> **from** <@${target.id}>`
-            : `<:add:1362880336567992330> <:arrows:1363099226375979058> **Added** <@&${role.id}> **to** <@${target.id}>`
+            ? `<:minus:1457808539702657067> <:arrows:1457808531678957784> **Removed** <@&${role.id}> **from** <@${target.id}>`
+            : `<:add:1457809450495905845> <:arrows:1457808531678957784> **Added** <@&${role.id}> **to** <@${target.id}>`
         );
 
       if (processingMsg) {
@@ -406,7 +415,7 @@ module.exports = {
           message.channel.send({ embeds: [successEmbed] }).catch(() => {});
         });
       } else {
-        await message.reply({ embeds: [successEmbed] }).catch(() => {});
+        await message.reply({ embeds: [successEmbed], allowedMentions: { repliedUser: false } }).catch(() => {});
       }
     } catch (error) {
       console.error('Error in role command:', error);
@@ -416,28 +425,28 @@ module.exports = {
         const retryAfter = error.retryAfter || error.retry_after || 30;
         const errorEmbed = new EmbedBuilder()
           .setColor('#838996')
-          .setDescription(`<:excl:1362858572677120252> <:arrows:1363099226375979058> **Rate Limited** - Please wait **${retryAfter}** seconds before trying again.`);
+          .setDescription(`<:disallowed:1457808577786806375> <:arrows:1457808531678957784> **Rate Limited** - Please wait **${retryAfter}** seconds before trying again.`);
         
         if (processingMsg) {
           await processingMsg.edit({ embeds: [errorEmbed] }).catch(() => {
-            message.channel.send({ embeds: [errorEmbed] }).catch(() => {});
+            message.channel.send({ embeds: [errorEmbed], allowedMentions: { repliedUser: false } }).catch(() => {});
           });
         } else {
-          await message.reply({ embeds: [errorEmbed] }).catch(() => {});
+          await message.reply({ embeds: [errorEmbed], allowedMentions: { repliedUser: false } }).catch(() => {});
         }
         return;
       }
       
       const errorEmbed = new EmbedBuilder()
         .setColor('#838996')
-        .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> An error occurred while modifying roles. Please try again.');
+        .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> An error occurred while modifying roles. Please try again.');
       
       if (processingMsg) {
         await processingMsg.edit({ embeds: [errorEmbed] }).catch(() => {
-          message.channel.send({ embeds: [errorEmbed] }).catch(() => {});
+          message.channel.send({ embeds: [errorEmbed], allowedMentions: { repliedUser: false } }).catch(() => {});
         });
       } else {
-        await message.reply({ embeds: [errorEmbed] }).catch(() => {});
+        await message.reply({ embeds: [errorEmbed], allowedMentions: { repliedUser: false } }).catch(() => {});
       }
     }
   }

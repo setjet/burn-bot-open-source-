@@ -4,21 +4,21 @@ module.exports = {
   name: 'hide',
   aliases: [],
   category: 'moderation',
-  description: '<:arrows:1363099226375979058> Hide the current channel from @everyone.',
+  description: '<:arrows:1457808531678957784> Hide the current channel from @everyone.',
   async execute(message, args) {
 
     if (!message.member.permissions.has(PermissionFlagsBits.ManageChannels)) {
       const embed = new EmbedBuilder()
         .setColor('#838996')
-        .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> You need **Manage Channels** permission to use this command.');
-      return message.reply({ embeds: [embed] });
+        .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> You need **Manage Channels** permission to use this command.');
+      return message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } });
     }
 
     if (!message.guild.members.me.permissions.has(PermissionFlagsBits.ManageChannels)) {
       const embed = new EmbedBuilder()
         .setColor('#838996')
-        .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> I need **Manage Channels** permission to hide the channel.');
-      return message.reply({ embeds: [embed] });
+        .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> I need **Manage Channels** permission to hide the channel.');
+      return message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } });
     }
 
     const channel = message.channel;
@@ -28,8 +28,8 @@ module.exports = {
     if (currentPermissions?.deny.has(PermissionFlagsBits.ViewChannel)) {
       const embed = new EmbedBuilder()
         .setColor('#838996')
-        .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> This channel is already **hidden** from @everyone');
-      return message.reply({ embeds: [embed] });
+        .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> This channel is already **hidden** from @everyone');
+      return message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } });
     }
 
     try {
@@ -39,15 +39,15 @@ module.exports = {
 
       const embed = new EmbedBuilder()
         .setColor('#838996')
-        .setDescription(`<:hidden:1363803914117316658> <:arrows:1363099226375979058> **Successfully hid** <#${channel.id}>`);
+        .setDescription(`<:hidden:1457808583323422936> <:arrows:1457808531678957784> **Successfully hid** <#${channel.id}>`);
 
-      await message.reply({ embeds: [embed] });
+      await message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } });
     } catch (err) {
       console.error('Error hiding channel:', err);
       const embed = new EmbedBuilder()
         .setColor('#838996')
-        .setDescription('<:cr0ss:1362851089761833110> <:arrows:1363099226375979058> Failed to **hide** the channel.');
-      await message.reply({ embeds: [embed] });
+        .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> Failed to **hide** the channel.');
+      await message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } });
     }
   }
 };

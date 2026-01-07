@@ -5,7 +5,7 @@ module.exports = {
   name: 'coinflip',
   aliases: ['cf', 'flip'],
   category: 'utilities',
-  description: '<:arrows:1363099226375979058> Flip a coin and bet on heads or tails.',
+  description: '<:arrows:1457808531678957784> Flip a coin and bet on heads or tails.',
   async execute(message, args, { prefix }) {
     if (args.length < 2) {
       return message.reply({
@@ -13,16 +13,17 @@ module.exports = {
           new EmbedBuilder()
             .setColor('#838996')
             .setDescription([
-              '<:settings:1362876382375317565> **Usage:**',
+              '<:settings:1457808572720087266> **Usage:**',
               `\`\`\`${prefix}coinflip <heads/tails> <amount>\`\`\``,
-              '-# <:arrows:1363099226375979058> Bet on heads or tails.',
+              '-# <:arrows:1457808531678957784> Bet on **heads** or **tails**',
               '',
               `**Examples:**`,
-              `\`${prefix}coinflip heads 100\``,
-              `\`${prefix}coinflip tails 500\``,
+              `\`${prefix}coinflip heads 100`,
+              `${prefix}coinflip tails 500\``,
               '\n**Aliases:** `cf`, `flip`'
             ].join('\n'))
-        ]
+        ],
+        allowedMentions: { repliedUser: false }
       });
     }
     
@@ -32,8 +33,9 @@ module.exports = {
         embeds: [
           new EmbedBuilder()
             .setColor('#838996')
-            .setDescription(`<:excl:1362858572677120252> <:arrows:1363099226375979058> Please choose either **heads** or **tails**.`)
-        ]
+            .setDescription(`<:disallowed:1457808577786806375> <:arrows:1457808531678957784> Please choose either **heads** or **tails**.`)
+        ],
+        allowedMentions: { repliedUser: false }
       });
     }
     
@@ -43,8 +45,9 @@ module.exports = {
         embeds: [
           new EmbedBuilder()
             .setColor('#838996')
-            .setDescription(`<:excl:1362858572677120252> <:arrows:1363099226375979058> Please provide a valid bet amount greater than 0.`)
-        ]
+            .setDescription(`<:disallowed:1457808577786806375> <:arrows:1457808531678957784> Please provide a **valid bet amount** greater than **0**.`)
+        ],
+        allowedMentions: { repliedUser: false }
       });
     }
     
@@ -55,15 +58,29 @@ module.exports = {
           new EmbedBuilder()
             .setColor('#838996')
             .setDescription([
-              `<:excl:1362858572677120252> <:arrows:1363099226375979058> You don't have enough coins!`,
-              `-# Your balance: **${balance.toLocaleString()}** coins`
+              `<:disallowed:1457808577786806375> <:arrows:1457808531678957784> You don't have enough money!`,
+              `-# <:tree:1457808523986731008> Your balance: **$${balance.toLocaleString()}**`
             ].join('\n'))
-        ]
+        ],
+        allowedMentions: { repliedUser: false }
       });
     }
     
     // Normalize choice
     const normalizedChoice = (choice === 'h' || choice === 'heads') ? 'heads' : 'tails';
+    
+    // Send loading message
+    const loadingEmbed = new EmbedBuilder()
+      .setColor('#838996')
+      .setDescription('<a:loading:1458064376165564577> **Flipping coin...**');
+    
+    const loadingMessage = await message.reply({ 
+      embeds: [loadingEmbed],
+      allowedMentions: { repliedUser: false }
+    });
+    
+    // Wait a bit for suspense
+    await new Promise(resolve => setTimeout(resolve, 1500));
     
     // Flip coin
     const result = Math.random() < 0.5 ? 'heads' : 'tails';
@@ -72,33 +89,27 @@ module.exports = {
     if (won) {
       const newBalance = dbHelpers.addBalance(message.author.id, bet);
       const embed = new EmbedBuilder()
-        .setColor('#57F287')
-        .setAuthor({ name: message.author.tag, iconURL: message.author.displayAvatarURL({ dynamic: true }) })
+        .setColor('#838996')
         .setDescription([
-          `🪙 **Coin Flip Result**`,
+          `<:c0in:1458065333289095313> **__Coin Flipped__**`,
           '',
-          `Coin landed on **${result}**!`,
+          `> Coin landed on **${result}**, You won **$${bet.toLocaleString()}**`,
           '',
-          `<:check:1362850043333316659> You won **${bet.toLocaleString()}** coins!`,
-          '',
-          `Your new balance: **${newBalance.toLocaleString()}** coins`
+          `-# <:arrows:1457808531678957784> Your new balance: **\`$${newBalance.toLocaleString()}\`**`
         ].join('\n'));
-      return message.reply({ embeds: [embed] });
+      return loadingMessage.edit({ embeds: [embed] });
     } else {
       const newBalance = dbHelpers.addBalance(message.author.id, -bet);
       const embed = new EmbedBuilder()
-        .setColor('#FF0000')
-        .setAuthor({ name: message.author.tag, iconURL: message.author.displayAvatarURL({ dynamic: true }) })
+        .setColor('#838996')
         .setDescription([
-          `🪙 **Coin Flip Result**`,
+         `<:c0in:1458065333289095313> **__Coin Flipped__**`,
           '',
-          `Coin landed on **${result}**!`,
+          `> Coin landed on **${result}**, You Lost **$${bet.toLocaleString()}**`,
           '',
-          `<:excl:1362858572677120252> You lost **${bet.toLocaleString()}** coins.`,
-          '',
-          `Your new balance: **${newBalance.toLocaleString()}** coins`
+          `-# <:arrows:1457808531678957784> Your new balance: **\`$${newBalance.toLocaleString()}\`**`
         ].join('\n'));
-      return message.reply({ embeds: [embed] });
+      return loadingMessage.edit({ embeds: [embed] });
     }
   }
 };

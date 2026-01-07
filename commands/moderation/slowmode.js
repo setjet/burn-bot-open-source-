@@ -4,29 +4,29 @@ module.exports = {
   name: 'slowmode',
   aliases: ['sm'],
   category: 'Moderation', 
-  description: '<:arrows:1363099226375979058> Set a slowmode for a channel.',
+  description: '<:arrows:1457808531678957784> Set a slowmode for a channel.',
   async execute(message, args, { prefix }) {
     
     if (!message.guild) {
       const embed = new EmbedBuilder()
         .setColor('#838996')
-        .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> This command can only be used in servers.');
-      return message.reply({ embeds: [embed] }).catch(() => {});
+        .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> This command can only be used in servers.');
+      return message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } }).catch(() => {});
     }
 
 
     if (!message.member.permissions.has(PermissionFlagsBits.ManageChannels)) {
       const embed = new EmbedBuilder()
         .setColor('#838996')
-        .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> You need **Manage Channels** permission to use this command.');
-      return message.reply({ embeds: [embed] }).catch(() => {});
+        .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> You need **Manage Channels** permission to use this command.');
+      return message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } }).catch(() => {});
     }
 
     if (!message.guild.members.me.permissions.has(PermissionFlagsBits.ManageChannels)) {
       const embed = new EmbedBuilder()
         .setColor('#838996')
-        .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> I need **Manage Channels** permission to set slowmode.');
-      return message.reply({ embeds: [embed] }).catch(() => {});
+        .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> I need **Manage Channels** permission to set slowmode.');
+      return message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } }).catch(() => {});
     }
 
 
@@ -36,14 +36,15 @@ module.exports = {
           new EmbedBuilder()
             .setColor('#838996')
             .setDescription([
-              '<:settings:1362876382375317565> **Usage:**',
+              '<:settings:1457808572720087266> **Usage:**',
               `\`\`\`${prefix}slowmode <duration>\`\`\``,
-              '-# <:arrows:1363099226375979058> Set slowmode for the current channel.',
+              '-# <:arrows:1457808531678957784> Set slowmode for the current channel.',
               '',
               `**Example:** \`${prefix}slowmode 10m\``,
               '\n**Aliases:** `sm`'
             ].join('\n'))
-        ]
+        ],
+        allowedMentions: { repliedUser: false }
       });
     }
 
@@ -56,8 +57,8 @@ module.exports = {
     if (isNaN(timeValue)) {
       const embed = new EmbedBuilder()
         .setColor('#838996')
-        .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> Invalid duration format. Use examples like `30s`, `5m`, or `1h`.');
-      return message.reply({ embeds: [embed] });
+        .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> Invalid duration format. Use examples like `30s`, `5m`, or `1h`.');
+      return message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } });
     }
 
     if (timeString.endsWith('h')) {
@@ -69,16 +70,16 @@ module.exports = {
     } else {
       const embed = new EmbedBuilder()
         .setColor('#838996')
-        .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> Invalid time unit. Use `s` **(seconds)**, `m` **(minutes)**, or `h` **(hours)**.');
-      return message.reply({ embeds: [embed] });
+        .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> Invalid time unit. Use `s` **(seconds)**, `m` **(minutes)**, or `h` **(hours)**.');
+      return message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } });
     }
 
 
     if (seconds < 0 || seconds > 21600) {
       const embed = new EmbedBuilder()
         .setColor('#838996')
-        .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> Duration must be between `0` and `21600` seconds **(6 hours)**.');
-      return message.reply({ embeds: [embed] });
+        .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> Duration must be between `0` and `21600` seconds **(6 hours)**.');
+      return message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } });
     }
 
     try {
@@ -101,17 +102,17 @@ module.exports = {
       const embed = new EmbedBuilder()
         .setColor('#838996')
         .setDescription(seconds === 0 
-          ? '<:clocc:1363116575757963324> <:arrows:1363099226375979058>  **Slowmode disabled**' 
-          : `<:clocc:1363116575757963324> <:arrows:1363099226375979058> **Slowmode set to** \`${durationDisplay}\``
+          ? '<:clocc:1363116575757963324> <:arrows:1457808531678957784>  **Slowmode disabled**' 
+          : `<:clocc:1363116575757963324> <:arrows:1457808531678957784> **Slowmode set to** \`${durationDisplay}\``
         );
 
-      await message.reply({ embeds: [embed] });
+      await message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } });
     } catch (error) {
       console.error('Slowmode error:', error);
       const embed = new EmbedBuilder()
         .setColor('#838996')
-        .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> Failed to set slowmode. Please try again.');
-      await message.reply({ embeds: [embed] });
+        .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> Failed to set slowmode. Please try again.');
+      await message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } });
     }
   }
 };

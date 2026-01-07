@@ -4,7 +4,7 @@ module.exports = {
   name: 'lock',
   aliases: ['lockdown'],
   category: 'moderation', 
-  description: '<:arrows:1363099226375979058> Lock a channel',
+  description: '<:arrows:1457808531678957784> Lock a channel',
   async execute(message) {
     try {
 

@@ -4,13 +4,13 @@ module.exports = {
   name: 'nuke',
   aliases: ['n'],
   category: 'moderation', 
-  description: '<:arrows:1363099226375979058> Delete & create a new channel',
+  description: '<:arrows:1457808531678957784> Delete & create a new channel',
   async execute(message) {
     if (!message.member.permissions.has(PermissionFlagsBits.Administrator)) {
       const embed = new EmbedBuilder()
         .setColor('#838996')
-        .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> You need **Aministrator** permissions to use this command.');
-      return message.reply({ embeds: [embed] });
+        .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> You need **Aministrator** permissions to use this command.');
+      return message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } });
     }
 
     const channelName = message.channel.name;
@@ -23,7 +23,7 @@ module.exports = {
 
     const embed = new EmbedBuilder()
       .setColor('#838996')
-      .setDescription(`<:alert:1363009864112144394> <:arrows:1363099226375979058> **Are you sure you want to nuke <#${message.channel.id}>?**`)
+      .setDescription(`<:alert:1457808529200119880> <:arrows:1457808531678957784> **Are you sure you want to nuke <#${message.channel.id}>?**`)
       .addFields(
         { name: '', value: '-# This action cannot be undone.' }
       ); 
@@ -43,7 +43,8 @@ module.exports = {
     try {
       const confirmationMessage = await message.reply({
         embeds: [embed],
-        components: [row]
+        components: [row],
+        allowedMentions: { repliedUser: false }
       });
 
       const filter = i => i.user.id === message.author.id && ['nuke_yes', 'nuke_no'].includes(i.customId);
@@ -57,12 +58,12 @@ module.exports = {
             await interaction.update({
               embeds: [new EmbedBuilder()
                 .setColor('#838996')
-                .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> Action **cancelled**.')
+                .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> Action **cancelled**.')
               ],
               components: []
             }).catch(() => {
              
-              message.channel.send('<:excl:1362858572677120252> <:arrows:1363099226375979058> Action **cancelled**.').catch(() => {});
+              message.channel.send('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> Action **cancelled**.').catch(() => {});
             });
             return;
           }
@@ -81,7 +82,7 @@ module.exports = {
           } catch (error) {
             console.error('Error during nuke:', error);
             
-            message.channel.send('<:excl:1362858572677120252> <:arrows:1363099226375979058> Failed to nuke channel.').catch(() => {});
+            message.channel.send('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> Failed to nuke channel.').catch(() => {});
           }
         } catch (interactionError) {
           console.error('Interaction error:', interactionError);
@@ -94,12 +95,12 @@ module.exports = {
             await confirmationMessage.edit({
               embeds: [new EmbedBuilder()
                 .setColor('#838996')
-                .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> Took too long, nuke cancelled.')
+                .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> Took too long, nuke cancelled.')
               ],
               components: []
             }).catch(() => {
               
-              message.channel.send('<:excl:1362858572677120252> <:arrows:1363099226375979058> Took too long, nuke cancelled.').catch(() => {});
+              message.channel.send('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> Took too long, nuke cancelled.').catch(() => {});
             });
           }
         } catch (endError) {
@@ -108,7 +109,7 @@ module.exports = {
       });
     } catch (initialError) {
       console.error('Initial nuke command error:', initialError);
-      message.reply('<:excl:1362858572677120252> <:arrows:1363099226375979058> Failed to nuke the channel.').catch(() => {});
+      message.reply({ content: '<:disallowed:1457808577786806375> <:arrows:1457808531678957784> Failed to nuke the channel.', allowedMentions: { repliedUser: false } }).catch(() => {});
     }
   }
 };

@@ -6,46 +6,40 @@ module.exports = {
   execute: async (message, args, { prefix }) => {
     if (!canConfigureAntinuke(message)) {
       return message.reply({
+        allowedMentions: { repliedUser: false },
         embeds: [
           new EmbedBuilder()
             .setColor('#838996')
-            .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> Only the **server owner** or **antinuke admins** can configure this.')
+            .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> Only the **server owner** or **antinuke admins** can configure this.')
         ]
       });
     }
     if (args.length < 2) {
       return message.reply({
+        allowedMentions: { repliedUser: false },
         embeds: [
           new EmbedBuilder()
             .setColor('#838996')
             .setDescription([
-              '<:excl:1362858572677120252> <:arrows:1363099226375979058> **Invalid usage.**',
-              '',
-              '**Usage:**',
+              '<:settings:1457808572720087266> **Usage:**',
               `\`\`\`${prefix}antinuke whitelist (user|bot)\`\`\``,
+              '-# <:arrows:1457808531678957784> Exempts a user/bot from all **antinuke protection**.',
               '',
-              '-# Exempts a user or bot from all antinuke protection.'
+              `**Example:** \`${prefix}antinuke whitelist @jet\``,
+              '\n**Aliases:** `N/A`'
             ].join('\n'))
         ]
       });
     }
-    let user = getUserFromMention(message, args[1]);
-    
-    // If not found in cache, try fetching by ID
-    if (!user && /^\d{17,19}$/.test(args[1])) {
-      try {
-        user = await message.client.users.fetch(args[1]).catch(() => null);
-      } catch (error) {
-        // Ignore fetch errors
-      }
-    }
+    const user = await getUserFromMention(message, args[1]);
     
     if (!user) {
       return message.reply({
+        allowedMentions: { repliedUser: false },
         embeds: [
           new EmbedBuilder()
             .setColor('#838996')
-            .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> **User or bot not found.**')
+            .setDescription(`<:disallowed:1457808577786806375> <:arrows:1457808531678957784> **User/bot not found.**\n-# <:tree:1457808523986731008> Try using a mention (\`@user\`), user/bot ID, or make sure they're in this server.`)
         ]
       });
     }
@@ -53,27 +47,29 @@ module.exports = {
     if (!config.whitelist) config.whitelist = [];
     if (config.whitelist.includes(user.id)) {
       return message.reply({
+        allowedMentions: { repliedUser: false },
         embeds: [
           new EmbedBuilder()
             .setColor('#838996')
-            .setDescription(`<:excl:1362858572677120252> <:arrows:1363099226375979058> <@${user.id}> is already **whitelisted**.`)
+            .setDescription(`<:disallowed:1457808577786806375> <:arrows:1457808531678957784> <@${user.id}> is already **whitelisted**.`)
         ]
       });
     }
 
     // Show confirmation dialog
     const warningEmbed = new EmbedBuilder()
-      .setColor('#FF4D4D')
-      .setTitle('<:excl:1362858572677120252> Whitelist User/Bot?')
+      .setColor('#838996')
+      .setTitle('<:alert:1457808529200119880> <:arrows:1457808531678957784> Whitelist User/Bot?')
       .setDescription([
         'This will **exempt** the user/bot from **all antinuke protection**, meaning:',
-        '• They can perform actions without triggering **antinuke modules**',
-        '• They will **not** be punished for **mass bans**, **kicks**, **role changes**, etc.',
-        '• They can bypass **all** configured **protection thresholds**',
         '',
-        '**Only whitelist trusted users/bots!**',
+        '<:leese:1457834970486800567> They can perform actions without triggering **antinuke modules**',
+        '<:leese:1457834970486800567> They will **not** be punished for **mass bans**, **kicks**, **role changes**, etc.',
+        '<:tree:1457808523986731008> They can bypass **all** configured **protection thresholds**',
         '',
-        '-# Click **Yes** to confirm or **No** to cancel.'
+        '<:arrows:1457808531678957784> **Only whitelist trusted users/bots!**',
+        '',
+        '-# This is a **dangerous action**, use with **caution.**'
       ].join('\n'))
 
     const yesButton = new ButtonBuilder()
@@ -90,7 +86,8 @@ module.exports = {
 
     const confirmationMessage = await message.reply({
       embeds: [warningEmbed],
-      components: [buttonRow]
+      components: [buttonRow],
+      allowedMentions: { repliedUser: false }
     });
 
     // Create collector for button interactions
@@ -106,7 +103,7 @@ module.exports = {
           embeds: [
             new EmbedBuilder()
               .setColor('#838996')
-              .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> **Action cancelled.**')
+              .setDescription('<:cr0ss:1457809446620369098> <:arrows:1457808531678957784> **Action cancelled.**')
           ],
           components: []
         });
@@ -121,10 +118,10 @@ module.exports = {
         
         if (currentConfig.whitelist.includes(user.id)) {
           await interaction.update({
-            embeds: [
+            embeds: [ 
               new EmbedBuilder()
                 .setColor('#838996')
-                .setDescription(`<:excl:1362858572677120252> <:arrows:1363099226375979058> <@${user.id}> is already **whitelisted**.`)
+                .setDescription(`<:cr0ss:1457809446620369098> <:arrows:1457808531678957784> <@${user.id}> is already **whitelisted**.`)
             ],
             components: []
           });
@@ -141,7 +138,7 @@ module.exports = {
             new EmbedBuilder()
               .setColor('#838996')
               .setDescription([
-                `<:check:1362850043333316659> <:arrows:1363099226375979058> <@${user.id}> has been **added to the antinuke whitelist**.`
+                `<:check:1457808518848581858> <:arrows:1457808531678957784> <@${user.id}> has been **added to the antinuke whitelist**.`
               ].join('\n'))
           ],
           components: []
@@ -157,7 +154,7 @@ module.exports = {
             embeds: [
               new EmbedBuilder()
                 .setColor('#838996')
-                .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> **Confirmation timed out.**')
+                .setDescription('<:cr0ss:1457809446620369098> <:arrows:1457808531678957784> **Confirmation timed out.**')
             ],
             components: []
           });

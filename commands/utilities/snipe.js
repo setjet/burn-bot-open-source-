@@ -3,7 +3,7 @@ const { EmbedBuilder } = require('discord.js');
 module.exports = {
   name: 'snipe',
   aliases: ['s'], category: ['miscellaneous'],
-  description: ['<:arrows:1363099226375979058> Snipe the last deleted message.'],
+  description: ['<:arrows:1457808531678957784> Snipe the last deleted message.'],
   async execute(message, args, context) {
     const snipedMessages = context.client.deletedMessages.get(message.channel.id);
 
@@ -12,8 +12,9 @@ module.exports = {
         embeds: [
           new EmbedBuilder()
             .setColor('#838996')
-            .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> There is nothing to **snipe**.')
-        ]
+            .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> There is nothing to **snipe**.')
+        ],
+        allowedMentions: { repliedUser: false }
       });
     }
 
@@ -59,6 +60,6 @@ module.exports = {
 
     embed.setFooter({ text: `Deleted ${timeAgo(sniped.timestamp)} • Message ${index + 1} of ${snipedMessages.length}` });
 
-    return message.reply({ embeds: [embed] });
+    return message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } });
   }
 };

@@ -3,93 +3,55 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-function countLinesInDirectory(dir) {
-  let totalLines = 0;
-  const files = fs.readdirSync(dir);
-
-  for (const file of files) {
-    const fullPath = path.join(dir, file);
-    const stat = fs.statSync(fullPath);
-
-    if (stat.isDirectory()) {
-      totalLines += countLinesInDirectory(fullPath);
-    } else if (file.endsWith('.js')) {
-      const fileContent = fs.readFileSync(fullPath, 'utf8');
-      totalLines += fileContent.split('\n').length;
-    }
-  }
-
-  return totalLines;
-}
-
-function safeCountLines() {
-  const projectRoot = path.join(__dirname, '../');
-  const allowedFolders = ['commands'];
-  const allowedFiles = ['index.js'];
-  let totalLines = 0;
-
-  for (const item of allowedFolders) {
-    const fullPath = path.join(projectRoot, item);
-    if (fs.existsSync(fullPath) && fs.statSync(fullPath).isDirectory()) {
-      totalLines += countLinesInDirectory(fullPath);
-    }
-  }
-
-  for (const file of allowedFiles) {
-    const fullPath = path.join(projectRoot, file);
-    if (fs.existsSync(fullPath) && fs.statSync(fullPath).isFile()) {
-      const fileContent = fs.readFileSync(fullPath, 'utf8');
-      totalLines += fileContent.split('\n').length;
-    }
-  }
-
-  return totalLines;
-}
-
-function formatUptime(ms) {
-  const seconds = Math.floor(ms / 1000) % 60;
-  const minutes = Math.floor(ms / (1000 * 60)) % 60;
-  const hours = Math.floor(ms / (1000 * 60 * 60)) % 24;
-  const days = Math.floor(ms / (1000 * 60 * 60 * 24));
-
-  return `${days}d ${hours}h ${minutes}m ${seconds}s`;
-}
 
 module.exports = {
   name: 'botinformation',
   aliases: ['bi'],
   category: ['miscellaneous'],
-  description: ['<:arrows:1363099226375979058> View information about this bot.'],
+  description: ['<:arrows:1457808531678957784> View information about this bot.'],
   async execute(message) {
     try {
       const client = message.client;
       const totalGuilds = client.guilds.cache.size;
       const totalUsers = client.guilds.cache.reduce((acc, guild) => acc + guild.memberCount, 0);
-      const linesOfCode = safeCountLines();
-      const uptime = formatUptime(client.uptime);
+      
+      // Get version from package.json
+      const packageJson = require('../../package.json');
+      const botVersion = packageJson.version || '1.0.0';
+      
+      // Calculate uptime timestamp for Discord's relative time
+      const uptimeTimestamp = Math.floor((Date.now() - client.uptime) / 1000);
 
       const embed = new EmbedBuilder()
         .setColor('#838996')
-        .setTitle('Bot Information')
-        .addFields(
-          { name: 'Servers', value: `${totalGuilds}`, inline: true },
-          { name: 'Users Managing', value: `${totalUsers}`, inline: true },
-          { name: 'Uptime', value: uptime, inline: true },
-          { name: '', value: '-# by [@fwjet](https://discord.com/users/1448417272631918735)', inline: true }
-        )
-        .setFooter({ text: '\nburn v1.0.0', iconURL: client.user.displayAvatarURL() });
+        .setTitle('<:info:1457809654120714301> <:arrows:1457808531678957784> burn Information')
+        .setThumbnail(client.user.displayAvatarURL({ size: 128, extension: 'png' }))
+        .setDescription([
+          `-# <:leese:1457834970486800567> **Uptime:** <t:${uptimeTimestamp}:R>`,
+          `-# <:leese:1457834970486800567> **Members:** ${totalUsers.toLocaleString()}`,
+          `-# <:leese:1457834970486800567> **Guilds:** ${totalGuilds.toLocaleString()}`,
+          `-# <:tree:1457808523986731008> **Version:** ${botVersion}`,
+        ].join('\n'))
+        .addFields({
+          name: '',
+          value: `-# <:arrows:1457808531678957784> [@fwjet](https://discord.com/users/1448417272631918735) (Bot Developer)`
+        });
 
-      await message.reply({ embeds: [embed] });
+      await message.reply({ 
+        embeds: [embed],
+        allowedMentions: { repliedUser: false }
+      });
     } catch (error) {
       console.error('Botinformation command error:', error);
       await message.reply({
         embeds: [
           new EmbedBuilder()
-            .setColor('#FF4D4D')
+            .setColor('#838996')
             .setDescription([
-              '<:excl:1362858572677120252> <:arrows:1363099226375979058> **Error fetching bot information.**',
+              '<:excl:1457809455268888679> <:arrows:1457808531678957784> **Error fetching bot information.**',
             ].join('\n'))
-        ]
+        ],
+        allowedMentions: { repliedUser: false }
       }).catch(() => {});
     }
   }

@@ -22,7 +22,7 @@ module.exports = {
   name: 'work',
   aliases: ['job'],
   category: 'utilities',
-  description: '<:arrows:1363099226375979058> Work to earn coins (1 hour cooldown).',
+  description: '<:arrows:1457808531678957784> Work to earn money (1 hour cooldown).',
   async execute(message, args, { prefix }) {
     const userId = message.author.id;
     const now = Date.now();
@@ -40,10 +40,11 @@ module.exports = {
           new EmbedBuilder()
             .setColor('#838996')
             .setDescription([
-              `<:excl:1362858572677120252> <:arrows:1363099226375979058> You're still tired from working!`,
-              `-# Come back in **${minutes}m ${seconds}s**`
+              `<:disallowed:1457808577786806375> <:arrows:1457808531678957784> You're still tired from working!`,
+              `-# <:tree:1457808523986731008> Come back in <t:${Math.floor((now + (WORK_COOLDOWN - timeSinceWork)) / 1000)}:R>`
             ].join('\n'))
-        ]
+        ],
+        allowedMentions: { repliedUser: false }
       });
     }
     
@@ -56,17 +57,17 @@ module.exports = {
     
     const embed = new EmbedBuilder()
       .setColor('#838996')
-      .setAuthor({ name: message.author.tag, iconURL: message.author.displayAvatarURL({ dynamic: true }) })
       .setDescription([
-        `💼 **Work Complete**`,
+        `<:work:1458109309975007437> **__Work Complete__**`,
         '',
-        `You ${job} and earned **${reward.toLocaleString()}** coins!`,
-        '',
-        `Your new balance: **${newBalance.toLocaleString()}** coins`
+        `> You **${job}** and earned **+$${reward.toLocaleString()}**!`,
+        `-# <:tree:1457808523986731008> Your new balance: **\`$${newBalance.toLocaleString()}\`**`
       ].join('\n'))
-      .setFooter({ text: 'Come back in 1 hour to work again!' });
     
-    return message.reply({ embeds: [embed] });
+    return message.reply({ 
+      embeds: [embed],
+      allowedMentions: { repliedUser: false }
+    });
   }
 };
 

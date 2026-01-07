@@ -8,7 +8,7 @@ module.exports = {
   name: 'togif',
   aliases: ['gif'],
   category: ['utilities'],
-  description: '<:arrows:1363099226375979058> Convert an image to GIF format.',
+  description: '<:arrows:1457808531678957784> Convert an image to GIF format.',
   async execute(message) {
     
     if (!message.reference?.messageId) {
@@ -16,8 +16,9 @@ module.exports = {
         embeds: [
           new EmbedBuilder()
             .setColor('#838996')
-            .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> Reply to an **image message** to convert it to **GIF**.')
-        ]
+            .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> Reply to an **image message** to convert it to **GIF**.')
+        ],
+        allowedMentions: { repliedUser: false }
       });
     }
 
@@ -35,8 +36,9 @@ module.exports = {
           embeds: [
             new EmbedBuilder()
               .setColor('#838996')
-              .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> The **replied message** doesn\'t contain an **image**.')
-          ]
+              .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> The **replied message** doesn\'t contain an **image**.')
+          ],
+          allowedMentions: { repliedUser: false }
         });
       }
 
@@ -51,8 +53,9 @@ module.exports = {
           embeds: [
             new EmbedBuilder()
               .setColor('#838996')
-              .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> This image is already a **GIF**.')
-          ]
+              .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> This image is already a **GIF**.')
+          ],
+          allowedMentions: { repliedUser: false }
         });
       }
 
@@ -75,7 +78,8 @@ module.exports = {
         files: [{
           attachment: tempOutput,
           name: 'burntogif.gif'
-        }]
+        }],
+        allowedMentions: { repliedUser: false }
       });
 
  
@@ -86,8 +90,9 @@ module.exports = {
         embeds: [
           new EmbedBuilder()
             .setColor('#838996')
-            .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> Failed to convert **image** to **GIF**. Make sure you\'re replying to a **valid image**.')
-        ]
+            .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> Failed to convert **image** to **GIF**. Make sure you\'re replying to a **valid image**.')
+        ],
+        allowedMentions: { repliedUser: false }
       });
     }
   }

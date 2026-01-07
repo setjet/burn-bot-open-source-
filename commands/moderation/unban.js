@@ -4,28 +4,28 @@ module.exports = {
   name: 'unban',
   aliases: ['ub'],
   category: 'moderation', 
-  description: '<:arrows:1363099226375979058>  Unban a user from the server.',
+  description: '<:arrows:1457808531678957784>  Unban a user from the server.',
   async execute(message, args, { prefix }) {
 
     if (!message.guild) {
       const embed = new EmbedBuilder()
         .setColor('#838996')
-        .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> This **command** can only be used in a **server**.');
-      return message.reply({ embeds: [embed] }).catch(() => {});
+        .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> This **command** can only be used in a **server**.');
+      return message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } }).catch(() => {});
     }
 
     if (!message.member.permissions.has(PermissionFlagsBits.BanMembers)) {
       const embed = new EmbedBuilder()
         .setColor('#838996')
-        .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> You need **Ban Members** permissions to use this command.');
-      return message.reply({ embeds: [embed] }).catch(() => {});
+        .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> You need **Ban Members** permissions to use this command.');
+      return message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } }).catch(() => {});
     }
 
     if (!message.guild.members.me.permissions.has(PermissionFlagsBits.BanMembers)) {
       const embed = new EmbedBuilder()
         .setColor('#838996')
-        .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> I need **Ban Members** permissions to unban users.');
-      return message.reply({ embeds: [embed] }).catch(() => {});
+        .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> I need **Ban Members** permissions to unban users.');
+      return message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } }).catch(() => {});
     }
 
     if (args.length < 1) {
@@ -34,14 +34,15 @@ module.exports = {
           new EmbedBuilder()
             .setColor('#838996')
             .setDescription([
-              '<:settings:1362876382375317565> **Usage:**',
+              '<:settings:1457808572720087266> **Usage:**',
               `\`\`\`${prefix}unban <user> (reason)\`\`\``,
-              '-# <:arrows:1363099226375979058> Unbans the mentioned user.',
+              '-# <:arrows:1457808531678957784> Unbans the mentioned user.',
               '',
               `**Example:** \`${prefix}unban @jet goat\``,
               '\n**Aliases:** `ub`'
             ].join('\n'))
-        ]
+        ],
+        allowedMentions: { repliedUser: false }
       });
     }
 
@@ -61,24 +62,24 @@ module.exports = {
         if (!bannedUser) {
           const embed = new EmbedBuilder()
             .setColor('#838996')
-            .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> No **banned** user found with that name. Try using **their ID**.');
-          return message.reply({ embeds: [embed] }).catch(() => {});
+            .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> No **banned** user found with that name. Try using **their ID**.');
+          return message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } }).catch(() => {});
         }
         userId = bannedUser.user.id;
       } catch (error) {
         console.error('Error fetching bans:', error);
         const embed = new EmbedBuilder()
           .setColor('#838996')
-          .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> Error fetching **banned** users. Try using the **user ID** instead.');
-        return message.reply({ embeds: [embed] }).catch(() => {});
+          .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> Error fetching **banned** users. Try using the **user ID** instead.');
+        return message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } }).catch(() => {});
       }
     }
 
     if (!userId || userId.length < 17) {
       const embed = new EmbedBuilder()
         .setColor('#838996')
-        .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> Please provide a **valid** user ID **(17-18 digits)**.');
-      return message.reply({ embeds: [embed] }).catch(() => {});
+        .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> Please provide a **valid** user ID **(17-18 digits)**.');
+      return message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } }).catch(() => {});
     }
 
     try {
@@ -88,8 +89,8 @@ module.exports = {
       if (!banInfo) {
         const embed = new EmbedBuilder()
           .setColor('#838996')
-          .setDescription(`<:excl:1362858572677120252> <:arrows:1363099226375979058> <@${userId}> is not currently **banned**.`);
-        return message.reply({ embeds: [embed] }).catch(() => {});
+          .setDescription(`<:disallowed:1457808577786806375> <:arrows:1457808531678957784> <@${userId}> is not currently **banned**.`);
+        return message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } }).catch(() => {});
       }
 
       const { dbHelpers } = require('../../db');
@@ -101,13 +102,13 @@ module.exports = {
         if (!message.member.permissions.has(PermissionFlagsBits.Administrator)) {
           const embed = new EmbedBuilder()
             .setColor('#838996')
-            .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> You need **Administrator** permissions to unban **hardbanned** users.');
-          return message.reply({ embeds: [embed] }).catch(() => {});
+            .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> You need **Administrator** permissions to unban **hardbanned** users.');
+          return message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } }).catch(() => {});
         }
 
         const confirmEmbed = new EmbedBuilder()
           .setColor('#838996')
-          .setDescription(`<:alert:1363009864112144394> <:arrows:1363099226375979058> You're attempting to **unban** <@${userId}> who was **hardbanned**.`)
+          .setDescription(`<:alert:1457808529200119880> <:arrows:1457808531678957784> You're attempting to **unban** <@${userId}> who was **hardbanned**.`)
           .addFields(
             { name: '', value: '-# This action requires confirmation.' }
           ); 
@@ -126,7 +127,8 @@ module.exports = {
 
         const confirmation = await message.reply({
           embeds: [confirmEmbed],
-          components: [confirmRow]
+          components: [confirmRow],
+          allowedMentions: { repliedUser: false }
         }).catch(() => {});
 
         if (!confirmation) return;
@@ -149,7 +151,7 @@ module.exports = {
                 embeds: [
                   new EmbedBuilder()
                     .setColor('#838996')
-                    .setDescription(`<:check:1362850043333316659> <:arrows:1363099226375979058> **Successfully unbanned** <@${userId}>`)
+                    .setDescription(`<:check:1457808518848581858> <:arrows:1457808531678957784> **Successfully unbanned** <@${userId}>`)
                 ],
                 components: []
               }).catch(() => {});
@@ -158,7 +160,7 @@ module.exports = {
                 embeds: [
                   new EmbedBuilder()
                     .setColor('#838996')
-                    .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> **Unban** cancelled')
+                    .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> **Unban** cancelled')
                 ],
                 components: []
               }).catch(() => {});
@@ -169,7 +171,7 @@ module.exports = {
               embeds: [
                 new EmbedBuilder()
                   .setColor('#838996')
-                  .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> An error occurred during **unban**')
+                  .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> An error occurred during **unban**')
               ],
               ephemeral: true
             }).catch(() => {});
@@ -182,7 +184,7 @@ module.exports = {
               embeds: [
                 new EmbedBuilder()
                   .setColor('#838996')
-                  .setDescription('<:alert:1363009864112144394> <:arrows:1363099226375979058> Confirmation **timed out**')
+                  .setDescription('<:alert:1457808529200119880> <:arrows:1457808531678957784> Confirmation **timed out**')
               ],
               components: []
             }).catch(() => {});
@@ -196,23 +198,23 @@ module.exports = {
 
       const embed = new EmbedBuilder()
         .setColor('#838996')
-        .setDescription(`<:check:1362850043333316659> <:arrows:1363099226375979058> **Successfully unbanned** <@${userId}>`);
+        .setDescription(`<:check:1457808518848581858> <:arrows:1457808531678957784> **Successfully unbanned** <@${userId}>`);
 
-      await message.reply({ embeds: [embed] }).catch(() => {});
+      await message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } }).catch(() => {});
 
     } catch (error) {
       console.error('Unban error:', error);
-      let errorMessage = `<:excl:1362858572677120252> <:arrows:1363099226375979058> Failed to unban user <@${userId}>.`;
+      let errorMessage = `<:disallowed:1457808577786806375> <:arrows:1457808531678957784> Failed to unban user <@${userId}>.`;
 
       if (error.code === 50013) {
-        errorMessage = '<:excl:1362858572677120252> <:arrows:1363099226375979058> I cannot **unban** this user because they have **higher permissions than me**.';
+        errorMessage = '<:disallowed:1457808577786806375> <:arrows:1457808531678957784> I cannot **unban** this user because they have **higher permissions than me**.';
       }
 
       const embed = new EmbedBuilder()
         .setColor('#838996')
         .setDescription(errorMessage);
 
-      await message.reply({ embeds: [embed] }).catch(() => {});
+      await message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } }).catch(() => {});
     }
   }
 };

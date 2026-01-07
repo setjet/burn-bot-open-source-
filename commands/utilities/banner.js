@@ -3,7 +3,7 @@ const { EmbedBuilder } = require('discord.js');
 module.exports = {
   name: 'banner',
   aliases: ['bn', 'sb'],
-  description: '<:arrows:1363099226375979058> View a user banner',
+  description: '<:arrows:1457808531678957784> View a user banner',
   category: 'utilities',
   async execute(message, args, { getUser }) {
     const commandUsed = message.content.slice(1).split(/\s+/)[0].toLowerCase();
@@ -14,21 +14,16 @@ module.exports = {
       target = message.author;
     } else {
       const input = args.join(' ');
-      const mention = message.mentions.users.first();
-      const byIdOrUsername = await getUser(message, input);
-      const byDisplayName = message.guild.members.cache.find(m =>
-        m.displayName.toLowerCase() === input.toLowerCase()
-      );
-
-      target = mention || byIdOrUsername || (byDisplayName ? byDisplayName.user : null);
+      target = await getUser(message, input);
 
       if (!target) {
         return message.reply({
           embeds: [
             new EmbedBuilder()
               .setColor('#838996')
-              .setDescription(`<:excl:1362858572677120252> <:arrows:1363099226375979058> User \`${input}\` not found.`)
-          ]
+              .setDescription(`<:disallowed:1457808577786806375> <:arrows:1457808531678957784> User \`${input}\` not found.`)
+          ],
+          allowedMentions: { repliedUser: false }
         });
       }
     }
@@ -40,8 +35,9 @@ module.exports = {
           embeds: [
             new EmbedBuilder()
               .setColor('#838996')
-              .setDescription("<:excl:1362858572677120252> <:arrows:1363099226375979058> User is not in this server.")
-          ]
+              .setDescription("<:disallowed:1457808577786806375> <:arrows:1457808531678957784> User is not in this server.")
+          ],
+          allowedMentions: { repliedUser: false }
         });
       }
 
@@ -52,8 +48,9 @@ module.exports = {
           embeds: [
             new EmbedBuilder()
               .setColor('#838996')
-              .setDescription(`<:excl:1362858572677120252> <:arrows:1363099226375979058> ${target.id === message.author.id ? "You don't" : "This user doesn't"} have a **server banner**.`)
-          ]
+              .setDescription(`<:disallowed:1457808577786806375> <:arrows:1457808531678957784> ${target.id === message.author.id ? "You don't" : "This user doesn't"} have a **server banner**.`)
+          ],
+          allowedMentions: { repliedUser: false }
         });
       }
 
@@ -67,7 +64,7 @@ module.exports = {
           iconURL: message.author.displayAvatarURL()
         });
 
-      return message.reply({ embeds: [embed] });
+      return message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } });
     }
 
     try {
@@ -79,8 +76,9 @@ module.exports = {
           embeds: [
             new EmbedBuilder()
               .setColor('#838996')
-              .setDescription(`<:excl:1362858572677120252> <:arrows:1363099226375979058> ${target.id === message.author.id ? "You don't" : "This user doesn't"} have a **profile banner**.`)
-          ]
+              .setDescription(`<:disallowed:1457808577786806375> <:arrows:1457808531678957784> ${target.id === message.author.id ? "You don't" : "This user doesn't"} have a **profile banner**.`)
+          ],
+          allowedMentions: { repliedUser: false }
         });
       }
 
@@ -94,15 +92,24 @@ module.exports = {
           iconURL: message.author.displayAvatarURL()
         });
 
-      return message.reply({ embeds: [embed] });
+      return message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } });
     } catch (error) {
       console.error('Error fetching banner:', error);
+      let errorMessage = "<:disallowed:1457808577786806375> <:arrows:1457808531678957784> Couldn't fetch the profile banner.";
+      
+      if (error.code === 10013) {
+        errorMessage = "<:disallowed:1457808577786806375> <:arrows:1457808531678957784> User not found.";
+      } else if (error.code === 50035 || error.message?.includes('rate limit')) {
+        errorMessage = "<:disallowed:1457808577786806375> <:arrows:1457808531678957784> Rate limited. Please try again in a few seconds.";
+      }
+      
       return message.reply({
         embeds: [
           new EmbedBuilder()
             .setColor('#838996')
-            .setDescription("<:excl:1362858572677120252> <:arrows:1363099226375979058> Couldn't fetch the profile banner.")
-        ]
+            .setDescription(errorMessage)
+        ],
+        allowedMentions: { repliedUser: false }
       });
     }
   }

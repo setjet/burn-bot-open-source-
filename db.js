@@ -46,15 +46,6 @@ function initializeDatabase() {
       work_cooldown INTEGER
     );
 
-    -- Economy shop items
-    CREATE TABLE IF NOT EXISTS economy_shop_items (
-      guild_id TEXT,
-      item_name TEXT,
-      price INTEGER,
-      role_id TEXT,
-      description TEXT,
-      PRIMARY KEY (guild_id, item_name)
-    );
 
     -- Server prefixes
     CREATE TABLE IF NOT EXISTS server_prefixes (
@@ -82,6 +73,8 @@ function initializeDatabase() {
       guild_id TEXT,
       trigger TEXT,
       response TEXT,
+      strict INTEGER DEFAULT 0,
+      reply INTEGER DEFAULT 0,
       PRIMARY KEY (guild_id, trigger)
     );
 
@@ -175,10 +168,23 @@ function migrateDatabase() {
         )
       `);
       
-      // Migrate old data (convert single count to JSON format)
+      // Migrate old data (preserve existing counts structure if possible)
       const insert = db.prepare('INSERT INTO slur_counts (user_id, counts_data) VALUES (?, ?)');
       for (const row of oldRows) {
-        const countsData = JSON.stringify({ count: row.count || 0 });
+        // Try to preserve existing structure, or use default
+        let countsData;
+        try {
+          // If counts_data already exists as JSON in old format, preserve it
+          if (row.counts_data) {
+            countsData = row.counts_data;
+          } else {
+            // Otherwise, convert old single count to new format
+            countsData = JSON.stringify({ count: row.count || 0 });
+          }
+        } catch (e) {
+          // Fallback to default structure
+          countsData = JSON.stringify({ count: row.count || 0 });
+        }
         insert.run(row.user_id, countsData);
       }
       console.log(`Migrated ${oldRows.length} slur count records`);
@@ -209,6 +215,27 @@ function migrateDatabase() {
       )
     `);
   }
+  
+  // Migrate auto_responses table to add strict and reply columns
+  try {
+    const autoRespTableInfo = db.prepare("PRAGMA table_info(auto_responses)").all();
+    const hasStrictColumn = autoRespTableInfo.some(col => col.name === 'strict');
+    const hasReplyColumn = autoRespTableInfo.some(col => col.name === 'reply');
+    
+    if (!hasStrictColumn || !hasReplyColumn) {
+      console.log('Migrating auto_responses table to add strict and reply columns...');
+      if (!hasStrictColumn) {
+        db.exec('ALTER TABLE auto_responses ADD COLUMN strict INTEGER DEFAULT 0');
+      }
+      if (!hasReplyColumn) {
+        db.exec('ALTER TABLE auto_responses ADD COLUMN reply INTEGER DEFAULT 0');
+      }
+      console.log('Migration complete: added strict and reply columns to auto_responses');
+    }
+  } catch (error) {
+    // Table might not exist yet, that's okay - it will be created with new structure
+  }
+  
 }
 
 // Run migrations
@@ -269,6 +296,7 @@ const dbHelpers = {
     this.setBalance(userId, current + amount);
     return current + amount;
   },
+
 
   getDailyCooldown(userId) {
     const row = db.prepare('SELECT daily_cooldown FROM economy_cooldowns WHERE user_id = ?').get(userId);
@@ -346,17 +374,49 @@ const dbHelpers = {
 
   // Auto responses
   getAutoResponses(guildId) {
-    const rows = db.prepare('SELECT trigger, response FROM auto_responses WHERE guild_id = ?').all();
-    const result = new Map();
-    rows.forEach(row => {
-      result.set(row.trigger, row.response);
-    });
-    return result;
+    try {
+      // Try to get with new columns first
+      const rows = db.prepare('SELECT trigger, response, strict, reply FROM auto_responses WHERE guild_id = ?').all(guildId);
+      const result = new Map();
+      rows.forEach(row => {
+        result.set(row.trigger, {
+          response: row.response,
+          strict: row.strict === 1 || false,
+          reply: row.reply === 1 || false
+        });
+      });
+      return result;
+    } catch (error) {
+      // If columns don't exist yet, fallback to old query
+      if (error.code === 'SQLITE_ERROR' && error.message.includes('no such column')) {
+        try {
+          const rows = db.prepare('SELECT trigger, response FROM auto_responses WHERE guild_id = ?').all(guildId);
+          const result = new Map();
+          rows.forEach(row => {
+            result.set(row.trigger, {
+              response: row.response,
+              strict: false,
+              reply: false
+            });
+          });
+          return result;
+        } catch (fallbackError) {
+          return new Map();
+        }
+      }
+      return new Map();
+    }
   },
 
-  setAutoResponse(guildId, trigger, response) {
+  setAutoResponse(guildId, trigger, response, strict = false, reply = false) {
     if (response) {
-      db.prepare('INSERT OR REPLACE INTO auto_responses (guild_id, trigger, response) VALUES (?, ?, ?)').run(guildId, trigger, response);
+      db.prepare('INSERT OR REPLACE INTO auto_responses (guild_id, trigger, response, strict, reply) VALUES (?, ?, ?, ?, ?)').run(
+        guildId, 
+        trigger, 
+        response, 
+        strict ? 1 : 0, 
+        reply ? 1 : 0
+      );
     } else {
       db.prepare('DELETE FROM auto_responses WHERE guild_id = ? AND trigger = ?').run(guildId, trigger);
     }
@@ -387,7 +447,7 @@ const dbHelpers = {
 
   // Hardbanned users
   getHardbannedUsers(guildId) {
-    const rows = db.prepare('SELECT user_id FROM hardbanned_users WHERE guild_id = ?').all();
+    const rows = db.prepare('SELECT user_id FROM hardbanned_users WHERE guild_id = ?').all(guildId);
     return rows.map(row => row.user_id);
   },
 
@@ -414,7 +474,9 @@ const dbHelpers = {
     try {
       const row = db.prepare('SELECT counts_data FROM slur_counts WHERE user_id = ?').get(userId);
       if (row && row.counts_data) {
-        return JSON.parse(row.counts_data);
+        const parsed = JSON.parse(row.counts_data);
+        // Ensure it's an object (not null or undefined)
+        return parsed && typeof parsed === 'object' ? parsed : {};
       }
     } catch (error) {
       // Fallback for old structure
@@ -429,6 +491,7 @@ const dbHelpers = {
         }
       }
     }
+    // Return empty object if user doesn't exist (allows setting new counts)
     return {};
   },
 
@@ -485,7 +548,16 @@ const dbHelpers = {
             db.exec(`CREATE TABLE slur_counts (user_id TEXT PRIMARY KEY, counts_data TEXT)`);
             const insert = db.prepare('INSERT INTO slur_counts (user_id, counts_data) VALUES (?, ?)');
             for (const row of oldRows) {
-              insert.run(row.user_id, JSON.stringify({ count: row.count || 0 }));
+              // Preserve existing counts structure if it exists, otherwise use default
+              let countsData;
+              try {
+                // Check if we can get the old counts_data from a backup or existing structure
+                // For now, preserve the count value in a way that maintains compatibility
+                countsData = JSON.stringify({ count: row.count || 0 });
+              } catch (e) {
+                countsData = JSON.stringify({ count: row.count || 0 });
+              }
+              insert.run(row.user_id, countsData);
             }
             console.log(`Migrated ${oldRows.length} records`);
             
@@ -601,29 +673,6 @@ const dbHelpers = {
     db.prepare('INSERT OR REPLACE INTO antinuke_configs (guild_id, config_data) VALUES (?, ?)').run(guildId, configData);
   },
 
-  // Economy shop items
-  getShopItems(guildId) {
-    const rows = db.prepare('SELECT item_name, price, role_id, description FROM economy_shop_items WHERE guild_id = ?').all();
-    return rows.map(row => ({
-      name: row.item_name,
-      price: row.price,
-      roleId: row.role_id,
-      description: row.description
-    }));
-  },
-
-  setShopItems(guildId, items) {
-    // Delete existing items for this guild
-    db.prepare('DELETE FROM economy_shop_items WHERE guild_id = ?').run(guildId);
-    // Insert new items
-    const insert = db.prepare('INSERT INTO economy_shop_items (guild_id, item_name, price, role_id, description) VALUES (?, ?, ?, ?, ?)');
-    const insertMany = db.transaction((items) => {
-      for (const item of items) {
-        insert.run(guildId, item.name, item.price, item.roleId || null, item.description || null);
-      }
-    });
-    insertMany(items);
-  },
 
   // Command aliases
   getAlias(guildId, aliasName) {

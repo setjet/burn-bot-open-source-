@@ -59,7 +59,7 @@ module.exports = {
     name: 'timezone',
     aliases: ['tz'],
     category: ['miscellaneous'],
-    description: ['<:arrows:1363099226375979058> Set a timezone for yourself.'],
+    description: ['<:arrows:1457808531678957784> Set a timezone for yourself.'],
     async execute(message, args, { prefix }) {
         if (args[0] === 'set') {
             const timezoneInput = args.slice(1).join(' ').toLowerCase();
@@ -67,8 +67,8 @@ module.exports = {
             if (!timezoneInput) {
                 const embed = new EmbedBuilder()
                     .setColor('#838996')
-                    .setDescription(`<:excl:1362858572677120252> <:arrows:1363099226375979058> Specify a **timezone** (e.g. \`${prefix}tz set california\`)`);
-                return message.reply({ embeds: [embed] });
+                    .setDescription(`<:disallowed:1457808577786806375> <:arrows:1457808531678957784> Specify a **timezone** (e.g. \`${prefix}tz set california\`)`);
+                return message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } });
             }
 
             const validTimezones = moment.tz.names();
@@ -84,16 +84,16 @@ module.exports = {
             if (!foundTimezone) {
                 const embed = new EmbedBuilder()
                     .setColor('#838996')
-                    .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> Invalid **timezone** or **state**. Use format like: `America/New_York` or `Texas`');
-                return message.reply({ embeds: [embed] });
+                    .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> Invalid **timezone** or **state**. Use format like: `America/New_York` or `Texas`');
+                return message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } });
             }
 
             dbHelpers.setUserTimezone(message.author.id, foundTimezone);
 
             const embed = new EmbedBuilder()
                 .setColor('#838996')
-                .setDescription(`<:timezone:1363628573159592106> <:arrows:1363099226375979058> Your **timezone** has been set to **${foundTimezone}**`);
-            return message.reply({ embeds: [embed] });
+                .setDescription(`<:timezone:1363628573159592106> <:arrows:1457808531678957784> Your **timezone** has been set to **${foundTimezone}**`);
+            return message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } });
         }
 
         const userTimezone = dbHelpers.getUserTimezone(message.author.id);
@@ -101,15 +101,15 @@ module.exports = {
         if (!userTimezone) {
             const embed = new EmbedBuilder()
                 .setColor('#838996')
-                .setDescription(`<:excl:1362858572677120252> <:arrows:1363099226375979058> You haven't set your **timezone** yet. Use \`${prefix}tz set <city/state>\``);
-            return message.reply({ embeds: [embed] });
+                .setDescription(`<:disallowed:1457808577786806375> <:arrows:1457808531678957784> You haven't set your **timezone** yet. Use \`${prefix}tz set <city/state>\``);
+            return message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } });
         }
 
         const currentTime = moment().tz(userTimezone).format('MMMM D, hh:mm A');
 
         const embed = new EmbedBuilder()
             .setColor('#838996')
-            .setDescription(`<:timezone:1363628573159592106> <:arrows:1363099226375979058> Your current time is **${currentTime}**`);
-        await message.reply({ embeds: [embed] });
+            .setDescription(`<:timezone:1363628573159592106> <:arrows:1457808531678957784> Your current time is **${currentTime}**`);
+        await message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } });
     }
 };

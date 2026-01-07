@@ -7,11 +7,11 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 module.exports = {
     name: 'image',
     aliases: ['img'],
-    description: '<:arrows:1363099226375979058> View images from the net',
+    description: '<:arrows:1457808531678957784> View images from the net',
     category: 'utilities',
     async execute(message, args, { prefix }) {
         if (!args.length) {
-            return message.reply(`Please provide a search query. Example: \`${prefix}image puppies\``);
+            return message.reply({ content: `Please provide a search query. Example: \`${prefix}image puppies\``, allowedMentions: { repliedUser: false } });
         }
 
         const query = args.join(' ');
@@ -62,7 +62,7 @@ module.exports = {
             }
 
             if (images.length === 0) {
-                return message.reply(`No images found for "${query}". Try a different search term.`);
+                return message.reply({ content: `No images found for "${query}". Try a different search term.`, allowedMentions: { repliedUser: false } });
             }
 
             let currentIndex = 0;
@@ -94,7 +94,8 @@ module.exports = {
 
             const sentMessage = await message.reply({
                 embeds: [createEmbed()],
-                components: [createButtons()]
+                components: [createButtons()],
+                allowedMentions: { repliedUser: false }
             });
 
             const collector = sentMessage.createMessageComponentCollector({
@@ -109,7 +110,7 @@ module.exports = {
                         embeds: [
                             new EmbedBuilder()
                                 .setColor('#838996')
-                                .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> You **cannot interact** with this embed.')
+                                .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> You **cannot interact** with this embed.')
                         ]
                     });
                     return;
@@ -142,7 +143,8 @@ module.exports = {
             console.error('Image search error:', error);
             message.reply({
                 content: 'Failed to fetch images',
-                ephemeral: true
+                ephemeral: true,
+                allowedMentions: { repliedUser: false }
             });
         }
     }

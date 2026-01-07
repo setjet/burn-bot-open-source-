@@ -4,7 +4,7 @@ const { description, category } = require('./clearsnipe');
 module.exports = {
   name: 'avatar',
   aliases: ['av', 'sav'],
-  description: '<:arrows:1363099226375979058> View a user avatar',
+  description: '<:arrows:1457808531678957784> View a user avatar',
   category: 'utilities',
   async execute(message, args, { getUser }) {
     try {
@@ -16,21 +16,16 @@ module.exports = {
         target = message.author;
       } else {
         const input = args.join(' ');
-        const mention = message.mentions.users.first();
-        const byIdOrUsername = await getUser(message, input);
-        const byDisplayName = message.guild.members.cache.find(m =>
-          m.displayName.toLowerCase() === input.toLowerCase()
-        );
-
-        target = mention || byIdOrUsername || (byDisplayName ? byDisplayName.user : null);
+        target = await getUser(message, input);
 
         if (!target) {
           return message.reply({
             embeds: [
               new EmbedBuilder()
                 .setColor('#838996')
-                .setDescription(`<:excl:1362858572677120252> <:arrows:1363099226375979058> User \`${input}\` not found.`)
-            ]
+                .setDescription(`<:disallowed:1457808577786806375> <:arrows:1457808531678957784> User \`${input}\` not found.`)
+            ],
+            allowedMentions: { repliedUser: false }
           });
         }
       }
@@ -40,13 +35,14 @@ module.exports = {
       
       if (isServerAvatar) {
         if (!member) {
-          return message.reply({
-            embeds: [
-              new EmbedBuilder()
-                .setColor('#838996')
-                .setDescription("<:excl:1362858572677120252> <:arrows:1363099226375979058> User is not in this server.")
-            ]
-          });
+        return message.reply({
+          embeds: [
+            new EmbedBuilder()
+              .setColor('#838996')
+              .setDescription("<:disallowed:1457808577786806375> <:arrows:1457808531678957784> User is not in this server.")
+          ],
+          allowedMentions: { repliedUser: false }
+        });
         }
 
 
@@ -57,13 +53,14 @@ module.exports = {
         });
 
         if (!serverAvatar) {
-          return message.reply({
-            embeds: [
-              new EmbedBuilder()
-                .setColor('#838996')
-                .setDescription("<:excl:1362858572677120252> <:arrows:1363099226375979058> This user doesn't have a server-specific avatar.")
-            ]
-          });
+        return message.reply({
+          embeds: [
+            new EmbedBuilder()
+              .setColor('#838996')
+              .setDescription("<:disallowed:1457808577786806375> <:arrows:1457808531678957784> This user doesn't have a server-specific avatar.")
+          ],
+          allowedMentions: { repliedUser: false }
+        });
         }
 
         const embed = new EmbedBuilder()
@@ -76,7 +73,7 @@ module.exports = {
             iconURL: message.author.displayAvatarURL({ dynamic: true })
           });
 
-        return message.reply({ embeds: [embed] });
+        return message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } });
       }
 
 
@@ -96,15 +93,16 @@ module.exports = {
           iconURL: message.author.displayAvatarURL({ dynamic: true })
         });
 
-      await message.reply({ embeds: [embed] });
+      await message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } });
     } catch (error) {
       console.error('Avatar command error:', error);
       await message.reply({
         embeds: [
           new EmbedBuilder()
             .setColor('#FF4D4D')
-            .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> **Error fetching avatar.**')
-        ]
+            .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> **Error fetching avatar.**')
+        ],
+        allowedMentions: { repliedUser: false }
       }).catch(() => {});
     }
   }

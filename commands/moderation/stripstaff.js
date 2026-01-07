@@ -4,7 +4,7 @@ module.exports = {
   name: 'stripstaff',
   aliases: ['ss'],
   category: 'moderation', 
-  description: '<:arrows:1363099226375979058> Remove all staff roles from a user.',
+  description: '<:arrows:1457808531678957784> Remove all staff roles from a user.',
   async execute(message, args, { getUser, prefix }) {
     
     const errorEmbed = (description) => {
@@ -16,7 +16,8 @@ module.exports = {
     
     if (!message.member.permissions.has(PermissionFlagsBits.Administrator)) {
       return message.reply({ 
-        embeds: [errorEmbed('<:excl:1362858572677120252> <:arrows:1363099226375979058> You need **Administrator** permissions to use this command.')] 
+        embeds: [errorEmbed('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> You need **Administrator** permissions to use this command.')],
+        allowedMentions: { repliedUser: false }
       });
     }
 
@@ -27,14 +28,15 @@ module.exports = {
           new EmbedBuilder()
             .setColor('#838996')
             .setDescription([
-              '<:settings:1362876382375317565> **Usage:**',
+              '<:settings:1457808572720087266> **Usage:**',
               `\`\`\`${prefix}stripstaff <user>\`\`\``,
-              '-# <:arrows:1363099226375979058> Remove staff roles from a user.',
+              '-# <:arrows:1457808531678957784> Remove roles with dangerous permissions from a user.',
               '',
               `**Example:** \`${prefix}stripstaff @jet\``,
               '\n**Aliases:** `ss`'
             ].join('\n'))
-        ]
+        ],
+        allowedMentions: { repliedUser: false }
       });
     }
 
@@ -44,13 +46,15 @@ module.exports = {
       target = await getUser(message, args[0]);
       if (!target) {
         return message.reply({ 
-          embeds: [errorEmbed(`User \`${args[0]}\` not found.`)] 
+          embeds: [errorEmbed(`User \`${args[0]}\` not found.`)],
+          allowedMentions: { repliedUser: false }
         });
       }
     } catch (err) {
       console.error('Error finding user:', err);
       return message.reply({ 
-        embeds: [errorEmbed('<:excl:1362858572677120252> <:arrows:1363099226375979058> An error occurred while finding the user.')] 
+        embeds: [errorEmbed('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> An error occurred while finding the user.')],
+        allowedMentions: { repliedUser: false }
       });
     }
 
@@ -60,14 +64,16 @@ module.exports = {
       member = await message.guild.members.fetch(target.id);
     } catch (err) {
       return message.reply({ 
-        embeds: [errorEmbed('<:excl:1362858572677120252> <:arrows:1363099226375979058> User not in server or could not be fetched.')] 
+        embeds: [errorEmbed('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> User not in server or could not be fetched.')],
+        allowedMentions: { repliedUser: false }
       });
     }
 
    
     if (member.roles.highest.position >= message.member.roles.highest.position) {
       return message.reply({ 
-        embeds: [errorEmbed('<:excl:1362858572677120252> <:arrows:1363099226375979058> You cannot **strip** members with **equal** or **higher roles** than you.')] 
+        embeds: [errorEmbed('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> You cannot **strip** members with **equal** or **higher roles** than you.')],
+        allowedMentions: { repliedUser: false }
       });
     }
 
@@ -75,23 +81,48 @@ module.exports = {
     const botHighestRole = message.guild.members.me.roles.highest.position;
     if (member.roles.highest.position >= botHighestRole) {
       return message.reply({ 
-        embeds: [errorEmbed('<:excl:1362858572677120252> <:arrows:1363099226375979058> I cannot **modify** members with roles **higher** than my **highest role**.')] 
+        embeds: [errorEmbed('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> I cannot **modify** members with roles **higher** than my **highest role**.')],
+        allowedMentions: { repliedUser: false }
       });
     }
 
    
+    // Define dangerous permissions that should be stripped
+    const dangerousPermissions = [
+      PermissionFlagsBits.Administrator,        // Full server control
+      PermissionFlagsBits.ManageGuild,           // Server settings
+      PermissionFlagsBits.ManageRoles,           // Role management
+      PermissionFlagsBits.ManageChannels,         // Channel management
+      PermissionFlagsBits.ManageMessages,         // Message management
+      PermissionFlagsBits.BanMembers,             // Ban users
+      PermissionFlagsBits.KickMembers,            // Kick users
+      PermissionFlagsBits.ManageWebhooks,         // Webhook management
+      PermissionFlagsBits.ManageEmojisAndStickers, // Emoji/sticker management
+      PermissionFlagsBits.ManageEvents,           // Event management
+      PermissionFlagsBits.ManageThreads,          // Thread management
+      PermissionFlagsBits.ModerateMembers,        // Timeout users
+      PermissionFlagsBits.ViewAuditLog,           // View audit logs
+      PermissionFlagsBits.ChangeNickname,         // Change own nickname
+      PermissionFlagsBits.ManageNicknames,        // Manage others' nicknames
+    ];
+
     const staffRoles = member.roles.cache.filter(role => {
-      const hasStaffPermissions = 
-        role.permissions.has(PermissionFlagsBits.Administrator) ||
-        role.permissions.has(PermissionFlagsBits.ManageGuild) ||
-        role.permissions.has(PermissionFlagsBits.ManageRoles);
+      // Skip @everyone role
+      if (role.id === message.guild.id) return false;
       
-      return hasStaffPermissions && role.position < botHighestRole;
+      // Check if role has any dangerous permissions
+      const hasDangerousPermissions = dangerousPermissions.some(perm => 
+        role.permissions.has(perm)
+      );
+      
+      // Only strip roles with dangerous permissions that the bot can manage
+      return hasDangerousPermissions && role.position < botHighestRole;
     });
 
     if (staffRoles.size === 0) {
       return message.reply({ 
-        embeds: [errorEmbed(`<:excl:1362858572677120252> <:arrows:1363099226375979058> <@${target.id}> has no removable **staff roles**.`)] 
+        embeds: [errorEmbed(`<:disallowed:1457808577786806375> <:arrows:1457808531678957784> <@${target.id}> has no removable **roles with dangerous permissions**.`)],
+        allowedMentions: { repliedUser: false }
       });
     }
 
@@ -102,23 +133,24 @@ module.exports = {
       
       const embedSuccess = new EmbedBuilder()
         .setColor('#838996')
-        .setDescription(`<:check:1362850043333316659> <:arrows:1363099226375979058> <@${message.author.id}>: **Stripped the following staff roles from** <@${target.id}>: \n\`${strippedRoles}\``);
+        .setDescription(`<:check:1457808518848581858> <:arrows:1457808531678957784> Stripped all **dangerous role(s)** from <@${target.id}>`)
 
-      return message.reply({ embeds: [embedSuccess] });
+      return message.reply({ embeds: [embedSuccess], allowedMentions: { repliedUser: false } });
     } catch (error) {
       console.error('Error stripping roles:', error);
       
       let errorDescription = 'Failed to remove roles.';
       if (error.code === 50013) {
-        errorDescription = '<:excl:1362858572677120252> <:arrows:1363099226375979058> I don\'t have **permissions** to remove these roles.';
+        errorDescription = '<:disallowed:1457808577786806375> <:arrows:1457808531678957784> I don\'t have **permissions** to remove these roles.';
       } else if (error.code === 50001) {
-        errorDescription = '<:excl:1362858572677120252> <:arrows:1363099226375979058> I cannot modify roles **higher than my highest role**.';
+        errorDescription = '<:disallowed:1457808577786806375> <:arrows:1457808531678957784> I cannot modify roles **higher than my highest role**.';
       } else if (error.message.includes('Missing Permissions')) {
-        errorDescription = '<:excl:1362858572677120252> <:arrows:1363099226375979058> I don\'t have **permissions** to manage these roles.';
+        errorDescription = '<:disallowed:1457808577786806375> <:arrows:1457808531678957784> I don\'t have **permissions** to manage these roles.';
       }
 
       return message.reply({ 
-        embeds: [errorEmbed(errorDescription)] 
+        embeds: [errorEmbed(errorDescription)],
+        allowedMentions: { repliedUser: false }
       });
     }
   }

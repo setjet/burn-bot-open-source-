@@ -5,7 +5,7 @@ module.exports = {
   name: 'serverinfo',
   aliases: ['si'],
   category: 'utilities',
-  description: '<:arrows:1363099226375979058> View server information or check vanity URL status',
+  description: '<:arrows:1457808531678957784> View server information or check vanity URL status',
   async execute(message, args) {
     try {
       const input = args[0];
@@ -34,7 +34,7 @@ module.exports = {
             iconURL: message.author.displayAvatarURL({ dynamic: true })
           });
 
-        return message.reply({ embeds: [embed] });
+        return message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } });
       };
 
       // If no args, show current server info
@@ -77,7 +77,7 @@ module.exports = {
                   iconURL: message.author.displayAvatarURL({ dynamic: true })
                 });
 
-              return message.reply({ embeds: [embed] });
+              return message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } });
             }
           } catch (err) {
             // Widget API failed, continue to show not found
@@ -86,9 +86,9 @@ module.exports = {
           // Could not fetch server info
           const embed = new EmbedBuilder()
             .setColor('#838996')
-            .setDescription(`<:excl:1362858572677120252> <:arrows:1363099226375979058> **Could not fetch info** for server ID \`${input}\`\n`);
+            .setDescription(`<:disallowed:1457808577786806375> <:arrows:1457808531678957784> **Could not fetch info** for server ID \`${input}\`\n`);
 
-          return message.reply({ embeds: [embed] });
+          return message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } });
         }
       }
 
@@ -128,14 +128,14 @@ module.exports = {
             iconURL: message.author.displayAvatarURL({ dynamic: true })
           });
 
-        return message.reply({ embeds: [embed] });
+        return message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } });
       } else {
         // Vanity is available
         const embed = new EmbedBuilder()
           .setColor('#838996')
-          .setDescription(`<:excl:1362858572677120252> <:arrows:1363099226375979058> **No server** with the vanity \`/${vanity}\` was **found**`)
+          .setDescription(`<:disallowed:1457808577786806375> <:arrows:1457808531678957784> **No server** with the vanity \`/${vanity}\` was **found**`)
 
-        return message.reply({ embeds: [embed] });
+        return message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } });
       }
     } catch (error) {
       console.error('Error in serverinfo command:', error);
@@ -145,7 +145,7 @@ module.exports = {
         .setTitle('Error')
         .setDescription('An error occurred while processing your request.')
         
-      return message.reply({ embeds: [errorEmbed] });
+      return message.reply({ embeds: [errorEmbed], allowedMentions: { repliedUser: false } });
     }
   }
 };

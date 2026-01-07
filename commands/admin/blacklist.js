@@ -108,11 +108,11 @@ module.exports = {
             if (notificationChannel) {
               const blacklistEmbed = new EmbedBuilder()
                 .setColor('#838996')
-                .setTitle('<:excl:1362858572677120252> <:arrows:1363099226375979058> **Server Blacklisted**')
+                .setTitle('<:alert:1457808529200119880> <:arrows:1457808531678957784> **Server Blacklisted**')
                 .setDescription([
                   `This server has been **blacklisted** from using **burn**.`,
                   '',
-                  `<:alert:1363009864112144394> <:arrows:1363099226375979058> If you believe this was a **mistake**, please join our [support server](https://discord.gg/SUPPORT_SERVER_LINK) and open a **support ticket**.`,
+                  `<:arrows:1457808531678957784> If you believe this was a **mistake**, please join our **[support server](https://discord.gg/RDNk935Jzy)** and open a **support ticket**.`,
                   '',
                   '-# The bot will now leave this server.'
                 ].join('\n'));

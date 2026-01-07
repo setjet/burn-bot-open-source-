@@ -4,21 +4,21 @@ module.exports = {
   name: 'timeout',
   aliases: ['to'],
   category: 'moderation', 
-  description: '<:arrows:1363099226375979058> Timeout a user in the server.',
+  description: '<:arrows:1457808531678957784> Timeout a user in the server.',
   async execute(message, args, { getUser, prefix }) {
 
     if (!message.member.permissions.has(PermissionFlagsBits.ModerateMembers)) {
       const embed = new EmbedBuilder()
         .setColor('#838996')
-        .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> You need **Moderate Members** permission to use this command.');
-      return message.reply({ embeds: [embed] }).catch(() => {});
+        .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> You need **Moderate Members** permission to use this command.');
+      return message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } }).catch(() => {});
     }
 
     if (!message.guild.members.me.permissions.has(PermissionFlagsBits.ModerateMembers)) {
       const embed = new EmbedBuilder()
         .setColor('#838996')
-        .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> I need **Moderate Members** permission to timeout users.');
-      return message.reply({ embeds: [embed] }).catch(() => {});
+        .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> I need **Moderate Members** permission to timeout users.');
+      return message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } }).catch(() => {});
     }
 
     if (args.length < 1) {
@@ -27,14 +27,15 @@ module.exports = {
           new EmbedBuilder()
             .setColor('#838996')
             .setDescription([
-              '<:settings:1362876382375317565> **Usage:**',
+              '<:settings:1457808572720087266> **Usage:**',
               `\`\`\`${prefix}timeout <user> (reason)\`\`\``,
-              '-# <:arrows:1363099226375979058> Times out the mentioned user.',
+              '-# <:arrows:1457808531678957784> Times out the mentioned user.',
               '',
               `**Example:** \`${prefix}timeout @jet lame\``,
               '\n**Aliases:** `to`'
             ].join('\n'))
-        ]
+        ],
+        allowedMentions: { repliedUser: false }
       });
     }
 
@@ -43,8 +44,8 @@ module.exports = {
     if (!target) {
       const embed = new EmbedBuilder()
         .setColor('#838996')
-        .setDescription(`<:excl:1362858572677120252> <:arrows:1363099226375979058> User \`${args[0]}\` not found.`);
-      return message.reply({ embeds: [embed] });
+        .setDescription(`<:disallowed:1457808577786806375> <:arrows:1457808531678957784> User \`${args[0]}\` not found.`);
+      return message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } });
     }
 
 
@@ -52,39 +53,39 @@ module.exports = {
     if (!member) {
       const embed = new EmbedBuilder()
         .setColor('#838996')
-        .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> User not in this server.');
-      return message.reply({ embeds: [embed] });
+        .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> User not in this server.');
+      return message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } });
     }
 
     
     if (message.member.roles.highest.position <= member.roles.highest.position) {
       const embed = new EmbedBuilder()
         .setColor('#838996')
-        .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> You cannot **timeout** someone with **equal or higher role than you**.');
-      return message.reply({ embeds: [embed] });
+        .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> You cannot **timeout** someone with **equal or higher role than you**.');
+      return message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } });
     }
 
     if (message.guild.members.me.roles.highest.position <= member.roles.highest.position) {
       const embed = new EmbedBuilder()
         .setColor('#838996')
-        .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> I cannot timeout someone with **equal or higher role than me**.');
-      return message.reply({ embeds: [embed] });
+        .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> I cannot timeout someone with **equal or higher role than me**.');
+      return message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } });
     }
 
 
     if (member.id === message.guild.ownerId) {
       const embed = new EmbedBuilder()
         .setColor('#838996')
-        .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> You cannot **timeout** the **server owner**.');
-      return message.reply({ embeds: [embed] });
+        .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> You cannot **timeout** the **server owner**.');
+      return message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } });
     }
 
 
     if (member.user.bot) {
       const embed = new EmbedBuilder()
         .setColor('#838996')
-        .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> You cannot timeout **bots**.');
-      return message.reply({ embeds: [embed] });
+        .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> You cannot timeout **bots**.');
+      return message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } });
     }
 
 
@@ -94,8 +95,8 @@ module.exports = {
     if (!durationInput) {
       const embed = new EmbedBuilder()
         .setColor('#838996')
-        .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> Please specify a duration **(e.g., 10m, 1h, 2d)**.');
-      return message.reply({ embeds: [embed] });
+        .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> Please specify a duration **(e.g., 10m, 1h, 2d)**.');
+      return message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } });
     }
 
     if (durationInput.endsWith('d')) {
@@ -112,8 +113,8 @@ module.exports = {
     if (isNaN(durationMs) || durationMs < 60000 || durationMs > 2419200000) {
       const embed = new EmbedBuilder()
         .setColor('#838996')
-        .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> Invalid duration. Must be between **1 minute** and **28 days**.');
-      return message.reply({ embeds: [embed] });
+        .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> Invalid duration. Must be between **1 minute** and **28 days**.');
+      return message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } });
     }
 
     const reason = args.slice(2).join(' ') || 'No reason provided';
@@ -132,25 +133,25 @@ module.exports = {
 
       const embed = new EmbedBuilder()
         .setColor('#838996')
-        .setDescription(`<:check:1362850043333316659> <:arrows:1363099226375979058>  **Timed out** <@${target.id}> for **${durationDisplay}**`);
+        .setDescription(`<:check:1457808518848581858> <:arrows:1457808531678957784>  **Timed out** <@${target.id}> for **${durationDisplay}**`);
 
-      await message.reply({ embeds: [embed] });
+      await message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } });
     } catch (error) {
       console.error('Timeout error:', error);
-      let errorDescription = '<:excl:1362858572677120252> <:arrows:1363099226375979058> Failed to timeout user.';
+      let errorDescription = '<:disallowed:1457808577786806375> <:arrows:1457808531678957784> Failed to timeout user.';
       
       if (error.code === 50013) {
-        errorDescription = '<:excl:1362858572677120252> <:arrows:1363099226375979058> Bot **lacks permission**s to **timeout** this user.';
+        errorDescription = '<:disallowed:1457808577786806375> <:arrows:1457808531678957784> Bot **lacks permission**s to **timeout** this user.';
       } else if (error.code === 50001) {
-        errorDescription = '<:excl:1362858572677120252> <:arrows:1363099226375979058> Bot cannot **timeout** users with **higher roles**.';
+        errorDescription = '<:disallowed:1457808577786806375> <:arrows:1457808531678957784> Bot cannot **timeout** users with **higher roles**.';
       } else if (error.message.includes('MAXIMUM_TIMEOUT_DURATION')) {
-        errorDescription = '<:excl:1362858572677120252> <:arrows:1363099226375979058> **Timeout** duration exceeds maximum limit **(28 days)**.';
+        errorDescription = '<:disallowed:1457808577786806375> <:arrows:1457808531678957784> **Timeout** duration exceeds maximum limit **(28 days)**.';
       }
 
       const embed = new EmbedBuilder()
         .setColor('#838996')
         .setDescription(errorDescription);
-      await message.reply({ embeds: [embed] });
+      await message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } });
     }
   }
 };

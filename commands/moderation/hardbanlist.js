@@ -5,14 +5,14 @@ module.exports = {
   name: 'hardbanlist',
   aliases: ['hbl'],
   category: 'moderation', 
-  description: '<:arrows:1363099226375979058> View all hardbanned users.',
+  description: '<:arrows:1457808531678957784> View all hardbanned users.',
   async execute(message) {
    
     if (!message.member.permissions.has(PermissionFlagsBits.Administrator)) {
       const embed = new EmbedBuilder()
         .setColor('#838996')
-        .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> You need **Administrator** permissions to use this command.');
-      return message.reply({ embeds: [embed] });
+        .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> You need **Administrator** permissions to use this command.');
+      return message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } });
     }
 
     const guildId = message.guild.id;
@@ -21,8 +21,8 @@ module.exports = {
     if (!hardbannedUsers || hardbannedUsers.length === 0) {
       const embed = new EmbedBuilder()
         .setColor('#838996')
-        .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> No **hardbanned** users found for this server.');
-      return message.reply({ embeds: [embed] });
+        .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> No **hardbanned** users found for this server.');
+      return message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } });
     }
 
     try {
@@ -43,8 +43,8 @@ module.exports = {
       if (validHardbans.length === 0) {
         const embed = new EmbedBuilder()
           .setColor('#838996')
-          .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> No **active hardbans** found.');
-        return message.reply({ embeds: [embed] });
+          .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> No **active hardbans** found.');
+        return message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } });
       }
 
     
@@ -54,19 +54,19 @@ module.exports = {
 
     const embed = new EmbedBuilder()
     .setColor('#838996')
-    .setDescription(`-# <:disallowed:1363121898522673313> **Hardbanned Users:**\n\n${formattedList.join('\n\n')}`)
+    .setDescription(`-# <:disallowed:1457808577786806375> **Hardbanned Users:**\n\n${formattedList.join('\n\n')}`)
     .setFooter({ 
       text: `Total: ${validHardbans.length}`
     });
   
-      await message.reply({ embeds: [embed] });
+      await message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } });
 
     } catch (error) {
       console.error('Error fetching bans:', error);
       const embed = new EmbedBuilder()
         .setColor('#838996')
-        .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> Failed to fetch ban list. Please try again later.');
-      await message.reply({ embeds: [embed] });
+        .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> Failed to fetch ban list. Please try again later.');
+      await message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } });
     }
   }
 };

@@ -3,7 +3,7 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('
 module.exports = {
   name: 'roles',
   category: 'utilities', 
-  description: '<:arrows:1363099226375979058> View all roles in the server.',
+  description: '<:arrows:1457808531678957784> View all roles in the server.',
   async execute(message, args) {
     const roles = message.guild.roles.cache
       .sort((a, b) => b.position - a.position) 
@@ -12,8 +12,8 @@ module.exports = {
     if (roles.length === 0) {
       const embed = new EmbedBuilder()
         .setColor('#838996')
-        .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> No roles found in this server.');
-      return message.reply({ embeds: [embed] });
+        .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> No roles found in this server.');
+      return message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } });
     }
 
     const totalPages = Math.ceil(roles.length / 10);
@@ -52,7 +52,8 @@ module.exports = {
 
     const reply = await message.reply({ 
       embeds: [generateEmbed()], 
-      components: totalPages > 1 ? [row] : []
+      components: totalPages > 1 ? [row] : [],
+      allowedMentions: { repliedUser: false }
     });
 
     if (totalPages > 1) {

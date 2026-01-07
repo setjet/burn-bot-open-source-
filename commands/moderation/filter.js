@@ -3,15 +3,16 @@ const { EmbedBuilder, AutoModerationRuleTriggerType, AutoModerationRuleEventType
 module.exports = {
   name: 'filter',
   category: 'moderation',
-  description: '<:arrows:1363099226375979058> Manage or view filtered words in the server.',
+  description: '<:arrows:1457808531678957784> Manage or view filtered words in the server.',
   async execute(message, args, { filteredWords, saveData, prefix }) {
     if (!message.member.permissions.has(PermissionsBitField.Flags.ManageChannels)) {
       return message.reply({
         embeds: [
           new EmbedBuilder()
             .setColor('#838996')
-            .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> You need **Manage Channels** permissions to use this command.')
-        ]
+            .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> You need **Manage Channels** permissions to use this command.')
+        ],
+        allowedMentions: { repliedUser: false }
       });
     }
 
@@ -23,14 +24,14 @@ module.exports = {
     if (subcommand === 'list') {
       const wordList = guildFilteredWords.size > 0
         ? Array.from(guildFilteredWords).map((word, index) => `\`${index + 1}\` **${word}**`).join('\n')
-        : '<:excl:1362858572677120252> <:arrows:1363099226375979058> No filtered words set.';
+        : '<:disallowed:1457808577786806375> <:arrows:1457808531678957784> No filtered words set.';
 
       const embed = new EmbedBuilder()
         .setColor('#838996')
         .setTitle('Filtered Words')
         .setDescription(wordList);
 
-      return message.reply({ embeds: [embed] });
+      return message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } });
     }
 
     if (!['add', 'remove'].includes(subcommand) || !word) {
@@ -39,9 +40,9 @@ module.exports = {
         usageEmbed = new EmbedBuilder()
           .setColor('#838996')
           .setDescription([
-            '<:settings:1362876382375317565> **Usage:**',
+            '<:settings:1457808572720087266> **Usage:**',
             `\`\`\`${prefix}filter add <word>\`\`\``,
-            '-# <:arrows:1363099226375979058> Adds a word to the filtered list.',
+            '-# <:arrows:1457808531678957784> Adds a word to the filtered list.',
             '',
             `**Example:** \`${prefix}filter add weed\``,
             '\n**Aliases:** `N/A`'
@@ -50,9 +51,9 @@ module.exports = {
         usageEmbed = new EmbedBuilder()
           .setColor('#838996')
           .setDescription([
-            '<:settings:1362876382375317565> **Usage:**',
+            '<:settings:1457808572720087266> **Usage:**',
             `\`\`\`${prefix}filter remove <word>\`\`\``,
-            '-# <:arrows:1363099226375979058> Removes a word from the filtered list.',
+            '-# <:arrows:1457808531678957784> Removes a word from the filtered list.',
             '',
             `**Example:** \`${prefix}filter remove weed\``,
             '\n**Aliases:** `N/A`'
@@ -61,15 +62,15 @@ module.exports = {
         usageEmbed = new EmbedBuilder()
           .setColor('#838996')
           .setDescription([
-            '<:settings:1362876382375317565> **Usage:**',
+            '<:settings:1457808572720087266> **Usage:**',
             `\`\`\`${prefix}filter (subcommand) (args)\`\`\``,
-            '-# <:arrows:1363099226375979058> Use `add` to filter a word, `remove` to unfilter it, or `list` to view them.',
+            '-# <:arrows:1457808531678957784> **__Subcommands__**\n <:leese:1457834970486800567> `add` to filter a word\n <:leese:1457834970486800567> `remove` to unfilter it\n <:tree:1457808523986731008> `list` to view them.',
             '',
             '**Aliases:** `N/A`'
           ].join('\n'));
       }
 
-      return message.reply({ embeds: [usageEmbed] });
+      return message.reply({ embeds: [usageEmbed], allowedMentions: { repliedUser: false } });
     }
 
     if (subcommand === 'add') {
@@ -78,8 +79,9 @@ module.exports = {
           embeds: [
             new EmbedBuilder()
               .setColor('#838996')
-              .setDescription(`<:excl:1362858572677120252> <:arrows:1363099226375979058> <@${message.author.id}>: The word \`${word}\` is already **filtered**.`)
-          ]
+              .setDescription(`<:disallowed:1457808577786806375> <:arrows:1457808531678957784> <@${message.author.id}>: The word \`${word}\` is already **filtered**.`)
+          ],
+          allowedMentions: { repliedUser: false }
         });
       }
 
@@ -91,8 +93,9 @@ module.exports = {
         embeds: [
           new EmbedBuilder()
             .setColor('#838996')
-            .setDescription(`<:check:1362850043333316659> <:arrows:1363099226375979058> **Added** \`${word}\` to **filtered words**.`)
-        ]
+            .setDescription(`<:check:1457808518848581858> <:arrows:1457808531678957784> **Added** \`${word}\` to **filtered words**.`)
+        ],
+        allowedMentions: { repliedUser: false }
       });
 
       try {
@@ -129,8 +132,9 @@ module.exports = {
           embeds: [
             new EmbedBuilder()
               .setColor('#838996')
-              .setDescription(`<:excl:1362858572677120252> <:arrows:1363099226375979058> The word \`${word}\` is not **filtered**.`)
-          ]
+              .setDescription(`<:disallowed:1457808577786806375> <:arrows:1457808531678957784> The word \`${word}\` is not **filtered**.`)
+          ],
+          allowedMentions: { repliedUser: false }
         });
       }
 
@@ -159,8 +163,9 @@ module.exports = {
         embeds: [
           new EmbedBuilder()
             .setColor('#838996')
-            .setDescription(`<:deleted:1363170791457427546> <:arrows:1363099226375979058> **Removed** \`${word}\` from **filtered words**.`)
-        ]
+            .setDescription(`<:deleted:1457808575316492309> <:arrows:1457808531678957784> **Removed** \`${word}\` from **filtered words**.`)
+        ],
+        allowedMentions: { repliedUser: false }
       });
     }
   }

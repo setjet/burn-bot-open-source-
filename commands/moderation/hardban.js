@@ -5,15 +5,16 @@ module.exports = {
   name: 'hardban',
   aliases: ['hb'],
   category: 'moderation', 
-  description: '<:arrows:1363099226375979058>  Permanently ban a user from the server.',
+  description: '<:arrows:1457808531678957784>  Permanently ban a user from the server.',
   async execute(message, args, { getUser, prefix }) {
     if (!message.member.permissions.has(PermissionFlagsBits.Administrator)) {
       return message.reply({
         embeds: [
           new EmbedBuilder()
             .setColor('#838996')
-            .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> You need **Administrator** permissions to use this command.')
-        ]
+            .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> You need **Administrator** permissions to use this command.')
+        ],
+        allowedMentions: { repliedUser: false }
       });
     }
 
@@ -23,14 +24,15 @@ module.exports = {
           new EmbedBuilder()
             .setColor('#838996')
             .setDescription([
-              '<:settings:1362876382375317565> **Usage:**',
+              '<:settings:1457808572720087266> **Usage:**',
               `\`\`\`${prefix}hardban <user> (reason)\`\`\``,
-              '-# <:arrows:1363099226375979058> Keeps a user banned permanently.',
+              '-# <:arrows:1457808531678957784> Keeps a user banned **permanently**.',
               '',
               `**Example:** \`${prefix}hardban @jet retard\``,
               '\n**Aliases:** `hb`'
             ].join('\n'))
-        ]
+        ],
+        allowedMentions: { repliedUser: false }
       });
     }
 
@@ -40,8 +42,9 @@ module.exports = {
         embeds: [
           new EmbedBuilder()
             .setColor('#838996')
-            .setDescription(`<:excl:1362858572677120252> <:arrows:1363099226375979058> User \`${args[0]}\` not found.`)
-        ]
+            .setDescription(`<:disallowed:1457808577786806375> <:arrows:1457808531678957784> User \`${args[0]}\` not found.`)
+        ],
+        allowedMentions: { repliedUser: false }
       });
     }
 
@@ -55,8 +58,9 @@ module.exports = {
         embeds: [
           new EmbedBuilder()
             .setColor('#838996')
-            .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> You cannot **hardban yourself**.')
-        ]
+            .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> You cannot **hardban yourself**.')
+        ],
+        allowedMentions: { repliedUser: false }
       });
     }
 
@@ -65,8 +69,9 @@ module.exports = {
         embeds: [
           new EmbedBuilder()
             .setColor('#838996')
-            .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> You cannot **hardban** the **server owner**.')
-        ]
+            .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> You cannot **hardban** the **server owner**.')
+        ],
+        allowedMentions: { repliedUser: false }
       });
     }
 
@@ -78,8 +83,9 @@ module.exports = {
           embeds: [
             new EmbedBuilder()
               .setColor('#838996')
-              .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> You cannot **hardban** a user with a **higher or equal role than yourself.**')
-          ]
+              .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> You cannot **hardban** a user with a **higher or equal role than yourself.**')
+          ],
+          allowedMentions: { repliedUser: false }
         });
       }
 
@@ -88,8 +94,9 @@ module.exports = {
           embeds: [
             new EmbedBuilder()
               .setColor('#838996')
-              .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> I cannot **hardban** a user with a **higher or equal role to mine**')
-          ]
+              .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> I cannot **hardban** a user with a **higher or equal role to mine**')
+          ],
+          allowedMentions: { repliedUser: false }
         });
       }
     }
@@ -100,8 +107,9 @@ module.exports = {
         embeds: [
           new EmbedBuilder()
             .setColor('#838996')
-            .setDescription(`<:excl:1362858572677120252> <:arrows:1363099226375979058> \`${target.tag}\` is already banned.`)
-        ]
+            .setDescription(`<:disallowed:1457808577786806375> <:arrows:1457808531678957784> \`${target.tag}\` is already banned.`)
+        ],
+        allowedMentions: { repliedUser: false }
       });
     }
 
@@ -123,17 +131,28 @@ module.exports = {
 
       const embed = new EmbedBuilder()
         .setColor('#838996')
-        .setDescription(`<:check:1362850043333316659> <:arrows:1363099226375979058> **Successfully Hardbanned** <@${target.id}>`);
+        .setDescription(`<:check:1457808518848581858> <:arrows:1457808531678957784> **Successfully Hardbanned** <@${target.id}>`);
 
-      await message.reply({ embeds: [embed] });
+      await message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } });
     } catch (error) {
       console.error('Error in hardban command:', error);
+      let errorDescription = '<:disallowed:1457808577786806375> <:arrows:1457808531678957784> An error occurred while banning the user.';
+      
+      if (error.code === 50013) {
+        errorDescription = '<:disallowed:1457808577786806375> <:arrows:1457808531678957784> I **lack permissions** to **ban** this user.';
+      } else if (error.code === 50001) {
+        errorDescription = '<:disallowed:1457808577786806375> <:arrows:1457808531678957784> I cannot interact with users **with higher roles than mine**.';
+      } else if (error.code === 50035) {
+        errorDescription = '<:disallowed:1457808577786806375> <:arrows:1457808531678957784> Invalid form body or ban reason too long.';
+      }
+      
       return message.reply({
         embeds: [
           new EmbedBuilder()
             .setColor('#838996')
-            .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> An error occurred while banning the user.')
-        ]
+            .setDescription(errorDescription)
+        ],
+        allowedMentions: { repliedUser: false }
       });
     }
   }

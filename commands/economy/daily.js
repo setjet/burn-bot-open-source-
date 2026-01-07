@@ -9,7 +9,7 @@ module.exports = {
   name: 'daily',
   aliases: ['claim'],
   category: 'utilities',
-  description: '<:arrows:1363099226375979058> Claim your daily reward.',
+  description: '<:arrows:1457808531678957784> Claim your daily reward.',
   async execute(message, args, { prefix }) {
     const userId = message.author.id;
     const now = Date.now();
@@ -27,10 +27,11 @@ module.exports = {
           new EmbedBuilder()
             .setColor('#838996')
             .setDescription([
-              `<:excl:1362858572677120252> <:arrows:1363099226375979058> You've already claimed your daily reward!`,
-              `-# Come back in **${hours}h ${minutes}m**`
+              `<:disallowed:1457808577786806375> <:arrows:1457808531678957784> You've already **claimed** your **daily reward**!`,
+              `-# <:tree:1457808523986731008> Come back <t:${Math.floor((now + (DAILY_COOLDOWN - timeSinceDaily)) / 1000)}:R>`
             ].join('\n'))
-        ]
+        ],
+        allowedMentions: { repliedUser: false }
       });
     }
     
@@ -42,17 +43,18 @@ module.exports = {
     
     const embed = new EmbedBuilder()
       .setColor('#838996')
-      .setAuthor({ name: message.author.tag, iconURL: message.author.displayAvatarURL({ dynamic: true }) })
       .setDescription([
-        `💰 **Daily Reward Claimed!**`,
+        `<:chest:1458071045251530773> **__Daily Reward Claimed!__**`,
         '',
-        `You received **${reward.toLocaleString()}** coins!`,
+        `> You received **+$${reward.toLocaleString()}**`,
         '',
-        `Your new balance: **${newBalance.toLocaleString()}** coins`
+        `<:arrows:1457808531678957784> Your new balance: **\`$${newBalance.toLocaleString()}\`**`
       ].join('\n'))
-      .setFooter({ text: 'Come back in 24 hours for your next reward!' });
     
-    return message.reply({ embeds: [embed] });
+    return message.reply({ 
+      embeds: [embed],
+      allowedMentions: { repliedUser: false }
+    });
   }
 };
 

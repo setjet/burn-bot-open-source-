@@ -3,7 +3,7 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('
 module.exports = {
   name: 'inrole',
   aliases: ['ir'],
-  description: '<:arrows:1363099226375979058> Show members in a specified role.',
+  description: '<:arrows:1457808531678957784> Show members in a specified role.',
   category: 'utilities',
   async execute(message, args) {
    
@@ -16,7 +16,7 @@ module.exports = {
         const embed = new EmbedBuilder()
           .setColor('#838996')
           .setDescription("❌ You don't have any roles to check.");
-        return message.reply({ embeds: [embed] });
+        return message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } });
       }
     } else {
 
@@ -29,7 +29,7 @@ module.exports = {
       const embed = new EmbedBuilder()
         .setColor('#838996')
         .setDescription('❌ Role not found. Please mention the role or use its exact name.');
-      return message.reply({ embeds: [embed] });
+      return message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } });
     }
 
     
@@ -80,7 +80,8 @@ module.exports = {
 
     const reply = await message.reply({ 
       embeds: [generateEmbed()], 
-      components: totalPages > 1 ? [row] : []
+      components: totalPages > 1 ? [row] : [],
+      allowedMentions: { repliedUser: false }
     });
 
 

@@ -4,21 +4,21 @@ module.exports = {
   name: 'servernuke',
   aliases: ['sn'],
   category: 'moderation',
-  description: '<:arrows:1363099226375979058> Completely wipe the server (owner only).',
+  description: '<:arrows:1457808531678957784> Completely wipe the server (owner only).',
   async execute(message, args, { prefix }) {
     if (!message.guild) {
       const embed = new EmbedBuilder()
         .setColor('#838996')
-        .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> This **command** can only be used in a **server**.');
-      return message.reply({ embeds: [embed] });
+        .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> This **command** can only be used in a **server**.');
+      return message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } });
     }
 
     // Only server owner can use this
     if (message.author.id !== message.guild.ownerId) {
       const embed = new EmbedBuilder()
         .setColor('#838996')
-        .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> Only the **server owner** can use this command.');
-      return message.reply({ embeds: [embed] });
+        .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> Only the **server owner** can use this command.');
+      return message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } });
     }
 
     // Check bot permissions
@@ -26,15 +26,15 @@ module.exports = {
     if (!botMember.permissions.has(PermissionFlagsBits.Administrator)) {
       const embed = new EmbedBuilder()
         .setColor('#838996')
-        .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> I need **Administrator** permissions to nuke this server.');
-      return message.reply({ embeds: [embed] });
+        .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> I need **Administrator** permissions to nuke this server.');
+      return message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } });
     }
 
     // Show warning
     const warningEmbed = new EmbedBuilder()
       .setColor('#ff4d4d')
       .setDescription([
-        `<:alert:1363009864112144394> <:arrows:1363099226375979058> **WARNING: NUKE SERVER?**`,
+        `<:alert:1457808529200119880> <:arrows:1457808531678957784> **WARNING: NUKE SERVER?**`,
         '',
         `You are about to **permanently delete** everything in **${message.guild.name}**:`,
         '',
@@ -50,7 +50,7 @@ module.exports = {
         '-# Type the server name below to confirm.'
       ].join('\n'));
 
-    const confirmation = await message.reply({ embeds: [warningEmbed] }).catch(() => {});
+    const confirmation = await message.reply({ embeds: [warningEmbed], allowedMentions: { repliedUser: false } }).catch(() => {});
     if (!confirmation) return;
 
     // Wait for server name confirmation
@@ -61,15 +61,15 @@ module.exports = {
       if (m.content !== message.guild.name) {
         const embed = new EmbedBuilder()
           .setColor('#838996')
-          .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> Server name **did not match**. Nuke **cancelled**.');
-        return message.channel.send({ embeds: [embed] }).catch(() => {});
+          .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> Server name **did not match**. Nuke **cancelled**.');
+        return message.channel.send({ embeds: [embed], allowedMentions: { repliedUser: false } }).catch(() => {});
       }
 
       // Final confirmation with buttons
       const finalEmbed = new EmbedBuilder()
         .setColor('#ff4d4d')
         .setDescription([
-          `<:alert:1363009864112144394> <:arrows:1363099226375979058> **FINAL WARNING**`,
+          `<:alert:1457808529200119880> <:arrows:1457808531678957784> **FINAL WARNING**`,
           '',
           `Are you absolutely sure you want to nuke **${message.guild.name}**?`,
           '',
@@ -107,7 +107,7 @@ module.exports = {
             embeds: [
               new EmbedBuilder()
                 .setColor('#838996')
-                .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> Nuke **cancelled**')
+                .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> Nuke **cancelled**')
             ],
             components: []
           }).catch(() => {});
@@ -119,7 +119,7 @@ module.exports = {
           embeds: [
             new EmbedBuilder()
               .setColor('#ff4d4d')
-              .setDescription('<:arrows:1363099226375979058> Nuking server...')
+              .setDescription('<:arrows:1457808531678957784> Nuking server...')
           ],
           components: []
         }).catch(() => {});
@@ -194,7 +194,7 @@ module.exports = {
           const resultEmbed = new EmbedBuilder()
             .setColor('#ff4d4d')
             .setDescription([
-              `<:check:1362850043333316659> <:arrows:1363099226375979058> **Server nuked**`,
+              `<:check:1457808518848581858> <:arrows:1457808531678957784> **Server nuked**`,
               '',
               `Channels: \`${deleted.channels}\``,
               `Roles: \`${deleted.roles}\``,
@@ -215,7 +215,7 @@ module.exports = {
             embeds: [
               new EmbedBuilder()
                 .setColor('#838996')
-                .setDescription('<:alert:1363009864112144394> <:arrows:1363099226375979058> Confirmation **timed out**')
+                .setDescription('<:alert:1457808529200119880> <:arrows:1457808531678957784> Confirmation **timed out**')
             ],
             components: []
           }).catch(() => {});
@@ -229,7 +229,7 @@ module.exports = {
           embeds: [
             new EmbedBuilder()
               .setColor('#838996')
-              .setDescription('<:alert:1363009864112144394> <:arrows:1363099226375979058> Confirmation **timed out**')
+              .setDescription('<:alert:1457808529200119880> <:arrows:1457808531678957784> Confirmation **timed out**')
           ]
         }).catch(() => {});
       }

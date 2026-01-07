@@ -3,7 +3,7 @@ const { EmbedBuilder } = require('discord.js');
 module.exports = {
   name: 'editsnipe',
   aliases: ['es'],
-  description: '<:arrows:1363099226375979058> Snipe the last edited message',
+  description: '<:arrows:1457808531678957784> Snipe the last edited message',
   category: 'utilities',
 
   async execute(message, args, context) {
@@ -14,8 +14,9 @@ module.exports = {
         embeds: [
           new EmbedBuilder()
             .setColor('#838996')
-            .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> There is nothing to **edit snipe**.')
-        ]
+            .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> There is nothing to **edit snipe**.')
+        ],
+        allowedMentions: { repliedUser: false }
       });
     }
 
@@ -63,6 +64,6 @@ module.exports = {
       embed.setImage(edited.attachment);
     }
 
-    return message.reply({ embeds: [embed] });
+    return message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } });
   }
 };

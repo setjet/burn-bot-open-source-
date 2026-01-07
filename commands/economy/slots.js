@@ -1,7 +1,7 @@
 const { EmbedBuilder } = require('discord.js');
 const { dbHelpers } = require('../../db');
 
-const symbols = ['🍒', '🍋', '🍊', '🍇', '🍉', '⭐', '💎', '7️⃣'];
+const symbols = ['\`🍒\`', '\`🍋\`', '\`🍊\`', '\`🍇\`', '\`🍉\`', '\`⭐\`', '\`💎\`', '\`7️⃣\`'];
 
 function spin() {
   return [
@@ -62,7 +62,7 @@ module.exports = {
   name: 'slots',
   aliases: ['slot'],
   category: 'utilities',
-  description: '<:arrows:1363099226375979058> Play the slot machine.',
+  description: '<:arrows:1457808531678957784> Play the slot machine.',
   async execute(message, args, { prefix }) {
     if (args.length < 1) {
       return message.reply({
@@ -70,14 +70,15 @@ module.exports = {
           new EmbedBuilder()
             .setColor('#838996')
             .setDescription([
-              '<:settings:1362876382375317565> **Usage:**',
-              `\`\`\`${prefix}slots <bet amount>\`\`\``,
-              '-# <:arrows:1363099226375979058> Play the slot machine.',
+              '<:settings:1457808572720087266> **Usage:**',
+              `\`\`\`${prefix}slots <amount>\`\`\``,
+              '-# <:arrows:1457808531678957784> Play the slot machine.',
               '',
               `**Example:** \`${prefix}slots 100\``,
               '\n**Aliases:** `slot`'
             ].join('\n'))
-        ]
+        ],
+        allowedMentions: { repliedUser: false }
       });
     }
     
@@ -87,8 +88,9 @@ module.exports = {
         embeds: [
           new EmbedBuilder()
             .setColor('#838996')
-            .setDescription(`<:excl:1362858572677120252> <:arrows:1363099226375979058> Please provide a valid bet amount greater than 0.`)
-        ]
+            .setDescription(`<:disallowed:1457808577786806375> <:arrows:1457808531678957784> Please provide a **valid bet amount** greater than **0**.`)
+        ],
+        allowedMentions: { repliedUser: false }
       });
     }
     
@@ -99,10 +101,11 @@ module.exports = {
           new EmbedBuilder()
             .setColor('#838996')
             .setDescription([
-              `<:excl:1362858572677120252> <:arrows:1363099226375979058> You don't have enough coins!`,
-              `-# Your balance: **${balance.toLocaleString()}** coins`
+              `<:disallowed:1457808577786806375> <:arrows:1457808531678957784> You don't have enough **money**!`,
+              `-# <:tree:1457808523986731008> Your balance: **\`$${balance.toLocaleString()}\`**`
             ].join('\n'))
-        ]
+        ],
+        allowedMentions: { repliedUser: false }
       });
     }
     
@@ -118,55 +121,59 @@ module.exports = {
       // Determine win size for message
       let winMessage = '';
       if (result >= bet * 10) {
-        winMessage = `🎉 **JACKPOT!** You won **${result.toLocaleString()}** coins!`;
+        winMessage = `**JACKPOT!** You won **$${result.toLocaleString()}**`;
       } else if (result >= bet * 5) {
-        winMessage = `💰 **Big Win!** You won **${result.toLocaleString()}** coins!`;
+        winMessage = `**Big Win!** You won **$${result.toLocaleString()}**`;
       } else if (result >= bet * 2) {
-        winMessage = `💵 **Nice Win!** You won **${result.toLocaleString()}** coins!`;
+        winMessage = `**Nice Win!** You won **$${result.toLocaleString()}**`;
       } else {
-        winMessage = `💸 **Small Win!** You won **${result.toLocaleString()}** coins!`;
+        winMessage = `**Small Win!** You won **$${result.toLocaleString()}**`;
       }
       
       const embed = new EmbedBuilder()
-        .setColor('#57F287')
-        .setAuthor({ name: message.author.tag, iconURL: message.author.displayAvatarURL({ dynamic: true }) })
-        .setTitle('🎰 Slots')
+        .setColor('#838996')
+        .setTitle('<:slots:1458101131938103461> __Slots__')
         .setDescription([
-          `**${reels[0]} | ${reels[1]} | ${reels[2]}**`,
+          `**\`${reels[0]}\` | \`${reels[1]}\` | \`${reels[2]}\`**`,
           '',
-          `<:check:1362850043333316659> ${winMessage}`,
-          `Net gain: **+${netWin.toLocaleString()}** coins`,
-          '',
-          `Your new balance: **${newBalance.toLocaleString()}** coins`
+          `> ${winMessage}`,
+          `-# <:leese:1457834970486800567> Net gain: **+$${netWin.toLocaleString()}**`,
+          `-# <:tree:1457808523986731008> Your new balance: **\`$${newBalance.toLocaleString()}\`**`
         ].join('\n'));
-      return message.reply({ embeds: [embed] });
+      return message.reply({ 
+        embeds: [embed],
+        allowedMentions: { repliedUser: false }
+      });
     } else {
       // Loss scenario
       const lossAmount = Math.abs(result); // Convert negative to positive
+      const netLoss = lossAmount; // Per-spin loss (same as lossAmount for this spin)
       const newBalance = dbHelpers.addBalance(message.author.id, -lossAmount);
       
       // Determine loss size for message
       let lossMessage = '';
       if (lossAmount >= bet * 0.8) {
-        lossMessage = `💔 **Big Loss!** You lost **${lossAmount.toLocaleString()}** coins.`;
+        lossMessage = `**Big Loss!** You lost **$${lossAmount.toLocaleString()}**`;
       } else if (lossAmount >= bet * 0.5) {
-        lossMessage = `😞 **Medium Loss!** You lost **${lossAmount.toLocaleString()}** coins.`;
+        lossMessage = `**Medium Loss!** You lost **$${lossAmount.toLocaleString()}**`;
       } else {
-        lossMessage = `😕 **Small Loss!** You lost **${lossAmount.toLocaleString()}** coins.`;
+        lossMessage = `**Small Loss!** You lost **$${lossAmount.toLocaleString()}**`;
       }
       
       const embed = new EmbedBuilder()
-        .setColor('#FF0000')
-        .setAuthor({ name: message.author.tag, iconURL: message.author.displayAvatarURL({ dynamic: true }) })
-        .setTitle('🎰 Slots')
+        .setColor('#838996')
+        .setTitle('<:slots:1458101131938103461> __Slots__')
         .setDescription([
-          `**${reels[0]} | ${reels[1]} | ${reels[2]}**`,
+          `**\`${reels[0]}\` | \`${reels[1]}\` | \`${reels[2]}\`**`,
           '',
-          `<:excl:1362858572677120252> ${lossMessage}`,
-          '',
-          `Your new balance: **${newBalance.toLocaleString()}** coins`
+          `> ${lossMessage}`,
+          `-# <:leese:1457834970486800567> Net loss: **-$${netLoss.toLocaleString()}**`,
+          `-# <:tree:1457808523986731008> Your new balance: **\`$${newBalance.toLocaleString()}\`**`
         ].join('\n'));
-      return message.reply({ embeds: [embed] });
+      return message.reply({ 
+        embeds: [embed],
+        allowedMentions: { repliedUser: false }
+      });
     }
   }
 };

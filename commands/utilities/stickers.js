@@ -5,7 +5,7 @@ const sharp = require('sharp');
 module.exports = {
   name: 'sticker',
   category: 'utilities', 
-  description: '<:arrows:1363099226375979058> Add & remove stickers from the server.',
+  description: '<:arrows:1457808531678957784> Add & remove stickers from the server.',
   async execute(message, args, { client, prefix }) {
     const commandName = message.content.split(' ')[0].slice(1).toLowerCase();
     const subCommand = args[0]?.toLowerCase();
@@ -14,15 +14,15 @@ module.exports = {
     if (!message.member.permissions.has(PermissionFlagsBits.ManageEmojisAndStickers)) {
       const embedNoPermissions = new EmbedBuilder()
         .setColor('#838996')
-        .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> You need **Manage Emojis and Stickers** permissions to use this command.');
-      return message.reply({ embeds: [embedNoPermissions] });
+        .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> You need **Manage Emojis and Stickers** permissions to use this command.');
+      return message.reply({ embeds: [embedNoPermissions], allowedMentions: { repliedUser: false } });
     }
 
     if (!message.guild.members.me.permissions.has(PermissionFlagsBits.ManageEmojisAndStickers)) {
       const embedBotNoPerms = new EmbedBuilder()
         .setColor('#838996')
-        .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> I need **Manage Emojis and Stickers** permissions to manage stickers.');
-      return message.reply({ embeds: [embedBotNoPerms] });
+        .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> I need **Manage Emojis and Stickers** permissions to manage stickers.');
+      return message.reply({ embeds: [embedBotNoPerms], allowedMentions: { repliedUser: false } });
     }
 
     // Show help if no subcommand is provided
@@ -30,13 +30,13 @@ module.exports = {
       const embedHelp = new EmbedBuilder()
         .setColor('#838996')
         .setDescription([
-          '<:settings:1362876382375317565> **Usage:**',
+          '<:settings:1457808572720087266> **Usage:**',
           `\`\`\`${prefix}sticker (subcommand) (args)\`\`\``,
-         '-# <:arrows:1363099226375979058> Use `add` to add a sticker, or `delete` to remove a sticker.',
+         '-# <:arrows:1457808531678957784> Use `add` to add a sticker, or `delete` to remove a sticker.',
           '', 
           '**Aliases:** `N/A`'
         ].join('\n'));
-      return message.reply({ embeds: [embedHelp] });
+      return message.reply({ embeds: [embedHelp], allowedMentions: { repliedUser: false } });
     }
 
     // ========== ADD STICKER ==========
@@ -49,14 +49,14 @@ module.exports = {
         const embedUsage = new EmbedBuilder()
           .setColor('#838996')
           .setDescription([
-            '<:settings:1362876382375317565> **Usage:**',
+            '<:settings:1457808572720087266> **Usage:**',
             `\`\`\`${prefix}sticker add <image-url or reply to a sticker>\`\`\``,
-            '-# <:arrows:1363099226375979058> Adds a sticker to the server.',
+            '-# <:arrows:1457808531678957784> Adds a sticker to the server.',
             '',
             `**Examples:** \`${prefix}sticker add <image url>\``,
             '\n**Aliases:** `N/A`'        
           ].join('\n'));
-        return message.reply({ embeds: [embedUsage] });
+        return message.reply({ embeds: [embedUsage], allowedMentions: { repliedUser: false } });
       }
 
       const validateAndProcessImage = async (url, isAnimatedSticker = false) => {
@@ -217,7 +217,8 @@ module.exports = {
           return message.reply({
             embeds: [new EmbedBuilder()
               .setColor('#838996')
-              .setDescription(`<:check:1362850043333316659> <:arrows:1363099226375979058> **Added sticker** \`${newSticker.name}\` **to the server.**`)]
+              .setDescription(`<:check:1457808518848581858> <:arrows:1457808531678957784> **Added sticker** \`${newSticker.name}\` **to the server.**`)],
+            allowedMentions: { repliedUser: false }
           });
         } else if (message.reference?.messageId) {
           const repliedMsg = await message.channel.messages.fetch(message.reference.messageId);
@@ -225,7 +226,8 @@ module.exports = {
             return message.reply({
               embeds: [new EmbedBuilder()
                 .setColor('#838996')
-                .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> The **replied message** does not contain any **sticker**.')]
+                .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> The **replied message** does not contain any **sticker**.')],
+              allowedMentions: { repliedUser: false }
             });
           }
 
@@ -250,20 +252,21 @@ module.exports = {
           return message.reply({
             embeds: [new EmbedBuilder()
               .setColor('#838996')
-              .setDescription(`<:check:1362850043333316659> <:arrows:1363099226375979058> **Added sticker** \`${newSticker.name}\` **to the server.**`)]
+              .setDescription(`<:check:1457808518848581858> <:arrows:1457808531678957784> **Added sticker** \`${newSticker.name}\` **to the server.**`)],
+            allowedMentions: { repliedUser: false }
           });
         }
       } catch (error) {
         console.error('Add Sticker Error:', error);
-        let msg = '<:excl:1362858572677120252> <:arrows:1363099226375979058> Failed to add sticker.';
+        let msg = '<:disallowed:1457808577786806375> <:arrows:1457808531678957784> Failed to add sticker.';
         if (error.message.includes('Invalid image format') || error.code === 50046) {
-          msg = '<:excl:1362858572677120252> <:arrows:1363099226375979058> The file is not valid or not a processable image.';
+          msg = '<:disallowed:1457808577786806375> <:arrows:1457808531678957784> The file is not valid or not a processable image.';
         } else if (error.message.includes('Maximum number of stickers')) {
-          msg = '<:excl:1362858572677120252> <:arrows:1363099226375979058> Server sticker limit reached.';
+          msg = '<:disallowed:1457808577786806375> <:arrows:1457808531678957784> Server sticker limit reached.';
         } else if (error.message.includes('size exceeds 512KB')) {
-          msg = '<:excl:1362858572677120252> <:arrows:1363099226375979058> **Image** or **GIF** is too large **(exceeds 512KB)** even after compression.';
+          msg = '<:disallowed:1457808577786806375> <:arrows:1457808531678957784> **Image** or **GIF** is too large **(exceeds 512KB)** even after compression.';
         }
-        return message.reply({ embeds: [new EmbedBuilder().setColor('#838996').setDescription(msg)] });
+        return message.reply({ embeds: [new EmbedBuilder().setColor('#838996').setDescription(msg)], allowedMentions: { repliedUser: false } });
       }
     }
 
@@ -277,14 +280,14 @@ module.exports = {
         const embedUsage = new EmbedBuilder()
           .setColor('#838996')
           .setDescription([
-            '<:settings:1362876382375317565> **Usage:**',
+            '<:settings:1457808572720087266> **Usage:**',
             `\`\`\`${prefix}sticker delete <stickername>\`\`\``,
-            '-# <:arrows:1363099226375979058> Deletes a sticker from the server.',
+            '-# <:arrows:1457808531678957784> Deletes a sticker from the server.',
             '',
             `**Examples:** \`${prefix}sticker delete waving\``,
             '\n**Aliases:** `N/A`'
           ].join('\n'));
-        return message.reply({ embeds: [embedUsage] });
+        return message.reply({ embeds: [embedUsage], allowedMentions: { repliedUser: false } });
       }
 
       const stickerName = args.join(' ').toLowerCase();
@@ -296,7 +299,8 @@ module.exports = {
           return message.reply({
             embeds: [new EmbedBuilder()
               .setColor('#838996')
-              .setDescription(`<:excl:1362858572677120252> <:arrows:1363099226375979058> No sticker found with the name including \`${stickerName}\`.`)]
+              .setDescription(`<:disallowed:1457808577786806375> <:arrows:1457808531678957784> No sticker found with the name including \`${stickerName}\`.`)],
+            allowedMentions: { repliedUser: false }
           });
         }
 
@@ -304,7 +308,8 @@ module.exports = {
         return message.reply({
           embeds: [new EmbedBuilder()
             .setColor('#838996')
-            .setDescription(`<:deleted:1363170791457427546> <:arrows:1363099226375979058> **Deleted sticker** \`${sticker.name}\` **from the server.**`)]
+            .setDescription(`<:deleted:1363170791457427546> <:arrows:1457808531678957784> **Deleted sticker** \`${sticker.name}\` **from the server.**`)],
+          allowedMentions: { repliedUser: false }
         });
 
       } catch (err) {
@@ -312,7 +317,8 @@ module.exports = {
         return message.reply({
           embeds: [new EmbedBuilder()
             .setColor('#838996')
-            .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> An error occurred while deleting the sticker.')]
+            .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> An error occurred while deleting the sticker.')],
+          allowedMentions: { repliedUser: false }
         });
       }
     }

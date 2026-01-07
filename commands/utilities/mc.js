@@ -2,11 +2,11 @@ const { EmbedBuilder } = require('discord.js');
 
 module.exports = {
   name: 'mc',
-  description: '<:arrows:1363099226375979058> Show server member count.',
+  description: '<:arrows:1457808531678957784> Show server member count.',
   category: 'utilities',
   async execute(message) {
     const guild = message.guild;
-    if (!guild) return message.reply('This command can only be used in a server.');
+    if (!guild) return message.reply({ content: 'This command can only be used in a server.', allowedMentions: { repliedUser: false } });
 
 
     const fetchedMembers = await guild.members.fetch();
@@ -25,6 +25,6 @@ module.exports = {
       .setThumbnail(guild.iconURL({ dynamic: true }))
       .setFooter({ text: `${message.author.tag}`, iconURL: message.author.displayAvatarURL({ dynamic: true }) })
       
-    message.channel.send({ embeds: [embed] });
+    message.channel.send({ embeds: [embed], allowedMentions: { repliedUser: false } });
   },
 };

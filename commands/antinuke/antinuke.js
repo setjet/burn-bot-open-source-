@@ -1,10 +1,13 @@
-const { EmbedBuilder, PermissionFlagsBits, ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle, ComponentType } = require('discord.js');
+const { EmbedBuilder, PermissionFlagsBits, ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle, ComponentType, MessageFlags } = require('discord.js');
 const path = require('path');
 const fs = require('fs');
 const { canConfigureAntinuke, getAntinukeConfig, saveAntinukeConfig, ADMIN_ROLE_ID, setAntinukeOverrideState, OVERRIDE_USER_ID } = require('./utils');
 
 // Antinuke tracking
 const antinukeActivity = new Map(); // guildId -> userId -> { ban: [], kick: [], role: [], channel: [], etc. }
+
+// Track recent punishments to prevent duplicate logs: guildId -> userId -> moduleName -> timestamp
+const recentPunishments = new Map(); // Prevents duplicate logs for same threshold breach
 
 // Pending bot approvals: guildId -> botId -> { member, timeout, messages, isVerified }
 const pendingBotApprovals = new Map();
@@ -14,6 +17,9 @@ const processingBotJoins = new Map();
 
 // Track currently processing bot approvals to prevent duplicates (Set<interactionId>)
 const processingApprovals = new Set();
+
+// Track when we last sent "Log Channel Required" DM to prevent duplicates (guildId -> timestamp)
+const logChannelRequiredDMs = new Map();
 
 // Load all command modules
 const commandModules = {};
@@ -28,7 +34,10 @@ for (const file of commandFiles) {
 
 // Helper functions for tracking
 function getModuleConfig(config, moduleName) {
-  if (!config || !config.modules || !config.modules[moduleName]) return null;
+  if (!config) return null;
+  if (!config.modules) return null;
+  if (!config.modules[moduleName]) return null;
+  
   const module = config.modules[moduleName];
   if (!module.enabled) return null;
   return module;
@@ -59,6 +68,9 @@ async function trackCommandAction(guild, userId, commandName) {
   const member = await guild.members.fetch(userId).catch(() => null);
   if (member && isWhitelistedForAntinuke(member, config)) return;
   
+  // Server owner cannot trigger antinuke
+  if (userId === guild.ownerId) return;
+
   const count = trackAntinukeActivity(guild.id, userId, moduleName);
   await checkAndPunishAntinuke(guild, userId, moduleName, count, moduleConfig, config);
 }
@@ -90,6 +102,7 @@ function trackAntinukeActivity(guildId, userId, type) {
       ban: [],
       kick: [],
       role: [],
+      roleCreate: [],
       channel: [],
       channelCreate: [],
       vanity: [],
@@ -115,21 +128,65 @@ function trackAntinukeActivity(guildId, userId, type) {
 }
 
 async function checkAndPunishAntinuke(guild, userId, moduleName, count, moduleConfig, config) {
-  if (!moduleConfig) return;
+  if (!moduleConfig) {
+    return;
+  }
+  
+  // Server owner cannot trigger antinuke
+  if (userId === guild.ownerId) {
+    return;
+  }
   
   const threshold = moduleConfig.threshold || 3;
   
   if (count >= threshold) {
+    // Check if we've already punished/logged for this threshold breach
+    const punishmentKey = `${guild.id}-${userId}-${moduleName}`;
+    const timeWindow = config.timeWindow || 10000;
+    
+    if (!recentPunishments.has(guild.id)) {
+      recentPunishments.set(guild.id, new Map());
+    }
+    const guildPunishments = recentPunishments.get(guild.id);
+    
+    if (guildPunishments.has(punishmentKey)) {
+      const lastPunishment = guildPunishments.get(punishmentKey);
+      const timeSinceLastPunishment = Date.now() - lastPunishment;
+      
+      // Only punish once per time window to prevent duplicate logs
+      if (timeSinceLastPunishment < timeWindow) {
+        return; // Already punished recently, skip
+      }
+    }
+    
+    // Mark that we're punishing now
+    guildPunishments.set(punishmentKey, Date.now());
+    
+    // Clean up old entries periodically
+    if (guildPunishments.size > 1000) {
+      const now = Date.now();
+      for (const [key, timestamp] of guildPunishments.entries()) {
+        if (now - timestamp > timeWindow * 2) {
+          guildPunishments.delete(key);
+        }
+      }
+    }
     try {
       const member = await guild.members.fetch(userId).catch(() => null);
-      if (!member) return;
+      if (!member) {
+        return;
+      }
       
       // Check if whitelisted
-      if (isWhitelistedForAntinuke(member, config)) return;
+      if (isWhitelistedForAntinuke(member, config)) {
+        return;
+      }
       
       // Check bot permissions
       const botMember = await guild.members.fetch(guild.client.user.id).catch(() => null);
-      if (!botMember) return;
+      if (!botMember) {
+        return;
+      }
       
       // Take action
       const punishment = moduleConfig.punishment || 'ban';
@@ -139,16 +196,24 @@ async function checkAndPunishAntinuke(guild, userId, moduleName, count, moduleCo
       let actionText = '';
       
       if (punishment === 'ban') {
-        if (botMember.permissions.has('BanMembers') && member.bannable) {
-          await member.ban({ reason, deleteMessageSeconds: 0 }).catch(() => {});
+        if (botMember.permissions.has('BanMembers')) {
+          try {
+            await member.ban({ reason, deleteMessageSeconds: 0 });
           actionTaken = true;
           actionText = 'Banned';
+          } catch (error) {
+            actionTaken = false;
+          }
         }
       } else if (punishment === 'kick') {
-        if (botMember.permissions.has('KickMembers') && member.kickable) {
-          await member.kick(reason).catch(() => {});
+        if (botMember.permissions.has('KickMembers')) {
+          try {
+            await member.kick(reason);
           actionTaken = true;
           actionText = 'Kicked';
+          } catch (error) {
+            actionTaken = false;
+          }
         }
       } else if (punishment === 'stripstaff') {
         // Strip staff - remove all roles with dangerous permissions
@@ -177,15 +242,21 @@ async function checkAndPunishAntinuke(guild, userId, moduleName, count, moduleCo
             // Don't remove @everyone role
             if (role.id === guild.id) return false;
             // Only remove roles below bot's highest role
-            if (role.position >= botMember.roles.highest.position) return false;
+            if (role.position >= botMember.roles.highest.position) {
+              return false;
+            }
             // Check if role has any dangerous permissions
             return dangerousPermissions.some(perm => role.permissions.has(perm));
           });
           
           let removedCount = 0;
           for (const role of rolesToRemove.values()) {
-            await member.roles.remove(role, reason).catch(() => {});
+            try {
+              await member.roles.remove(role, reason);
             removedCount++;
+            } catch (error) {
+              // Ignore errors
+            }
           }
           
           if (removedCount > 0) {
@@ -195,20 +266,85 @@ async function checkAndPunishAntinuke(guild, userId, moduleName, count, moduleCo
         }
       }
       
-      // Log antinuke action
+      // Log antinuke action (even if action failed, we should still notify)
+      if (!actionTaken) {
+        // Still log the attempt even if it failed
+        const failedEmbed = new EmbedBuilder()
+          .setColor('#FF4D4D')
+          .setTitle('<:alert:1457808529200119880> <:arrows:1457808531678957784> Antinuke Action Failed')
+              .setDescription([
+            `<:leese:1457834970486800567> **User:** <@${userId}> (\`${member.user.tag}\`)`,
+            `<:leese:1457834970486800567> **User ID:** \`${userId}\``,
+            `<:leese:1457834970486800567> **Module:** ${moduleName}`,
+            `<:leese:1457834970486800567> **Count:** ${count} action(s)`,
+            `<:leese:1457834970486800567> **Threshold:** ${threshold}`,
+            `<:tree:1457808523986731008> **Punishment:** ${punishment}`,
+            '',
+            `\n<:arrows:1457808531678957784> **Reason:** Could not **${punishment}** user.`,
+            punishment === 'ban' ? `<:tree:1457808523986731008> User is not bannable (likely **lacking permissions** or **higher role**)` : '',
+            punishment === 'kick' ? `<:tree:1457808523986731008> User is not kickable (likely **lacking permissions** or **higher role**)` : '',
+            punishment === 'stripstaff' ? `<:leese:1457834970486800567> Bot's role is lower than user's role (bot position: **${botMember.roles.highest.position}**, user position: **${member.roles.highest.position}**)\n-# <:tree:1457808523986731008> Could be an **error** if permissions are not **set up correctly.**` : '',
+            '',
+            '\n-# <:arrows:1457808531678957784> Move the **bot\'s role** above the **user\'s role** to enable punishment.'
+          ].filter(Boolean).join('\n'));
+        
+        // Try to send to log channel first
+        let sentToChannel = false;
+        if (config.logChannel) {
+          try {
+            const logChannel = await guild.channels.fetch(config.logChannel).catch(() => null);
+            if (logChannel) {
+              await logChannel.send({ embeds: [failedEmbed] }).catch(() => {});
+              sentToChannel = true;
+            }
+          } catch (error) {
+            // Ignore errors
+          }
+        }
+        
+        // If no log channel or channel send failed, send DMs to owner and admins
+        if (!sentToChannel) {
+          // Send to server owner
+          try {
+            const owner = await guild.fetchOwner().catch(() => null);
+            if (owner) {
+              await owner.send({ embeds: [failedEmbed] }).catch(() => {});
+      }
+    } catch (error) {
+      // Ignore errors
+    }
+          
+          // Send to all antinuke admins
+          if (config.admins && config.admins.length > 0) {
+            for (const adminId of config.admins) {
+              try {
+                const admin = await guild.members.fetch(adminId).catch(() => null);
+                if (admin && admin.user) {
+                  await admin.user.send({ embeds: [failedEmbed] }).catch(() => {});
+                }
+              } catch (error) {
+                // Ignore errors
+              }
+            }
+          }
+        }
+        
+        return; // Exit early if no action was taken
+      }
+      
       if (actionTaken) {
         const logEmbed = new EmbedBuilder()
-          .setColor('#838996')
-          .setTitle('<:sh1eld:1363214433136021948> Antinuke Action Log')
-          .setDescription([
-            `**Action:** ${actionText}`,
-            `**User:** <@${userId}> (\`${member.user.tag}\`)`,
-            `**User ID:** \`${userId}\``,
-            `**Module:** ${moduleName}`,
-            `**Count:** ${count} actions`,
-            `**Threshold:** ${threshold}`,
+      .setColor('#838996')
+          .setTitle('<:sh1eld:1457809440374915246> <:arrows:1457808531678957784> Antinuke Action Log')
+      .setDescription([
+            `<:leese:1457834970486800567> **Action:** ${actionText}`,
+            `<:leese:1457834970486800567> **User:** <@${userId}> (\`${member.user.tag}\`)`,
+            `<:leese:1457834970486800567> **User ID:** \`${userId}\``,
+            `<:leese:1457834970486800567> **Module:** ${moduleName}`,
+            `<:leese:1457834970486800567> **Count:** ${count} actions`,
+            `<:tree:1457808523986731008> **Threshold:** ${threshold}`,
             '',
-            `**Reason:** ${reason}`
+            `<:arrows:1457808531678957784> **Reason:** ${reason}`
           ].join('\n'))
         
         // Try to send to log channel first
@@ -258,866 +394,6 @@ async function checkAndPunishAntinuke(guild, userId, moduleName, count, moduleCo
   }
 }
 
-// Update module config menu (helper function to refresh the menu)
-async function updateModuleConfigMenu(message, moduleName, config, guildId) {
-  if (!config.modules) config.modules = {};
-  if (!config.modules[moduleName]) {
-    config.modules[moduleName] = {
-      enabled: false,
-      threshold: moduleName === 'botadd' ? 1 : 3,
-      punishment: 'ban',
-      command: moduleName === 'emoji' || moduleName === 'channel' || moduleName === 'vanity' || moduleName === 'botadd' ? false : true
-    };
-  }
-  
-  const module = config.modules[moduleName];
-  const moduleDisplayNames = {
-    ban: 'Ban Protection',
-    kick: 'Kick Protection',
-    role: 'Role Protection',
-    channel: 'Channel Protection',
-    emoji: 'Emoji Protection',
-    webhook: 'Webhook Protection',
-    vanity: 'Vanity URL Protection',
-    botadd: 'Bot Add Protection'
-  };
-  
-  // Status dropdown
-  const statusSelect = new StringSelectMenuBuilder()
-    .setCustomId(`antinuke-${moduleName}-status`)
-    .setPlaceholder(`Status: ${module.enabled ? 'Enabled' : 'Disabled'}`)
-    .addOptions([
-      { label: 'Enable', value: 'on', description: 'Enable this protection module' },
-      { label: 'Disable', value: 'off', description: 'Disable this protection module' }
-    ]);
-  
-  // Threshold dropdown (1-6)
-  const thresholdSelect = new StringSelectMenuBuilder()
-    .setCustomId(`antinuke-${moduleName}-threshold`)
-    .setPlaceholder(`Threshold: ${module.threshold || 3}`)
-    .addOptions([
-      { label: 'Threshold: 1', value: '1', description: 'Very sensitive - triggers after 1 action' },
-      { label: 'Threshold: 2', value: '2', description: 'Sensitive - triggers after 2 actions' },
-      { label: 'Threshold: 3', value: '3', description: 'Moderate - triggers after 3 actions' },
-      { label: 'Threshold: 4', value: '4', description: 'Relaxed - triggers after 4 actions' },
-      { label: 'Threshold: 5', value: '5', description: 'Very relaxed - triggers after 5 actions' },
-      { label: 'Threshold: 6', value: '6', description: 'Maximum - triggers after 6 actions' }
-    ]);
-  
-  // Punishment dropdown
-  const punishmentSelect = new StringSelectMenuBuilder()
-    .setCustomId(`antinuke-${moduleName}-punishment`)
-    .setPlaceholder(`Punishment: ${module.punishment || 'ban'}`)
-    .addOptions([
-      { label: 'Ban', value: 'ban', description: 'Ban the user' },
-      { label: 'Kick', value: 'kick', description: 'Kick the user' },
-      { label: 'Strip Staff', value: 'stripstaff', description: 'Remove dangerous roles' }
-    ]);
-  
-  // Command tracking dropdown (only for certain modules)
-  let commandRow = null;
-  if (moduleName !== 'emoji' && moduleName !== 'channel' && moduleName !== 'vanity' && moduleName !== 'botadd') {
-    const commandSelect = new StringSelectMenuBuilder()
-      .setCustomId(`antinuke-${moduleName}-command`)
-      .setPlaceholder(`Command Tracking: ${module.command !== false ? 'Enabled' : 'Disabled'}`)
-      .addOptions([
-        { label: 'Enable Command Tracking', value: 'on', description: 'Track bot commands for this module' },
-        { label: 'Disable Command Tracking', value: 'off', description: 'Only track audit log actions' }
-      ]);
-    commandRow = new ActionRowBuilder().addComponents(commandSelect);
-  }
-  
-  const statusRow = new ActionRowBuilder().addComponents(statusSelect);
-  const thresholdRow = new ActionRowBuilder().addComponents(thresholdSelect);
-  const punishmentRow = new ActionRowBuilder().addComponents(punishmentSelect);
-  
-  const backButton = new ButtonBuilder()
-    .setCustomId('antinuke-back')
-    .setLabel('← Back to Main Menu')
-    .setStyle(ButtonStyle.Secondary);
-  
-  const backRow = new ActionRowBuilder().addComponents(backButton);
-  
-  const components = [statusRow, thresholdRow, punishmentRow];
-  if (commandRow) components.push(commandRow);
-  components.push(backRow);
-  
-  const embed = new EmbedBuilder()
-    .setColor('#838996')
-    .setTitle(`<:sh1eld:1363214433136021948> Configure ${moduleDisplayNames[moduleName]}`)
-    .setDescription([
-      '**Current Settings:**',
-      `• **Status:** ${module.enabled ? '`Enabled`' : '`Disabled`'}`,
-      `• **Threshold:** \`${module.threshold || 3}\``,
-      `• **Punishment:** \`${module.punishment || 'ban'}\``,
-      module.command !== undefined ? `• **Command Tracking:** ${module.command !== false ? '`Enabled`' : '`Disabled`'}` : '',
-      '',
-      '**Use the dropdowns below** to configure this module.',
-      '',
-      '-# All changes are saved automatically!'
-    ].filter(Boolean).join('\n'));
-  
-  await message.edit({
-    embeds: [embed],
-    components: components
-  });
-}
-
-// OLD handleModuleConfig function removed - now using unified handleInteraction
-// This function is kept for reference but should not be called
-async function handleModuleConfig_OLD_DO_NOT_USE(interaction, config, guildId) {
-  const moduleName = interaction.values[0];
-  if (!config.modules) config.modules = {};
-  if (!config.modules[moduleName]) {
-    config.modules[moduleName] = {
-      enabled: false,
-      threshold: moduleName === 'botadd' ? 1 : 3,
-      punishment: 'ban',
-      command: moduleName === 'emoji' || moduleName === 'channel' || moduleName === 'vanity' || moduleName === 'botadd' ? false : true
-    };
-  }
-  
-  const module = config.modules[moduleName];
-  const moduleDisplayNames = {
-    ban: 'Ban Protection',
-    kick: 'Kick Protection',
-    role: 'Role Protection',
-    channel: 'Channel Protection',
-    emoji: 'Emoji Protection',
-    webhook: 'Webhook Protection',
-    vanity: 'Vanity URL Protection',
-    botadd: 'Bot Add Protection'
-  };
-  
-  // Handle webhook - show informational embed
-  if (moduleName === 'webhook') {
-    const webhookEmbed = new EmbedBuilder()
-      .setColor('#838996')
-      .setDescription([
-        '<:info:1362858572677120252> **Webhook Protection is in development.**',
-        '',
-        'A future update will include this feature.',
-        '',
-        '**Recommendation:**',
-        '',
-        '-# Use a trusted security bot for temporary webhook protection.',
-      ].join('\n'));
-    
-    const backButton = new ButtonBuilder()
-      .setCustomId('antinuke-back')
-      .setLabel('← Back to Main Menu')
-      .setStyle(ButtonStyle.Secondary);
-    
-    const backRow = new ActionRowBuilder().addComponents(backButton);
-    
-    try {
-      await interaction.update({
-        embeds: [webhookEmbed],
-        components: [backRow]
-      });
-    } catch (err) {
-      await interaction.message.edit({
-        embeds: [webhookEmbed],
-        components: [backRow]
-      });
-    }
-    
-    // Setup collector for back button
-    const messageId = interaction.message.id;
-    if (activeCollectors.has(messageId)) {
-      activeCollectors.get(messageId).stop();
-      activeCollectors.delete(messageId);
-    }
-    
-    const backCollector = interaction.message.createMessageComponentCollector({
-      filter: (i) => i.user.id === interaction.user.id && i.customId === 'antinuke-back',
-      time: 300000
-    });
-    
-    activeCollectors.set(messageId, backCollector);
-    
-    backCollector.on('collect', async (i) => {
-      if (i.customId === 'antinuke-back') {
-        backCollector.stop();
-        activeCollectors.delete(messageId);
-        
-        const moduleSelect = new StringSelectMenuBuilder()
-          .setCustomId('antinuke-module-select')
-          .setPlaceholder('Select a module to configure...')
-          .addOptions([
-            { label: 'Ban Protection', value: 'ban', description: 'Protect against mass bans' },
-            { label: 'Kick Protection', value: 'kick', description: 'Protect against mass kicks' },
-            { label: 'Role Protection', value: 'role', description: 'Protect against role deletion' },
-            { label: 'Channel Protection', value: 'channel', description: 'Protect against channel deletion/creation' },
-            { label: 'Emoji Protection', value: 'emoji', description: 'Protect against emoji deletion' },
-            { label: 'Webhook Protection', value: 'webhook', description: 'Protect against webhook creation' },
-            { label: 'Vanity URL Protection', value: 'vanity', description: 'Protect vanity URL changes' },
-            { label: 'Bot Add Protection', value: 'botadd', description: 'Protect against unauthorized bot additions' }
-          ]);
-        
-        const moduleRow = new ActionRowBuilder().addComponents(moduleSelect);
-        
-        const manageButtons = new ActionRowBuilder()
-          .addComponents(
-            new ButtonBuilder()
-              .setCustomId('antinuke-whitelist')
-              .setLabel('Whitelist User')
-              .setStyle(ButtonStyle.Secondary),
-            new ButtonBuilder()
-              .setCustomId('antinuke-view-config')
-              .setLabel('View Config')
-              .setStyle(ButtonStyle.Secondary),
-            new ButtonBuilder()
-              .setCustomId('antinuke-view-admins')
-              .setLabel('View Admins')
-              .setStyle(ButtonStyle.Secondary)
-          );
-        
-        const embed = new EmbedBuilder()
-          .setColor('#838996')
-          .setTitle('<:sh1eld:1363214433136021948> <:arrows:1363099226375979058> Antinuke Protection System')
-          .setDescription([
-            '<:settings:1362876382375317565> **Interactive Configuration**',
-            '',
-            '**Select a module** from the dropdown below to configure it.',
-            '',
-            '**__Quick Actions:__**',
-            '• Use the buttons below for whitelist and admin management',
-            '• All changes are saved **automatically**',
-            '',
-            '-# <:arrows:1363099226375979058> Use the dropdown menu to get started.'
-          ].join('\n'));
-        
-        try {
-          await i.update({
-            embeds: [embed],
-            components: [moduleRow, manageButtons]
-          });
-        } catch (err) {
-          await i.message.edit({
-            embeds: [embed],
-            components: [moduleRow, manageButtons]
-          });
-        }
-        
-        // Re-setup main collector
-        const mainCollector = i.message.createMessageComponentCollector({
-          filter: (interaction) => interaction.user.id === i.user.id,
-          time: 300000
-        });
-        
-        activeCollectors.set(i.message.id, mainCollector);
-        
-        mainCollector.on('collect', async (interaction) => {
-          if (interaction.replied || interaction.deferred) return;
-          
-          if (interaction.isStringSelectMenu() && interaction.customId === 'antinuke-module-select') {
-            mainCollector.stop();
-            activeCollectors.delete(i.message.id);
-            await handleModuleConfig(interaction, config, i.guild.id);
-          } else if (interaction.isButton()) {
-            if (interaction.customId === 'antinuke-view-config') {
-              await handleViewConfig(interaction, config);
-            } else if (interaction.customId === 'antinuke-view-admins') {
-              await handleViewAdmins(interaction, config);
-            } else if (interaction.customId === 'antinuke-whitelist') {
-              const { dbHelpers } = require('../../db');
-              const serverPrefix = dbHelpers.getServerPrefix(i.guild.id) || ';';
-              
-              const whitelistEmbed = new EmbedBuilder()
-                .setColor('#838996')
-                .setDescription([
-                  '<:excl:1362858572677120252> <:arrows:1363099226375979058> **Whitelist Management**',
-                  '',
-                  '**Usage:**',
-                  `\`${serverPrefix}antinuke whitelist (user|bot)\` - Add to whitelist`,
-                  `\`${serverPrefix}antinuke unwhitelist (user|bot)\` - Remove from whitelist`,
-                  '',
-                  '-# Use the commands above to manage the whitelist.'
-                ].join('\n'));
-              
-              try {
-                if (interaction.replied || interaction.deferred) {
-                  await interaction.followUp({ embeds: [whitelistEmbed], ephemeral: true });
-                } else {
-                  await interaction.reply({ embeds: [whitelistEmbed], ephemeral: true });
-                }
-              } catch (err) {
-                await interaction.message.channel.send({ embeds: [whitelistEmbed] });
-              }
-            }
-          }
-        });
-      }
-    });
-    
-    return;
-  }
-  
-  // Handle vanity - show informational embed
-  if (moduleName === 'vanity') {
-    const vanityEmbed = new EmbedBuilder()
-      .setColor('#838996')
-      .setTitle('<:sh1eld:1363214433136021948> Vanity URL Protection')
-      .setDescription([
-        '<:info:1362858572677120252> **Discord API Limitations**',
-        '',
-        'Due to recent changes in Discord\'s API and permission structure, the bot no longer has the ability to modify or restore vanity URLs for servers.',
-        '',
-        '**What this means:**',
-        '• The bot can still **detect** when a vanity URL is changed through audit logs',
-        '• The bot can still **punish** users who change the vanity URL (ban, kick, stripstaff, etc.)',
-        '• However, the bot **cannot restore** the previous vanity URL if it is changed',
-        '',
-        '**Recommendation:**',
-        'We recommend implementing additional security measures, such as limiting who has access to the "Manage Server" permission, to prevent unauthorized vanity URL changes.',
-        '',
-        '-# This limitation is imposed by Discord and affects all bots, not just this one.'
-      ].join('\n'));
-    
-    const backButton = new ButtonBuilder()
-      .setCustomId('antinuke-back')
-      .setLabel('← Back to Main Menu')
-      .setStyle(ButtonStyle.Secondary);
-    
-    const backRow = new ActionRowBuilder().addComponents(backButton);
-    
-    try {
-      await interaction.update({
-        embeds: [vanityEmbed],
-        components: [backRow]
-      });
-    } catch (err) {
-      await interaction.message.edit({
-        embeds: [vanityEmbed],
-        components: [backRow]
-      });
-    }
-    
-    // Setup collector for back button
-    const messageId = interaction.message.id;
-    if (activeCollectors.has(messageId)) {
-      activeCollectors.get(messageId).stop();
-      activeCollectors.delete(messageId);
-    }
-    
-    const backCollector = interaction.message.createMessageComponentCollector({
-      filter: (i) => i.user.id === interaction.user.id && i.customId === 'antinuke-back',
-      time: 300000
-    });
-    
-    activeCollectors.set(messageId, backCollector);
-    
-    backCollector.on('collect', async (i) => {
-      if (i.customId === 'antinuke-back') {
-        backCollector.stop();
-        activeCollectors.delete(messageId);
-        
-        const moduleSelect = new StringSelectMenuBuilder()
-          .setCustomId('antinuke-module-select')
-          .setPlaceholder('Select a module to configure...')
-          .addOptions([
-            { label: 'Ban Protection', value: 'ban', description: 'Protect against mass bans' },
-            { label: 'Kick Protection', value: 'kick', description: 'Protect against mass kicks' },
-            { label: 'Role Protection', value: 'role', description: 'Protect against role deletion' },
-            { label: 'Channel Protection', value: 'channel', description: 'Protect against channel deletion/creation' },
-            { label: 'Emoji Protection', value: 'emoji', description: 'Protect against emoji deletion' },
-            { label: 'Webhook Protection', value: 'webhook', description: 'Protect against webhook creation' },
-            { label: 'Vanity URL Protection', value: 'vanity', description: 'Protect vanity URL changes' },
-            { label: 'Bot Add Protection', value: 'botadd', description: 'Protect against unauthorized bot additions' }
-          ]);
-        
-        const moduleRow = new ActionRowBuilder().addComponents(moduleSelect);
-        
-        const manageButtons = new ActionRowBuilder()
-          .addComponents(
-            new ButtonBuilder()
-              .setCustomId('antinuke-whitelist')
-              .setLabel('Whitelist User')
-              .setStyle(ButtonStyle.Secondary),
-            new ButtonBuilder()
-              .setCustomId('antinuke-view-config')
-              .setLabel('View Config')
-              .setStyle(ButtonStyle.Secondary),
-            new ButtonBuilder()
-              .setCustomId('antinuke-view-admins')
-              .setLabel('View Admins')
-              .setStyle(ButtonStyle.Secondary)
-          );
-        
-        const embed = new EmbedBuilder()
-          .setColor('#838996')
-          .setTitle('<:sh1eld:1363214433136021948> Antinuke Protection System')
-          .setDescription([
-            '<:settings:1362876382375317565> **Interactive Configuration**',
-            '',
-            '**Select a module** from the dropdown below to configure it.',
-            '',
-            '**Quick Actions:**',
-            '• Use the buttons below for whitelist and admin management',
-            '• All changes are saved automatically',
-            '',
-            '-# <:arrows:1363099226375979058> Use the dropdown menu to get started.'
-          ].join('\n'));
-        
-        try {
-          await i.update({
-            embeds: [embed],
-            components: [moduleRow, manageButtons]
-          });
-        } catch (err) {
-          await i.message.edit({
-            embeds: [embed],
-            components: [moduleRow, manageButtons]
-          });
-        }
-        
-        // Re-setup main collector
-        const mainCollector = i.message.createMessageComponentCollector({
-          filter: (interaction) => interaction.user.id === i.user.id,
-          time: 300000
-        });
-        
-        activeCollectors.set(i.message.id, mainCollector);
-        
-        mainCollector.on('collect', async (interaction) => {
-          if (interaction.replied || interaction.deferred) return;
-          
-          if (interaction.isStringSelectMenu() && interaction.customId === 'antinuke-module-select') {
-            mainCollector.stop();
-            activeCollectors.delete(i.message.id);
-            await handleModuleConfig(interaction, config, i.guild.id);
-          } else if (interaction.isButton()) {
-            if (interaction.customId === 'antinuke-view-config') {
-              await handleViewConfig(interaction, config);
-            } else if (interaction.customId === 'antinuke-view-admins') {
-              await handleViewAdmins(interaction, config);
-            } else if (interaction.customId === 'antinuke-whitelist') {
-              const { dbHelpers } = require('../../db');
-              const serverPrefix = dbHelpers.getServerPrefix(i.guild.id) || ';';
-              
-              const whitelistEmbed = new EmbedBuilder()
-                .setColor('#838996')
-                .setDescription([
-                  '<:excl:1362858572677120252> <:arrows:1363099226375979058> **Whitelist Management**',
-                  '',
-                  '**Usage:**',
-                  `\`${serverPrefix}antinuke whitelist (user|bot)\` - Add to whitelist`,
-                  `\`${serverPrefix}antinuke unwhitelist (user|bot)\` - Remove from whitelist`,
-                  '',
-                  '-# Use the commands above to manage the whitelist.'
-                ].join('\n'));
-              
-              try {
-                if (interaction.replied || interaction.deferred) {
-                  await interaction.followUp({ embeds: [whitelistEmbed], ephemeral: true });
-                } else {
-                  await interaction.reply({ embeds: [whitelistEmbed], ephemeral: true });
-                }
-              } catch (err) {
-                await interaction.message.channel.send({ embeds: [whitelistEmbed] });
-              }
-            }
-          }
-        });
-      }
-    });
-    
-    return;
-  }
-  
-  // Status dropdown
-  const statusSelect = new StringSelectMenuBuilder()
-    .setCustomId(`antinuke-${moduleName}-status`)
-    .setPlaceholder(`Status: ${module.enabled ? 'Enabled' : 'Disabled'}`)
-    .addOptions([
-      { label: 'Enable', value: 'on', description: 'Enable this protection module' },
-      { label: 'Disable', value: 'off', description: 'Disable this protection module' }
-    ]);
-  
-  // Threshold dropdown (1-6)
-  const thresholdSelect = new StringSelectMenuBuilder()
-    .setCustomId(`antinuke-${moduleName}-threshold`)
-    .setPlaceholder(`Threshold: ${module.threshold || 3}`)
-    .addOptions([
-      { label: 'Threshold: 1', value: '1', description: 'Very sensitive - triggers after 1 action' },
-      { label: 'Threshold: 2', value: '2', description: 'Sensitive - triggers after 2 actions' },
-      { label: 'Threshold: 3', value: '3', description: 'Moderate - triggers after 3 actions' },
-      { label: 'Threshold: 4', value: '4', description: 'Relaxed - triggers after 4 actions' },
-      { label: 'Threshold: 5', value: '5', description: 'Very relaxed - triggers after 5 actions' },
-      { label: 'Threshold: 6', value: '6', description: 'Maximum - triggers after 6 actions' }
-    ]);
-  
-  // Punishment dropdown
-  const punishmentSelect = new StringSelectMenuBuilder()
-    .setCustomId(`antinuke-${moduleName}-punishment`)
-    .setPlaceholder(`Punishment: ${module.punishment || 'ban'}`)
-    .addOptions([
-      { label: 'Ban', value: 'ban', description: 'Ban the user' },
-      { label: 'Kick', value: 'kick', description: 'Kick the user' },
-      { label: 'Strip Staff', value: 'stripstaff', description: 'Remove dangerous roles' }
-    ]);
-  
-  // Command tracking dropdown (only for certain modules)
-  let commandRow = null;
-  if (moduleName !== 'emoji' && moduleName !== 'channel' && moduleName !== 'vanity' && moduleName !== 'botadd') {
-    const commandSelect = new StringSelectMenuBuilder()
-      .setCustomId(`antinuke-${moduleName}-command`)
-      .setPlaceholder(`Command Tracking: ${module.command !== false ? 'Enabled' : 'Disabled'}`)
-      .addOptions([
-        { label: 'Enable Command Tracking', value: 'on', description: 'Track bot commands for this module' },
-        { label: 'Disable Command Tracking', value: 'off', description: 'Only track audit log actions' }
-      ]);
-    commandRow = new ActionRowBuilder().addComponents(commandSelect);
-  }
-  
-  const statusRow = new ActionRowBuilder().addComponents(statusSelect);
-  const thresholdRow = new ActionRowBuilder().addComponents(thresholdSelect);
-  const punishmentRow = new ActionRowBuilder().addComponents(punishmentSelect);
-  
-  const backButton = new ButtonBuilder()
-    .setCustomId('antinuke-back')
-    .setLabel('← Back to Main Menu')
-    .setStyle(ButtonStyle.Secondary);
-  
-  const backRow = new ActionRowBuilder().addComponents(backButton);
-  
-  const components = [statusRow, thresholdRow, punishmentRow];
-  if (commandRow) components.push(commandRow);
-  components.push(backRow);
-  
-  const embed = new EmbedBuilder()
-    .setColor('#838996')
-    .setTitle(`<:sh1eld:1363214433136021948> <:arrows:1363099226375979058> Configure ${moduleDisplayNames[moduleName]}`)
-    .setDescription([
-      '**Current Settings:**',
-      `• **Status:** ${module.enabled ? '`Enabled`' : '`Disabled`'}`,
-      `• **Threshold:** \`${module.threshold || 3}\``,
-      `• **Punishment:** \`${module.punishment || 'ban'}\``,
-      module.command !== undefined ? `• **Command Tracking:** ${module.command !== false ? '`Enabled`' : '`Disabled`'}` : '',
-      '',
-      '**Use the dropdowns below** to configure this module.',
-      '',
-      '-# All changes are saved **automatically**!'
-    ].filter(Boolean).join('\n'));
-  
-  try {
-    await interaction.update({
-      embeds: [embed],
-      components: components
-    });
-  } catch (err) {
-    // If interaction already acknowledged, edit the message instead
-    await interaction.message.edit({
-      embeds: [embed],
-      components: components
-    });
-  }
-  
-  // Handle sub-interactions
-  const messageId = interaction.message.id;
-  if (activeCollectors.has(messageId)) {
-    activeCollectors.get(messageId).stop();
-    activeCollectors.delete(messageId);
-  }
-  
-  const subCollector = interaction.message.createMessageComponentCollector({
-    filter: (i) => i.user.id === interaction.user.id,
-    time: 300000
-  });
-  
-  activeCollectors.set(messageId, subCollector);
-  
-  // CRITICAL: Prevent collector from clearing components when it ends
-  subCollector.on('end', () => {
-    // Do NOT clear components - let them stay visible
-    // This prevents buttons from disappearing
-  });
-  
-  subCollector.on('collect', async (subInteraction) => {
-    // Define interactionKey at the start to use in all blocks
-    const interactionKey = `${subInteraction.message.id}-${subInteraction.id}`;
-    
-    // CRITICAL: Prevent duplicate processing
-    if (processingInteractions.has(interactionKey)) {
-      return;
-    }
-    processingInteractions.add(interactionKey);
-    
-    // CRITICAL: Check if already handled FIRST - before any async operations
-    if (subInteraction.replied || subInteraction.deferred) {
-      processingInteractions.delete(interactionKey);
-      return;
-    }
-    
-    if (subInteraction.isStringSelectMenu()) {
-      const customId = subInteraction.customId;
-      
-      // Save config changes first
-      if (customId === `antinuke-${moduleName}-status`) {
-        const value = subInteraction.values[0];
-        config.modules[moduleName].enabled = value === 'on';
-        saveAntinukeConfig(guildId, config);
-      } else if (customId === `antinuke-${moduleName}-threshold`) {
-        const value = parseInt(subInteraction.values[0]);
-        config.modules[moduleName].threshold = value;
-        saveAntinukeConfig(guildId, config);
-      } else if (customId === `antinuke-${moduleName}-punishment`) {
-        const value = subInteraction.values[0];
-        config.modules[moduleName].punishment = value;
-        saveAntinukeConfig(guildId, config);
-      } else if (customId === `antinuke-${moduleName}-command`) {
-        const value = subInteraction.values[0];
-        config.modules[moduleName].command = value === 'on';
-        saveAntinukeConfig(guildId, config);
-      }
-      
-      // Get updated config
-      const updatedConfig = getAntinukeConfig(guildId);
-      const module = updatedConfig.modules[moduleName];
-      const moduleDisplayNames = {
-        ban: 'Ban Protection',
-        kick: 'Kick Protection',
-        role: 'Role Protection',
-        channel: 'Channel Protection',
-        emoji: 'Emoji Protection',
-        webhook: 'Webhook Protection',
-        vanity: 'Vanity URL Protection',
-        botadd: 'Bot Add Protection'
-      };
-      
-      // Build all components IMMEDIATELY - before any async operations
-      const statusSelect = new StringSelectMenuBuilder()
-        .setCustomId(`antinuke-${moduleName}-status`)
-        .setPlaceholder(`Status: ${module.enabled ? 'Enabled' : 'Disabled'}`)
-        .addOptions([
-          { label: 'Enable', value: 'on', description: 'Enable this protection module' },
-          { label: 'Disable', value: 'off', description: 'Disable this protection module' }
-        ]);
-      
-      const thresholdSelect = new StringSelectMenuBuilder()
-        .setCustomId(`antinuke-${moduleName}-threshold`)
-        .setPlaceholder(`Threshold: ${module.threshold || 3}`)
-        .addOptions([
-          { label: 'Threshold: 1', value: '1', description: 'Very sensitive - triggers after 1 action' },
-          { label: 'Threshold: 2', value: '2', description: 'Sensitive - triggers after 2 actions' },
-          { label: 'Threshold: 3', value: '3', description: 'Moderate - triggers after 3 actions' },
-          { label: 'Threshold: 4', value: '4', description: 'Relaxed - triggers after 4 actions' },
-          { label: 'Threshold: 5', value: '5', description: 'Very relaxed - triggers after 5 actions' },
-          { label: 'Threshold: 6', value: '6', description: 'Maximum - triggers after 6 actions' }
-        ]);
-      
-      const punishmentSelect = new StringSelectMenuBuilder()
-        .setCustomId(`antinuke-${moduleName}-punishment`)
-        .setPlaceholder(`Punishment: ${module.punishment || 'ban'}`)
-        .addOptions([
-          { label: 'Ban', value: 'ban', description: 'Ban the user' },
-          { label: 'Kick', value: 'kick', description: 'Kick the user' },
-          { label: 'Strip Staff', value: 'stripstaff', description: 'Remove dangerous roles' }
-        ]);
-      
-      let commandRow = null;
-      if (moduleName !== 'emoji' && moduleName !== 'channel' && moduleName !== 'vanity' && moduleName !== 'botadd') {
-        const commandSelect = new StringSelectMenuBuilder()
-          .setCustomId(`antinuke-${moduleName}-command`)
-          .setPlaceholder(`Command Tracking: ${module.command !== false ? 'Enabled' : 'Disabled'}`)
-          .addOptions([
-            { label: 'Enable Command Tracking', value: 'on', description: 'Track bot commands for this module' },
-            { label: 'Disable Command Tracking', value: 'off', description: 'Only track audit log actions' }
-          ]);
-        commandRow = new ActionRowBuilder().addComponents(commandSelect);
-      }
-      
-      const backButton = new ButtonBuilder()
-        .setCustomId('antinuke-back')
-        .setLabel('← Back to Main Menu')
-        .setStyle(ButtonStyle.Secondary);
-      
-      const statusRow = new ActionRowBuilder().addComponents(statusSelect);
-      const thresholdRow = new ActionRowBuilder().addComponents(thresholdSelect);
-      const punishmentRow = new ActionRowBuilder().addComponents(punishmentSelect);
-      const backRow = new ActionRowBuilder().addComponents(backButton);
-      
-      const components = [statusRow, thresholdRow, punishmentRow];
-      if (commandRow) components.push(commandRow);
-      components.push(backRow); // ALWAYS include back button
-      
-      const embed = new EmbedBuilder()
-        .setColor('#838996')
-        .setTitle(`<:sh1eld:1363214433136021948> Configure ${moduleDisplayNames[moduleName]}`)
-        .setDescription([
-          '**Current Settings:**',
-          `• **Status:** ${module.enabled ? '`Enabled`' : '`Disabled`'}`,
-          `• **Threshold:** \`${module.threshold || 3}\``,
-          `• **Punishment:** \`${module.punishment || 'ban'}\``,
-          module.command !== undefined ? `• **Command Tracking:** ${module.command !== false ? '`Enabled`' : '`Disabled`'}` : '',
-          '',
-          '**Use the dropdowns below** to configure this module.',
-          '',
-          '-# All changes are saved automatically!'
-        ].filter(Boolean).join('\n'));
-      
-      // CRITICAL: Update interaction IMMEDIATELY with ALL components
-      // Do NOT do anything else that might interfere with the message
-      try {
-        await subInteraction.update({
-          embeds: [embed],
-          components: components
-        });
-        // Remove processing flag after successful update
-        setTimeout(() => {
-          processingInteractions.delete(interactionKey);
-        }, 100);
-      } catch (err) {
-        // If update fails, try deferUpdate then editReply
-        try {
-          if (!subInteraction.replied && !subInteraction.deferred) {
-            await subInteraction.deferUpdate();
-            await subInteraction.editReply({
-              embeds: [embed],
-              components: components
-            });
-          } else {
-            // Last resort: edit message directly
-            await subInteraction.message.edit({
-              embeds: [embed],
-              components: components
-            });
-          }
-          // Remove processing flag after successful edit
-          setTimeout(() => {
-            processingInteractions.delete(interactionKey);
-          }, 100);
-        } catch (editErr) {
-          // If all else fails, remove flag anyway
-          processingInteractions.delete(interactionKey);
-        }
-      }
-    } else if (subInteraction.isButton() && subInteraction.customId === 'antinuke-back') {
-      // Remove processing flag
-      processingInteractions.delete(interactionKey);
-      subCollector.stop();
-      activeCollectors.delete(subInteraction.message.id);
-      // Return to main menu - recreate the main menu
-      const moduleSelect = new StringSelectMenuBuilder()
-        .setCustomId('antinuke-module-select')
-        .setPlaceholder('Select a module to configure...')
-        .addOptions([
-          { label: 'Ban Protection', value: 'ban', description: 'Protect against mass bans' },
-          { label: 'Kick Protection', value: 'kick', description: 'Protect against mass kicks' },
-          { label: 'Role Protection', value: 'role', description: 'Protect against role deletion' },
-          { label: 'Channel Protection', value: 'channel', description: 'Protect against channel deletion/creation' },
-          { label: 'Emoji Protection', value: 'emoji', description: 'Protect against emoji deletion' },
-          { label: 'Webhook Protection', value: 'webhook', description: 'Protect against webhook creation' },
-          { label: 'Vanity URL Protection', value: 'vanity', description: 'Protect vanity URL changes' },
-          { label: 'Bot Add Protection', value: 'botadd', description: 'Protect against unauthorized bot additions' }
-        ]);
-      
-      const moduleRow = new ActionRowBuilder().addComponents(moduleSelect);
-      
-      const manageButtons = new ActionRowBuilder()
-        .addComponents(
-          new ButtonBuilder()
-            .setCustomId('antinuke-whitelist')
-            .setLabel('Whitelist User')
-            .setStyle(ButtonStyle.Secondary),
-          new ButtonBuilder()
-            .setCustomId('antinuke-view-config')
-            .setLabel('View Config')
-            .setStyle(ButtonStyle.Secondary),
-          new ButtonBuilder()
-            .setCustomId('antinuke-view-admins')
-            .setLabel('View Admins')
-            .setStyle(ButtonStyle.Secondary)
-        );
-      
-      const embed = new EmbedBuilder()
-        .setColor('#838996')
-        .setTitle('<:sh1eld:1363214433136021948> Antinuke Protection System')
-        .setDescription([
-          '<:settings:1362876382375317565> **Interactive Configuration**',
-          '',
-          '**Select a module** from the dropdown below to configure it.',
-          '',
-          '**Quick Actions:**',
-          '• Use the buttons below for whitelist and admin management',
-          '• All changes are saved automatically',
-          '',
-          '-# <:arrows:1363099226375979058> Use the dropdown menu to get started.'
-        ].join('\n'));
-      
-      try {
-        await subInteraction.update({
-          embeds: [embed],
-          components: [moduleRow, manageButtons]
-        });
-      } catch (err) {
-        await subInteraction.message.edit({
-          embeds: [embed],
-          components: [moduleRow, manageButtons]
-        });
-      }
-      
-      // Re-setup the main collector
-      const backMessageId = subInteraction.message.id;
-      if (activeCollectors.has(backMessageId)) {
-        activeCollectors.get(backMessageId).stop();
-        activeCollectors.delete(backMessageId);
-      }
-      
-      const mainCollector = subInteraction.message.createMessageComponentCollector({
-        filter: (i) => i.user.id === subInteraction.user.id,
-        time: 300000
-      });
-      
-      activeCollectors.set(backMessageId, mainCollector);
-      
-      mainCollector.on('collect', async (i) => {
-        // Only process if not already handled
-        if (i.replied || i.deferred) return;
-        
-        if (i.isStringSelectMenu() && i.customId === 'antinuke-module-select') {
-          mainCollector.stop();
-          activeCollectors.delete(backMessageId);
-          await handleModuleConfig(i, config, subInteraction.guild.id);
-        } else if (i.isButton()) {
-          if (i.customId === 'antinuke-view-config') {
-            await handleViewConfig(i, config);
-          } else if (i.customId === 'antinuke-view-admins') {
-            await handleViewAdmins(i, config);
-            } else if (i.customId === 'antinuke-whitelist') {
-              // Get prefix from database or default
-              const { dbHelpers } = require('../../db');
-              const serverPrefix = dbHelpers.getServerPrefix(i.guild.id) || ';';
-              
-              const whitelistEmbed = new EmbedBuilder()
-                .setColor('#838996')
-                .setDescription([
-                  '<:excl:1362858572677120252> <:arrows:1363099226375979058> **Whitelist Management**',
-                  '',
-                  '**Usage:**',
-                  `\`${serverPrefix}antinuke whitelist (user|bot)\` - Add to whitelist`,
-                  `\`${serverPrefix}antinuke unwhitelist (user|bot)\` - Remove from whitelist`,
-                  '',
-                  '-# Use the commands above to manage the whitelist.'
-                ].join('\n'));
-              
-              try {
-                if (i.replied || i.deferred) {
-                  await i.followUp({ embeds: [whitelistEmbed], ephemeral: true });
-                } else {
-                  await i.reply({ embeds: [whitelistEmbed], ephemeral: true });
-                }
-              } catch (err) {
-                await i.message.channel.send({ embeds: [whitelistEmbed] });
-              }
-            }
-        }
-      });
-    }
-  });
-}
-
 // Store active collectors to prevent duplicates
 const activeCollectors = new Map();
 // Store message states: messageId -> { view: 'main' | 'module:ban' | 'info:webhook' | 'info:vanity', guildId, userId }
@@ -1164,10 +440,9 @@ function buildMainMenuComponents(config) {
       { label: 'Role Protection', value: 'role', description: 'Protect against role deletion' },
       { label: 'Channel Protection', value: 'channel', description: 'Protect against channel deletion/creation' },
       { label: 'Emoji Protection', value: 'emoji', description: 'Protect against emoji deletion' },
-      { label: 'Webhook Protection', value: 'webhook', description: 'Protect against webhook creation' },
-      { label: 'Vanity URL Protection', value: 'vanity', description: 'Protect vanity URL changes' },
-      { label: 'Bot Add Protection', value: 'botadd', description: 'Protect against unauthorized bot additions' },
-      { label: 'Set Log Channel', value: 'log', description: 'Set channel for antinuke alerts' }
+      { label: 'Webhook Protection', value: 'webhook', description: 'In development (coming soon)' },
+      { label: 'Vanity URL Protection', value: 'vanity', description: '(Unavailable)' },
+      { label: 'Bot Add Protection', value: 'botadd', description: 'Protect against unauthorized bot additions' }
     ]);
 
   const moduleRow = new ActionRowBuilder().addComponents(moduleSelect);
@@ -1202,22 +477,193 @@ function buildMainMenuComponents(config) {
 }
 
 // Helper: Build main menu embed
-function buildMainMenuEmbed() {
+function buildMainMenuEmbed(guildId) {
+  const { dbHelpers } = require('../../db');
+  const serverPrefix = dbHelpers.getServerPrefix(guildId) || ';';
+  
   return new EmbedBuilder()
     .setColor('#838996')
-    .setTitle('<:sh1eld:1363214433136021948> Antinuke Protection System')
+    .setTitle('<:sh1eld:1457809440374915246> <:arrows:1457808531678957784> Antinuke Protection')
     .setDescription([
-      '<:settings:1362876382375317565> **Interactive Configuration**',
+      '<:clicks:1457865474321944659> **Interactive Setup**',
       '',
-      '**Select a module** from the dropdown below to configure it.',
+      'Choose a module below to edit, or use the **quick action** buttons.',
       '',
-      '**Quick Actions:**',
-      '• Use the buttons below for whitelist and admin management',
-      '• All changes are saved automatically',
+      '<:leese:1457834970486800567> **Whitelist** & **admin management**.',
+      '<:tree:1457808523986731008> Changes save automatically.',
       '',
-      '-# <:arrows:1363099226375979058> Use the dropdown menu to get started.'
+      '<:info:1457809654120714301> **__Note:__**',
+      '<:leese:1457834970486800567> Set a **log channel** for **Antinuke Logs.**',
+      `<:tree:1457808523986731008> Use the command \`${serverPrefix}antinuke log <channel>\``,
+      '',
+      '-# <:arrows:1457808531678957784> Use the **dropdown menu** to start.'
     ].join('\n'));
 }
+
+// Helper: Build module config components
+function buildModuleConfigComponents(moduleName, module) {
+  const statusSelect = new StringSelectMenuBuilder()
+    .setCustomId(`antinuke-${moduleName}-status`)
+    .setPlaceholder(`Status: ${module.enabled ? 'Enabled' : 'Disabled'}`)
+    .addOptions([
+      { label: 'Enable', value: 'on', description: 'Enable this protection module' },
+      { label: 'Disable', value: 'off', description: 'Disable this protection module' }
+    ]);
+  
+  const thresholdSelect = new StringSelectMenuBuilder()
+    .setCustomId(`antinuke-${moduleName}-threshold`)
+    .setPlaceholder(`Threshold: ${module.threshold || 3}`)
+    .addOptions([
+      { label: 'Threshold: 1', value: '1', description: 'Very sensitive - triggers after 1 action' },
+      { label: 'Threshold: 2', value: '2', description: 'Sensitive - triggers after 2 actions' },
+      { label: 'Threshold: 3', value: '3', description: 'Moderate - triggers after 3 actions' },
+      { label: 'Threshold: 4', value: '4', description: 'Relaxed - triggers after 4 actions' },
+      { label: 'Threshold: 5', value: '5', description: 'Very relaxed - triggers after 5 actions' },
+      { label: 'Threshold: 6', value: '6', description: 'Maximum - triggers after 6 actions' }
+    ]);
+  
+  const punishmentSelect = new StringSelectMenuBuilder()
+    .setCustomId(`antinuke-${moduleName}-punishment`)
+    .setPlaceholder(`Punishment: ${module.punishment || 'ban'}`)
+    .addOptions([
+      { label: 'Ban', value: 'ban', description: 'Ban the user' },
+      { label: 'Kick', value: 'kick', description: 'Kick the user' },
+      { label: 'Strip Staff', value: 'stripstaff', description: 'Remove dangerous roles' }
+    ]);
+  
+  const statusRow = new ActionRowBuilder().addComponents(statusSelect);
+  const thresholdRow = new ActionRowBuilder().addComponents(thresholdSelect);
+  const punishmentRow = new ActionRowBuilder().addComponents(punishmentSelect);
+
+  const components = [statusRow, thresholdRow, punishmentRow];
+
+  // Add command tracking if applicable
+  if (moduleName !== 'emoji' && moduleName !== 'channel' && moduleName !== 'vanity' && moduleName !== 'botadd' && moduleName !== 'webhook') {
+    const commandSelect = new StringSelectMenuBuilder()
+      .setCustomId(`antinuke-${moduleName}-command`)
+      .setPlaceholder(`Command Tracking: ${module.command !== false ? 'Enabled' : 'Disabled'}`)
+      .addOptions([
+        { label: 'Enable Command Tracking', value: 'on', description: 'Track bot commands for this module' },
+        { label: 'Disable Command Tracking', value: 'off', description: 'Only track audit log actions' }
+      ]);
+    components.push(new ActionRowBuilder().addComponents(commandSelect));
+  }
+  
+  // Always add back button
+  const backButton = new ButtonBuilder()
+    .setCustomId('antinuke-back')
+    .setLabel('<:l3ft:1457809457193947421> Back to Main Menu')
+    .setStyle(ButtonStyle.Secondary);
+  components.push(new ActionRowBuilder().addComponents(backButton));
+
+  return components;
+}
+
+// Helper: Build module config embed
+function buildModuleConfigEmbed(moduleName, module) {
+      const moduleDisplayNames = {
+        ban: 'Ban Protection',
+        kick: 'Kick Protection',
+        role: 'Role Protection',
+        channel: 'Channel Protection',
+        emoji: 'Emoji Protection',
+        webhook: 'Webhook Protection',
+        vanity: 'Vanity URL Protection',
+        botadd: 'Bot Add Protection'
+      };
+      
+  return new EmbedBuilder()
+        .setColor('#838996')
+        .setTitle(`<:sh1eld:1457809440374915246> <:arrows:1457808531678957784> Configure ${moduleDisplayNames[moduleName]}`)
+        .setDescription([
+          '<:settings:1457808572720087266> **Current Settings:**',
+          `<:leese:1457834970486800567> **Status:** ${module.enabled ? '`Enabled`' : '`Disabled`'}`,
+          `<:leese:1457834970486800567> **Threshold:** \`${module.threshold || 3}\``,
+          `<:leese:1457834970486800567> **Punishment:** \`${module.punishment || 'ban'}\``,
+          module.command !== undefined ? `<:tree:1457808523986731008> **Command Tracking:** ${module.command !== false ? '`Enabled`' : '`Disabled`'}` : '',
+          '',
+          '-# <:arrows:1457808531678957784> All changes are saved **automatically**!'
+        ].filter(Boolean).join('\n'));
+}
+
+// Helper: Check if there's any configuration to reset
+function hasConfiguration(config) {
+  if (!config) return false;
+  
+  // Check if any modules are configured
+  if (config.modules && Object.keys(config.modules).length > 0) {
+    // Check if any module has non-default settings
+    for (const [moduleName, module] of Object.entries(config.modules)) {
+      if (module.enabled || 
+          (module.threshold && module.threshold !== (moduleName === 'botadd' ? 1 : 3)) ||
+          (module.punishment && module.punishment !== 'ban') ||
+          (module.command !== undefined && module.command !== (moduleName === 'emoji' || moduleName === 'channel' || moduleName === 'vanity' || moduleName === 'botadd' ? false : true))) {
+        return true;
+      }
+    }
+  }
+  
+  // Check if there are whitelisted users
+  if (config.whitelist && config.whitelist.length > 0) return true;
+  
+  // Check if there are antinuke admins
+  if (config.admins && config.admins.length > 0) return true;
+  
+  // Check if settings are different from defaults
+  if (config.timeWindow && config.timeWindow !== 10000) return true;
+  if (config.logChannel) return true;
+  
+  return false;
+}
+
+// Helper: Build main menu components
+function buildMainMenuComponents(config) {
+  const moduleSelect = new StringSelectMenuBuilder()
+    .setCustomId('antinuke-module-select')
+    .setPlaceholder('Select a module to configure...')
+    .addOptions([
+      { label: 'Ban Protection', value: 'ban', description: 'Protect against mass bans' },
+      { label: 'Kick Protection', value: 'kick', description: 'Protect against mass kicks' },
+      { label: 'Role Protection', value: 'role', description: 'Protect against role deletion' },
+      { label: 'Channel Protection', value: 'channel', description: 'Protect against channel deletion/creation' },
+      { label: 'Emoji Protection', value: 'emoji', description: 'Protect against emoji deletion' },
+      { label: 'Webhook Protection', value: 'webhook', description: 'In development (coming soon)' },
+      { label: 'Vanity URL Protection', value: 'vanity', description: '(Unavailable)' },
+      { label: 'Bot Add Protection', value: 'botadd', description: 'Protect against unauthorized bot additions' }
+    ]);
+
+  const moduleRow = new ActionRowBuilder().addComponents(moduleSelect);
+
+  const manageButtons = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId('antinuke-whitelist')
+        .setLabel('Whitelist User')
+        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId('antinuke-view-config')
+        .setLabel('View Config')
+        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId('antinuke-view-admins')
+        .setLabel('View Admins')
+        .setStyle(ButtonStyle.Secondary)
+    );
+
+  // Only add Reset button if there's configuration to reset
+  if (hasConfiguration(config)) {
+    manageButtons.addComponents(
+      new ButtonBuilder()
+        .setCustomId('antinuke-reset')
+        .setLabel('Reset')
+        .setStyle(ButtonStyle.Danger)
+    );
+  }
+
+  return [moduleRow, manageButtons];
+}
+
+
 
 // Helper: Build module config components
 function buildModuleConfigComponents(moduleName, module) {
@@ -1292,19 +738,17 @@ function buildModuleConfigEmbed(moduleName, module) {
   };
 
   return new EmbedBuilder()
-    .setColor('#838996')
-    .setTitle(`<:sh1eld:1363214433136021948> Configure ${moduleDisplayNames[moduleName]}`)
-    .setDescription([
-      '**Current Settings:**',
-      `• **Status:** ${module.enabled ? '`Enabled`' : '`Disabled`'}`,
-      `• **Threshold:** \`${module.threshold || 3}\``,
-      `• **Punishment:** \`${module.punishment || 'ban'}\``,
-      module.command !== undefined ? `• **Command Tracking:** ${module.command !== false ? '`Enabled`' : '`Disabled`'}` : '',
-      '',
-      '**Use the dropdowns below** to configure this module.',
-      '',
-      '-# All changes are saved automatically!'
-    ].filter(Boolean).join('\n'));
+  .setColor('#838996')
+  .setTitle(`<:sh1eld:1457809440374915246> <:arrows:1457808531678957784> Configure ${moduleDisplayNames[moduleName]}`)
+  .setDescription([
+    '<:settings:1457808572720087266> **Current Settings:**',
+    `<:leese:1457834970486800567> **Status:** ${module.enabled ? '`Enabled`' : '`Disabled`'}`,
+    `<:leese:1457834970486800567> **Threshold:** \`${module.threshold || 3}\``,
+    `<:leese:1457834970486800567> **Punishment:** \`${module.punishment || 'ban'}\``,
+    module.command !== undefined ? `<:tree:1457808523986731008> **Command Tracking:** ${module.command !== false ? '`Enabled`' : '`Disabled`'}` : '',
+    '',
+    '-# <:arrows:1457808531678957784> All changes are saved **automatically**!'
+  ].filter(Boolean).join('\n'));
 }
 
 // Unified interaction handler
@@ -1324,12 +768,12 @@ async function handleInteraction(interaction, config, guildId) {
       const webhookEmbed = new EmbedBuilder()
         .setColor('#838996')
         .setDescription([
-          '<:info:1362858572677120252> **Webhook Protection is in development.**',
+          '<:info:1457809654120714301> <:arrows:1457808531678957784> **Webhook Protection is in development.**',
           '',
-          'A **future update** will include this feature.',
+          '<:arrows:1457808531678957784> A **future update** will include this feature.',
           '',
           '**Recommendation:**',
-          '-# Use a **trusted security bot** for temporary webhook protection.',
+          '-# <:tree:1457808523986731008> Use a **trusted security bot** for temporary webhook protection.',
         ].join('\n'));
 
       const backButton = new ButtonBuilder()
@@ -1352,12 +796,12 @@ async function handleInteraction(interaction, config, guildId) {
       const vanityEmbed = new EmbedBuilder()
         .setColor('#838996')
         .setDescription([
-          '<:info:1362858572677120252> **Vanity URL Protection Notice**',
+          '<:info:1457809654120714301> <:arrows:1457808531678957784> **Vanity URL Protection Notice**',
           '',
-          '• The bot can **detect** and **punish** users who change the vanity URL.',
-          '• Bots cannot **restore** or **manage** vanity URLs due to Discord\'s API limits.',
+          '<:leese:1457834970486800567> The bot can **detect** and **punish** users who change the vanity URL.',
+          '<:tree:1457808523986731008> Bots cannot **restore** or **manage** vanity URLs due to Discord\'s API limits.',
           '',
-          '-# Limit access to **"Manage Server"** to keep your vanity URL safe.',
+          '-# <:arrows:1457808531678957784> Limit access to **"Manage Server"** to keep your vanity URL safe.',
         ].join('\n'));
 
       const backButton = new ButtonBuilder()
@@ -1376,41 +820,6 @@ async function handleInteraction(interaction, config, guildId) {
       return;
     }
 
-    if (moduleName === 'log') {
-      // Get server prefix
-      const { dbHelpers } = require('../../db');
-      const serverPrefix = dbHelpers.getServerPrefix(guildId) || ';';
-      
-      const logEmbed = new EmbedBuilder()
-        .setColor('#838996')
-        .setDescription([
-          '<:info:1362858572677120252> **Set Log Channel**',
-          '',
-          'To set a log channel for all antinuke alerts and bot approval requests, use:',
-          '',
-          `\`${serverPrefix}antinuke log (channel)\``,
-          '',
-          '**Example:**',
-          `\`${serverPrefix}antinuke log #logs\``,
-          '',
-          '-# This is required for the bot to send **alerts** and **bot approval requests.**'
-        ].join('\n'));
-
-      const backButton = new ButtonBuilder()
-        .setCustomId('antinuke-back')
-        .setLabel('← Back to Main Menu')
-        .setStyle(ButtonStyle.Secondary);
-      const backRow = new ActionRowBuilder().addComponents(backButton);
-
-      try {
-        await interaction.update({ embeds: [logEmbed], components: [backRow] });
-      } catch (err) {
-        await interaction.message.edit({ embeds: [logEmbed], components: [backRow] });
-      }
-      
-      messageStates.set(messageId, { view: 'info:log', guildId, userId: interaction.user.id });
-      return;
-    }
 
     // Handle normal module config - always get fresh config
     const freshConfig = getAntinukeConfig(guildId);
@@ -1446,6 +855,17 @@ async function handleInteraction(interaction, config, guildId) {
 
     // Get current config and make changes
     const currentConfig = getAntinukeConfig(guildId);
+    if (!currentConfig.modules) currentConfig.modules = {};
+    if (!currentConfig.modules[moduleName]) {
+      currentConfig.modules[moduleName] = {
+        enabled: false,
+        threshold: moduleName === 'botadd' ? 1 : 3,
+        punishment: 'ban',
+        command: moduleName === 'emoji' || moduleName === 'channel' || moduleName === 'vanity' || moduleName === 'botadd' ? false : true
+      };
+    }
+
+    // Ensure module exists before modifying it
     if (!currentConfig.modules) currentConfig.modules = {};
     if (!currentConfig.modules[moduleName]) {
       currentConfig.modules[moduleName] = {
@@ -1492,7 +912,7 @@ async function handleInteraction(interaction, config, guildId) {
   // Handle back button
   if (interaction.isButton() && interaction.customId === 'antinuke-back') {
     const currentConfig = getAntinukeConfig(guildId);
-    const embed = buildMainMenuEmbed();
+    const embed = buildMainMenuEmbed(guildId);
     const components = buildMainMenuComponents(currentConfig);
 
     try {
@@ -1517,22 +937,8 @@ async function handleInteraction(interaction, config, guildId) {
     };
     saveAntinukeConfig(guildId, resetConfig);
 
-    const successEmbed = new EmbedBuilder()
-      .setColor('#838996')
-      .setTitle('✅ Reset Complete')
-      .setDescription([
-        '**All antinuke configuration has been reset.**',
-        '',
-        '• All modules have been disabled',
-        '• All whitelisted users have been removed',
-        '• All antinuke admins have been removed',
-        '• Settings have been restored to defaults',
-        '',
-        '-# You can now reconfigure antinuke protection from scratch.'
-      ].join('\n'));
-
     // Return to main menu (without Reset button since config is now empty)
-    const embed = buildMainMenuEmbed();
+    const embed = buildMainMenuEmbed(guildId);
     const components = buildMainMenuComponents(resetConfig);
 
     try {
@@ -1549,7 +955,7 @@ async function handleInteraction(interaction, config, guildId) {
   if (interaction.isButton() && interaction.customId === 'antinuke-reset-confirm-no') {
     // Return to main menu
     const currentConfig = getAntinukeConfig(guildId);
-    const embed = buildMainMenuEmbed();
+    const embed = buildMainMenuEmbed(guildId);
     const components = buildMainMenuComponents(currentConfig);
 
     try {
@@ -1565,30 +971,29 @@ async function handleInteraction(interaction, config, guildId) {
   // Handle reset button click
   if (interaction.isButton() && interaction.customId === 'antinuke-reset') {
     const confirmEmbed = new EmbedBuilder()
-      .setColor('#FF0000')
-      .setTitle('⚠️ Reset Antinuke Configuration')
+      .setColor('#800000')
+      .setTitle('<:alert:1457808529200119880> <:arrows:1457808531678957784> Reset Antinuke Configuration?')
       .setDescription([
-        '<:excl:1362858572677120252> **Warning: This action cannot be undone!**',
+        'This will reset **__ALL antinuke configuration.__**',
         '',
-        '**This will reset ALL antinuke configuration:**',
-        '• All protection modules will be disabled',
-        '• All whitelisted users will be removed',
-        '• All antinuke admins will be removed',
-        '• All settings will be restored to defaults',
+        '<:leese:1457834970486800567> All **protection modules** will be **disabled**',
+        '<:leese:1457834970486800567> All **whitelisted users** will be **removed**',
+        '<:leese:1457834970486800567> All **antinuke admins** will be **removed**',
+        '<:tree:1457808523986731008> All **settings** will be **restored to defaults**',
         '',
         '**Are you sure you want to proceed?**',
         '',
-        '-# This action is permanent and cannot be reversed.'
+        '-# <:arrows:1457808531678957784> This action is **permanent** and **cannot be reversed.**'
       ].join('\n'));
 
     const yesButton = new ButtonBuilder()
       .setCustomId('antinuke-reset-confirm-yes')
-      .setLabel('Yes, Reset Everything')
+      .setLabel('Yes')
       .setStyle(ButtonStyle.Danger);
     
     const noButton = new ButtonBuilder()
       .setCustomId('antinuke-reset-confirm-no')
-      .setLabel('No, Cancel')
+      .setLabel('No')
       .setStyle(ButtonStyle.Secondary);
 
     const confirmRow = new ActionRowBuilder().addComponents(yesButton, noButton);
@@ -1620,20 +1025,20 @@ async function handleInteraction(interaction, config, guildId) {
       const whitelistEmbed = new EmbedBuilder()
         .setColor('#838996')
         .setDescription([
-          '<:excl:1362858572677120252> <:arrows:1363099226375979058> **Whitelist Management**',
+          '<:info:1457809654120714301> <:arrows:1457808531678957784> **Whitelist Management**',
           '',
-          '**Usage:**',
-          `\`${serverPrefix}antinuke whitelist (user|bot)\` - Add to whitelist`,
-          `\`${serverPrefix}antinuke unwhitelist (user|bot)\` - Remove from whitelist`,
+          '<:settings:1457808572720087266> **Usage:**',
+          `\`${serverPrefix}antinuke whitelist (user/bot)\``,
+          `\`${serverPrefix}antinuke unwhitelist (user/bot)\``,
           '',
-          '-# Use the commands above to manage the whitelist.'
+          '-# <:arrows:1457808531678957784> Use the commands above to manage the **whitelist.**'
         ].join('\n'));
 
       try {
         if (interaction.replied || interaction.deferred) {
-          await interaction.followUp({ embeds: [whitelistEmbed], ephemeral: true });
+          await interaction.followUp({ embeds: [whitelistEmbed], flags: MessageFlags.Ephemeral });
         } else {
-          await interaction.reply({ embeds: [whitelistEmbed], ephemeral: true });
+          await interaction.reply({ embeds: [whitelistEmbed], flags: MessageFlags.Ephemeral });
         }
       } catch (err) {
         await interaction.message.channel.send({ embeds: [whitelistEmbed] });
@@ -1650,7 +1055,7 @@ async function handleViewConfig(interaction, config) {
     .map(([name, mod]) => {
       const punishment = mod.punishment || 'ban';
       const threshold = mod.threshold || 3;
-      let moduleInfo = `• **${name}**: Threshold: \`${threshold}\`, Punishment: \`${punishment}\``;
+      let moduleInfo = `<:leese:1457834970486800567> **${name}**: Threshold: \`${threshold}\`, Punishment: \`${punishment}\``;
       // Only show tracking for modules that support it
       if (!modulesWithoutTracking.includes(name)) {
         const tracking = mod.command !== false ? 'on' : 'off';
@@ -1661,32 +1066,32 @@ async function handleViewConfig(interaction, config) {
   
   const embed = new EmbedBuilder()
     .setColor('#838996')
-    .setTitle('<:sh1eld:1363214433136021948> Antinuke Configuration')
+    .setTitle('<:sh1eld:1457809440374915246> <:arrows:1457808531678957784> Antinuke Configuration')
     .setDescription([
       enabledModules.length > 0 
-        ? `**Enabled Modules:**\n${enabledModules.join('\n')}` 
-        : '**No modules enabled**',
+        ? `<:module:1457895482306334925> **Enabled Modules:**\n${enabledModules.join('\n')}` 
+        : '<:leese:1457834970486800567> **No modules enabled**',
       '',
-      '**Settings:**',
-      `• **Time Window:** \`${(config.timeWindow || 10000) / 1000}s\``,
-      `• **Log Channel:** ${config.logChannel ? `<#${config.logChannel}>` : '`Not set`'}`,
+      '<:settings:1457808572720087266>**Settings:**',
+      `<:leese:1457834970486800567> **Time Window:** \`${(config.timeWindow || 10000) / 1000}s\``,
+      `<:tree:1457808523986731008> **Log Channel:** ${config.logChannel ? `<#${config.logChannel}>` : '`Not set`'}`,
       '',
-      '**Whitelisted Users/Bots:**',
+      '<:user:1457896166233473227> **Whitelisted Users/Bots:**',
       config.whitelist && config.whitelist.length > 0 
-        ? config.whitelist.map(id => `• <@${id}>`).join('\n')
-        : '• `None`',
+        ? config.whitelist.map(id => `<:leese:1457834970486800567> <@${id}>`).join('\n')
+        : '<:leese:1457834970486800567> `None`',
       '',
-      '**Antinuke Admins:**',
+      '<:admin:1457897727152230542> **Antinuke Admins:**',
       config.admins && config.admins.length > 0 
-        ? config.admins.map(id => `• <@${id}>`).join('\n')
-        : '• `None`'
+        ? config.admins.map(id => `<:leese:1457834970486800567> <@${id}>`).join('\n')
+        : '<:leese:1457834970486800567> `None`'
     ].join('\n'));
   
   try {
     if (interaction.replied || interaction.deferred) {
-      await interaction.followUp({ embeds: [embed], ephemeral: true });
+      await interaction.followUp({ embeds: [embed], flags: MessageFlags.Ephemeral });
     } else {
-      await interaction.reply({ embeds: [embed], ephemeral: true });
+      await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
     }
   } catch (err) {
     await interaction.message.channel.send({ embeds: [embed] });
@@ -1697,18 +1102,18 @@ async function handleViewConfig(interaction, config) {
 async function handleViewAdmins(interaction, config) {
   const embed = new EmbedBuilder()
     .setColor('#838996')
-    .setTitle('<:sh1eld:1363214433136021948> Antinuke Administrators')
+    .setTitle('<:admin:1457897727152230542> <:arrows:1457808531678957784> Antinuke Administrators')
     .setDescription(
       config.admins && config.admins.length > 0 
-        ? config.admins.map(id => `• <@${id}>`).join('\n')
-        : '• `No antinuke admins configured.`'
+        ? config.admins.map(id => `<:leese:1457834970486800567> <@${id}>`).join('\n')
+        : '<:leese:1457834970486800567> `No antinuke admins configured.`'
     );
   
   try {
     if (interaction.replied || interaction.deferred) {
-      await interaction.followUp({ embeds: [embed], ephemeral: true });
+      await interaction.followUp({ embeds: [embed], flags: MessageFlags.Ephemeral });
     } else {
-      await interaction.reply({ embeds: [embed], ephemeral: true });
+      await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
     }
   } catch (err) {
     await interaction.message.channel.send({ embeds: [embed] });
@@ -1720,22 +1125,40 @@ function setupAuditListeners(client) {
   // Channel delete tracking
   client.on('channelDelete', async (channel) => {
     if (!channel.guild) return;
-    const config = getAntinukeConfig(channel.guild.id);
+    
+    // Store guild reference before channel is fully deleted
+    const guild = channel.guild;
+    const channelId = channel.id;
+    
+    const config = getAntinukeConfig(guild.id);
+    if (!config) return;
+    if (!config.modules) return;
+    
+    // Check if module exists and is enabled - don't create defaults here
     const moduleConfig = getModuleConfig(config, 'channel');
     if (!moduleConfig) return;
     
     try {
-      // Wait a bit for audit log to be updated
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Wait a bit for audit log to be updated (channel deletions may take longer to appear in audit log)
+      await new Promise(resolve => setTimeout(resolve, 2000));
       
-      const auditLogs = await channel.guild.fetchAuditLogs({ limit: 5, type: 72 }).catch(() => null);
+      // Fetch recent audit logs - try with type 72 (CHANNEL_DELETE) first
+      let auditLogs = await guild.fetchAuditLogs({ limit: 20, type: 72 }).catch(() => null);
+      
+      // If no entries found with type filter, fetch all recent entries and filter manually
+      if (!auditLogs || auditLogs.entries.size === 0) {
+        auditLogs = await guild.fetchAuditLogs({ limit: 30 }).catch(() => null);
+      }
+      
       if (!auditLogs || auditLogs.entries.size === 0) return;
       
       // Find entry for this channel that's recent
       const now = Date.now();
       const entry = Array.from(auditLogs.entries.values()).find(e => {
-        const isRecent = now - e.createdTimestamp < 5000;
-        const isThisChannel = e.targetId === channel.id;
+        const isRecent = now - e.createdTimestamp < 15000; // 15 seconds window for deletions
+        const isThisChannel = e.targetId === channelId;
+        // For entries fetched without type filter, check the action type
+        // Type 72 = CHANNEL_DELETE, but we'll accept any entry matching the channel ID if recent
         return isRecent && isThisChannel;
       });
       
@@ -1743,11 +1166,17 @@ function setupAuditListeners(client) {
       
       const userId = entry.executor.id;
       
-      const member = await channel.guild.members.fetch(userId).catch(() => null);
-      if (member && isWhitelistedForAntinuke(member, config)) return;
+      // Server owner cannot trigger antinuke
+      if (userId === guild.ownerId) return;
       
-      const count = trackAntinukeActivity(channel.guild.id, userId, 'channel');
-      await checkAndPunishAntinuke(channel.guild, userId, 'channel', count, moduleConfig, config);
+      const member = await guild.members.fetch(userId).catch(() => null);
+      
+      if (!member) return;
+      
+      if (isWhitelistedForAntinuke(member, config)) return;
+      
+      const count = trackAntinukeActivity(guild.id, userId, 'channel');
+      await checkAndPunishAntinuke(guild, userId, 'channel', count, moduleConfig, config);
     } catch (error) {
       // Ignore errors
     }
@@ -1756,21 +1185,27 @@ function setupAuditListeners(client) {
   // Channel create tracking
   client.on('channelCreate', async (channel) => {
     if (!channel.guild) return;
+    
     const config = getAntinukeConfig(channel.guild.id);
+    if (!config) return;
+    if (!config.modules) return;
+    
+    // Check if module exists and is enabled - don't create defaults here
     const moduleConfig = getModuleConfig(config, 'channel');
     if (!moduleConfig) return;
     
     try {
       // Wait a bit for audit log to be updated
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise(resolve => setTimeout(resolve, 1500));
       
-      const auditLogs = await channel.guild.fetchAuditLogs({ limit: 5, type: 10 }).catch(() => null);
+      const auditLogs = await channel.guild.fetchAuditLogs({ limit: 10, type: 10 }).catch(() => null);
+      
       if (!auditLogs || auditLogs.entries.size === 0) return;
       
       // Find entry for this channel that's recent
       const now = Date.now();
       const entry = Array.from(auditLogs.entries.values()).find(e => {
-        const isRecent = now - e.createdTimestamp < 5000;
+        const isRecent = now - e.createdTimestamp < 10000; // Increased to 10 seconds
         const isThisChannel = e.targetId === channel.id;
         return isRecent && isThisChannel;
       });
@@ -1779,10 +1214,16 @@ function setupAuditListeners(client) {
       
       const userId = entry.executor.id;
       
-      const member = await channel.guild.members.fetch(userId).catch(() => null);
-      if (member && isWhitelistedForAntinuke(member, config)) return;
+      // Server owner cannot trigger antinuke
+      if (userId === channel.guild.ownerId) return;
       
-      const count = trackAntinukeActivity(channel.guild.id, userId, 'channelCreate');
+      const member = await channel.guild.members.fetch(userId).catch(() => null);
+      
+      if (!member) return;
+      
+      if (isWhitelistedForAntinuke(member, config)) return;
+      
+      const count = trackAntinukeActivity(channel.guild.id, userId, 'channel');
       await checkAndPunishAntinuke(channel.guild, userId, 'channel', count, moduleConfig, config);
     } catch (error) {
       // Ignore errors
@@ -1793,6 +1234,10 @@ function setupAuditListeners(client) {
   client.on('roleDelete', async (role) => {
     if (!role.guild) return;
     const config = getAntinukeConfig(role.guild.id);
+    if (!config) return;
+    if (!config.modules) return;
+    
+    // Check if module exists and is enabled - don't create defaults here
     const moduleConfig = getModuleConfig(config, 'role');
     if (!moduleConfig) return;
     
@@ -1815,6 +1260,52 @@ function setupAuditListeners(client) {
       
       const userId = entry.executor.id;
       
+      // Server owner cannot trigger antinuke
+      if (userId === role.guild.ownerId) return;
+      
+      const member = await role.guild.members.fetch(userId).catch(() => null);
+      if (member && isWhitelistedForAntinuke(member, config)) return;
+      
+      const count = trackAntinukeActivity(role.guild.id, userId, 'role');
+      await checkAndPunishAntinuke(role.guild, userId, 'role', count, moduleConfig, config);
+    } catch (error) {
+      // Ignore errors
+    }
+  });
+
+  // Role create tracking
+  client.on('roleCreate', async (role) => {
+    if (!role.guild) return;
+    const config = getAntinukeConfig(role.guild.id);
+    if (!config) return;
+    if (!config.modules) return;
+    
+    // Check if module exists and is enabled - don't create defaults here
+    const moduleConfig = getModuleConfig(config, 'role');
+    if (!moduleConfig) return;
+    
+    try {
+      // Wait a bit for audit log to be updated
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      const auditLogs = await role.guild.fetchAuditLogs({ limit: 5, type: 30 }).catch(() => null); // Type 30 = ROLE_CREATE
+      if (!auditLogs || auditLogs.entries.size === 0) return;
+      
+      // Find entry for this role that's recent
+      const now = Date.now();
+      const entry = Array.from(auditLogs.entries.values()).find(e => {
+        const isRecent = now - e.createdTimestamp < 5000;
+        const isThisRole = e.targetId === role.id;
+        return isRecent && isThisRole;
+      });
+      
+      if (!entry) return;
+      
+      const userId = entry.executor.id;
+      
+      // Server owner cannot trigger antinuke
+      if (userId === role.guild.ownerId) return;
+      
       const member = await role.guild.members.fetch(userId).catch(() => null);
       if (member && isWhitelistedForAntinuke(member, config)) return;
       
@@ -1829,6 +1320,10 @@ function setupAuditListeners(client) {
   client.on('guildBanAdd', async (ban) => {
     if (!ban.guild) return;
     const config = getAntinukeConfig(ban.guild.id);
+    if (!config) return;
+    if (!config.modules) return;
+    
+    // Check if module exists and is enabled - don't create defaults here
     const moduleConfig = getModuleConfig(config, 'ban');
     if (!moduleConfig) return;
     
@@ -1851,6 +1346,9 @@ function setupAuditListeners(client) {
       
       const userId = entry.executor.id;
       
+      // Server owner cannot trigger antinuke
+      if (userId === ban.guild.ownerId) return;
+      
       const member = await ban.guild.members.fetch(userId).catch(() => null);
       if (member && isWhitelistedForAntinuke(member, config)) return;
       
@@ -1865,6 +1363,10 @@ function setupAuditListeners(client) {
   client.on('guildMemberRemove', async (member) => {
     if (!member.guild) return;
     const config = getAntinukeConfig(member.guild.id);
+    if (!config) return;
+    if (!config.modules) return;
+    
+    // Check if module exists and is enabled - don't create defaults here
     const moduleConfig = getModuleConfig(config, 'kick');
     if (!moduleConfig) return;
     
@@ -1887,6 +1389,9 @@ function setupAuditListeners(client) {
       
       const userId = entry.executor.id;
       
+      // Server owner cannot trigger antinuke
+      if (userId === member.guild.ownerId) return;
+      
       const executorMember = await member.guild.members.fetch(userId).catch(() => null);
       if (executorMember && isWhitelistedForAntinuke(executorMember, config)) return;
       
@@ -1901,6 +1406,10 @@ function setupAuditListeners(client) {
   client.on('guildEmojiDelete', async (emoji) => {
     if (!emoji.guild) return;
     const config = getAntinukeConfig(emoji.guild.id);
+    if (!config) return;
+    if (!config.modules) return;
+    
+    // Check if module exists and is enabled - don't create defaults here
     const moduleConfig = getModuleConfig(config, 'emoji');
     if (!moduleConfig) return;
     
@@ -1923,6 +1432,9 @@ function setupAuditListeners(client) {
       
       const userId = entry.executor.id;
       
+      // Server owner cannot trigger antinuke
+      if (userId === emoji.guild.ownerId) return;
+      
       const member = await emoji.guild.members.fetch(userId).catch(() => null);
       if (member && isWhitelistedForAntinuke(member, config)) return;
       
@@ -1938,6 +1450,10 @@ function setupAuditListeners(client) {
     if (oldGuild.vanityURLCode === newGuild.vanityURLCode) return;
     
     const config = getAntinukeConfig(newGuild.id);
+    if (!config) return;
+    if (!config.modules) return;
+    
+    // Check if module exists and is enabled - don't create defaults here
     const moduleConfig = getModuleConfig(config, 'vanity');
     if (!moduleConfig) return;
     
@@ -1947,6 +1463,9 @@ function setupAuditListeners(client) {
         const entry = auditLogs.entries.first();
         if (entry.changes && entry.changes.some(change => change.key === 'vanity_url_code')) {
           const userId = entry.executor.id;
+          
+          // Server owner cannot trigger antinuke
+          if (userId === newGuild.ownerId) return;
           
           const member = await newGuild.members.fetch(userId).catch(() => null);
           if (member && isWhitelistedForAntinuke(member, config)) return;
@@ -1966,11 +1485,49 @@ function setupAuditListeners(client) {
     if (!member.user.bot) return;
     
     const config = getAntinukeConfig(member.guild.id);
+    if (!config) return;
+    if (!config.modules) return;
+    
+    // Check if module exists and is enabled - don't create defaults here
     const moduleConfig = getModuleConfig(config, 'botadd');
     if (!moduleConfig) return;
     
     // Check if the bot itself is whitelisted
     if (isUserWhitelisted(member.user.id, config)) return;
+    
+    // Track the user who added the bot (for punishment if they add multiple bots)
+    try {
+      // Wait a bit for audit log to be updated
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      const auditLogs = await member.guild.fetchAuditLogs({ limit: 5, type: 28 }).catch(() => null); // Type 28 = BOT_ADD
+      if (auditLogs && auditLogs.entries.size > 0) {
+        // Find entry for this bot that's recent
+        const now = Date.now();
+        const entry = Array.from(auditLogs.entries.values()).find(e => {
+          const isRecent = now - e.createdTimestamp < 5000;
+          const isThisBot = e.targetId === member.user.id;
+          return isRecent && isThisBot;
+        });
+        
+        if (entry) {
+          const userId = entry.executor.id;
+          
+          // Don't track if executor is the bot itself or whitelisted
+          if (userId !== member.user.id) {
+            const executorMember = await member.guild.members.fetch(userId).catch(() => null);
+            if (executorMember && !isWhitelistedForAntinuke(executorMember, config)) {
+              // Server owner cannot be punished, but bot removal/embed will still happen
+              // Track and potentially punish the user who added the bot (checkAndPunishAntinuke will skip server owner)
+              const count = trackAntinukeActivity(member.guild.id, userId, 'botadd');
+              await checkAndPunishAntinuke(member.guild, userId, 'botadd', count, moduleConfig, config);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      // Ignore errors - continue with bot approval flow
+    }
     
     // Create a unique key for this bot join
     const joinKey = `${member.guild.id}-${member.id}`;
@@ -2010,43 +1567,51 @@ function setupAuditListeners(client) {
         const { dbHelpers } = require('../../db');
         const serverPrefix = dbHelpers.getServerPrefix(member.guild.id) || ';';
         
-        // Notify owner about the issue
-        const owner = await member.guild.fetchOwner().catch(() => null);
-        if (owner) {
-          try {
-            await owner.send({
-              embeds: [
-                new EmbedBuilder()
-                  .setColor('#FF4D4D')
-                  .setTitle('<:alert:1363009864112144394> Bot Removed - Log Channel Required')
-                  .setDescription([
-                    'A bot tried to join your server but was **immediately removed** because no **log channel** was set.',
-                    '',
-                    `**Bot:** \`${member.user.tag}\` (\`${member.user.id}\`)`,
-                    '',
-                    '<:arrows:1363099226375979058> Bots will **not** be able to join your server unless you set a **log channel** where bot approval requests can be sent.',
-                    '',
-                    '**To set a log channel:**',
-                    `1. Use the antinuke command: \`${serverPrefix}antinuke\``,
-                    '2. Select **"Set Log Channel"** from the dropdown menu',
-                    `3. Use the command: \`${serverPrefix}antinuke log (channel)\` to set your log channel`,
-                    '',
-                    '**__NOTE__:**',
-                    '',
-                    'If you don\'t want **bot approval protection**, you can disable the **Bot Add Protection** module in the antinuke settings.',
-                    '',
-                    '-# Once a **log channel** is set, bot **approval requests** will be sent there.'
-                  ].join('\n'))
-              ]
-            }).catch((dmError) => {
-              console.error(`Failed to DM server owner ${owner.user.tag} about missing log channel:`, dmError.message);
-            });
-          } catch (error) {
-            console.error('Error sending DM to server owner:', error);
+        // Check cooldown to prevent duplicate DMs (only send once per 5 minutes per guild)
+        const now = Date.now();
+        const cooldown = 5 * 60 * 1000; // 5 minutes
+        const lastSent = logChannelRequiredDMs.get(member.guild.id);
+        
+        if (!lastSent || (now - lastSent) >= cooldown) {
+          // Update timestamp
+          logChannelRequiredDMs.set(member.guild.id, now);
+          
+          // Notify owner about the issue
+          const owner = await member.guild.fetchOwner().catch(() => null);
+          if (owner) {
+            try {
+              await owner.send({
+                embeds: [
+                  new EmbedBuilder()
+                    .setColor('#FF4D4D')
+                    .setTitle('<:alert:1457808529200119880> <:arrows:1457808531678957784> Bot Removed - Log Channel Required')
+                    .setDescription([
+                      'A bot tried to join your server but was **immediately removed** because no **log channel** was set.',
+                      '',
+                      `**Bot:** <@${member.user.id}> (\`${member.user.id}\`)`,
+                      '',
+                      '<:arrows:1457808531678957784> Bots will **not** be able to join your server unless you set a **log channel** where bot approval requests can be sent.',
+                      '',
+                      '**To set a log channel:**',
+                      `1. Create a text channel for logs (e.g. \`#antinuke-logs\`).`,
+                      '2. Make sure the bot can send messages there.',
+                      `3. Run: \`${serverPrefix}antinuke log <channel>\``,
+                      '',
+                      '<:info:1457809654120714301> **__NOTE__:**',
+                      '',
+                      'If you don\'t want **bot approval protection**, you can disable the **Bot Add Protection** module in the antinuke settings.',
+                      '',
+                      '-# <:arrows:1457808531678957784> Once a **log channel** is set, bot **approval requests** will be sent there.'
+                    ].join('\n'))
+                ]
+              }).catch(() => {});
+            } catch (error) {
+              // Ignore errors
+            }
           }
         }
       } catch (error) {
-        console.error('Error handling bot join without log channel:', error);
+        // Ignore errors
       }
       
       // Clean up processing set
@@ -2108,17 +1673,14 @@ function setupAuditListeners(client) {
         // Get our bot's member object
         const botMember = member.guild.members.me;
         if (!botMember) {
-          console.error('Bot member not found for permission reset');
           botRole = null;
         } else {
           // Check if our bot has ManageRoles permission
           if (!botMember.permissions.has(PermissionFlagsBits.ManageRoles)) {
-            console.error('Bot does not have ManageRoles permission');
             botRole = null;
           } else {
             // Check if the role is editable (our bot's role must be higher)
             if (!botRole.editable) {
-              console.error(`Bot role ${botRole.name} is not editable (our bot's role may be lower)`);
               botRole = null;
             } else {
               // Store original permissions
@@ -2148,22 +1710,18 @@ function setupAuditListeners(client) {
                     permissions: newPermissions,
                     reason: 'Antinuke: Resetting to safe permissions until bot approval'
                   });
-                  console.log(`Successfully reset permissions for bot ${member.user.tag}'s role ${freshRole.name} to safe defaults`);
                 } else {
-                  console.error(`Cannot edit role ${botRole.name} - role may not be editable`);
+                  // Role not editable
                 }
               } catch (err) {
-                console.error(`Failed to reset permissions for role ${botRole.name}:`, err.message);
+                // Ignore errors
               }
             }
           }
         }
-      } else {
-        console.log(`Bot ${member.user.tag} has no roles (only @everyone), cannot modify permissions`);
       }
     } catch (error) {
       // If we can't modify permissions, continue anyway (bot will still need approval)
-      console.error('Error resetting bot permissions:', error);
       botRole = null;
       originalPermissions = null;
     }
@@ -2174,23 +1732,21 @@ function setupAuditListeners(client) {
     // Create approval embed with link instead of buttons
     const approvalEmbed = new EmbedBuilder()
       .setColor(isVerified ? '#838996' : '#FF4D4D')
-      .setTitle(`${isVerified ? '<:verified:1457346742813986868>' : '<:alert:1363009864112144394>'} Bot Join Request - ${isVerified ? 'Verified Bot' : 'Unverified Bot'}`)
+      .setTitle(`${isVerified ? '<:info:1457809654120714301>' : '<:alert:1457808529200119880>'} Bot Join Request - ${isVerified ? 'Verified Bot' : 'Unverified Bot'}`)
       .setDescription([
         isVerified 
-          ? 'A **verified bot** has joined the server and requires **approval.**'
-          : '<:info:1363009904293576744> <:arrows:1363099226375979058> An **unverified bot** has joined the server. **This bot might be malicious!**',
+          ? '<:arrows:1457808531678957784> A **verified bot** has joined the server and requires **approval.**'
+          : '<:arrows:1457808531678957784> An **unverified bot** has joined the server. **This bot might be malicious!**',
         '',
-        `**Bot:** <@${member.user.id}> (\`${member.user.tag}\`)`,
-        `**Bot ID:** \`${member.user.id}\``,
-        `**Verification Status:** ${isVerified ? '<:verified:1457346742813986868> Verified' : '<:cr0ss:1362851089761833110> Unverified'}`,
+        `<:leese:1457834970486800567> **Bot:** <@${member.user.id}> (\`${member.user.tag}\`)`,
+        `<:leese:1457834970486800567> **Bot ID:** \`${member.user.id}\``,
+        `<:tree:1457808523986731008> **Verification Status:** ${isVerified ? '<:verified:1457809452790186177> Verified' : '<:cr0ss:1457809446620369098> Unverified'}`,
         '',
         isVerified 
-          ? 'You have **5 minutes** to approve or deny this bot or it will be removed.'
-          : '<:arrows:1363099226375979058> You have **1 minute** to approve or deny this bot or it will be removed. **Unverified bots may be malicious!**',
+          ? '<:arrows:1457808531678957784> You have **5 minutes** to approve or deny this bot or it will be removed.'
+          : '<:arrows:1457808531678957784> You have **1 minute** to approve or deny this bot or it will be removed. **Unverified bots may be malicious!**',
         '',
-        `**Log Channel:** ${logChannel}`,
-        '',
-        '-# Use the buttons below to **approve** or **deny** this bot.'
+        '-# <:arrows:1457808531678957784> Use the buttons below to **approve** or **deny** this bot.'
       ].join('\n'))
       .setThumbnail(member.user.displayAvatarURL());
 
@@ -2260,7 +1816,7 @@ function setupAuditListeners(client) {
             embeds: [
               new EmbedBuilder()
                 .setColor('#838996')
-                .setDescription(`<:excl:1362858572677120252> <:arrows:1363099226375979058> **Bot approval timed out.**\n\n-# The bot has been removed from the server.`)
+                .setDescription(`<:cr0ss:1457809446620369098> <:arrows:1457808531678957784> **Bot approval timed out.**\n-# <:tree:1457808523986731008> The bot has been **removed** from the server.`)
             ],
             components: []
           }).catch(() => {});
@@ -2373,10 +1929,11 @@ function setupAuditListeners(client) {
         embeds: [
           new EmbedBuilder()
             .setColor('#838996')
-            .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> This bot approval request has expired or already been processed.')
+            .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> This bot approval request has **expired** or **already been processed.**')
         ],
-        ephemeral: true
+        flags: MessageFlags.Ephemeral
       }).catch(() => {});
+      processingApprovals.delete(interactionKey);
       return;
     }
     
@@ -2389,10 +1946,11 @@ function setupAuditListeners(client) {
           embeds: [
             new EmbedBuilder()
               .setColor('#838996')
-              .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> Could not find the server. The bot may have already been removed.')
+              .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> Could not find the server. The bot may have **already been removed.**')
           ],
-          ephemeral: true
+          flags: MessageFlags.Ephemeral
         }).catch(() => {});
+        processingApprovals.delete(interactionKey);
         return;
       }
     }
@@ -2407,10 +1965,11 @@ function setupAuditListeners(client) {
         embeds: [
           new EmbedBuilder()
             .setColor('#838996')
-            .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> Only the **server owner** or **antinuke admins** can approve bots.')
+            .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> Only the **server owner** or **antinuke admins** can approve bots.')
         ],
-        ephemeral: true
+        flags: MessageFlags.Ephemeral
       }).catch(() => {});
+      processingApprovals.delete(interactionKey);
       return;
     }
     
@@ -2421,10 +1980,11 @@ function setupAuditListeners(client) {
         embeds: [
           new EmbedBuilder()
             .setColor('#838996')
-            .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> This bot approval request has already been processed.')
+            .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> This bot approval request has already been processed.')
         ],
-        ephemeral: true
+        flags: MessageFlags.Ephemeral
       }).catch(() => {});
+      processingApprovals.delete(interactionKey);
       return;
     }
     
@@ -2452,8 +2012,7 @@ function setupAuditListeners(client) {
             }
           }
         } catch (error) {
-          // If we can't restore permissions, log but continue
-          console.error('Error restoring bot permissions:', error);
+            // If we can't restore permissions, continue
         }
       }
       
@@ -2474,8 +2033,8 @@ function setupAuditListeners(client) {
             await msg.edit({
               embeds: [
                 new EmbedBuilder()
-                  .setColor('#57F287')
-                  .setDescription(`<:check:1362850043333316659> <:arrows:1363099226375979058> **Bot approved by** <@${interaction.user.id}>.\n\n-# The bot has been added to the whitelist and can remain in the server.`)
+                  .setColor('#838996')
+                  .setDescription(`<:check:1457808518848581858> <:arrows:1457808531678957784> **Bot approved by** <@${interaction.user.id}>.\n-# <:tree:1457808523986731008> The bot has been **added to the whitelist** and can remain in the server.`)
               ],
               components: []
             }).catch(() => {});
@@ -2491,19 +2050,19 @@ function setupAuditListeners(client) {
           await interaction.followUp({
             embeds: [
               new EmbedBuilder()
-                .setColor('#57F287')
-                .setDescription(`<:check:1362850043333316659> <:arrows:1363099226375979058> **Bot approved.**\n\n-# <@${member.user.id}> has been added to the whitelist.`)
+                .setColor('#838996')
+                .setDescription(`<:check:1457808518848581858> <:arrows:1457808531678957784> **Bot approved.**\n-# <:tree:1457808523986731008> <@${member.user.id}> has been **added to the whitelist.**`)
             ],
-            ephemeral: true
+            flags: MessageFlags.Ephemeral
           }).catch(() => {});
         } else {
           await interaction.reply({
             embeds: [
               new EmbedBuilder()
-                .setColor('#57F287')
-                .setDescription(`<:check:1362850043333316659> <:arrows:1363099226375979058> **Bot approved.**\n\n-# <@${member.user.id}> has been added to the whitelist.`)
+                .setColor('#838996')
+                .setDescription(`<:check:1457808518848581858> <:arrows:1457808531678957784> **Bot approved.**\n-# <:tree:1457808523986731008> <@${member.user.id}> has been **added to the whitelist.**`)
             ],
-            ephemeral: true
+            flags: MessageFlags.Ephemeral
           }).catch(() => {});
         }
       } catch (error) {
@@ -2526,14 +2085,14 @@ function setupAuditListeners(client) {
           if (logChannel && logChannel.isTextBased()) {
             const logEmbed = new EmbedBuilder()
               .setColor('#57F287')
-              .setTitle('<:check:1362850043333316659> Bot Approved')
+              .setTitle('<:check:1457808518848581858> <:arrows:1457808531678957784> Bot Approved')
               .setDescription([
-                `**Bot:** <@${member.user.id}> (\`${member.user.tag}\`)`,
-                `**Bot ID:** \`${member.user.id}\``,
-                `**Approved by:** <@${interaction.user.id}> (\`${interaction.user.tag}\`)`,
-                `**Verification Status:** ${isVerified ? '<:verified:1457346742813986868> Verified' : '<:cr0ss:1362851089761833110> Unverified'}`,
+                `<:leese:1457834970486800567>**Bot:** <@${member.user.id}> (\`${member.user.tag}\`)`,
+                `<:leese:1457834970486800567>**Bot ID:** \`${member.user.id}\``,
+                `<:leese:1457834970486800567>**Approved by:** <@${interaction.user.id}> (\`${interaction.user.tag}\`)`,
+                `<:tree:1457808523986731008>**Verification Status:** ${isVerified ? '<:verified:1457346742813986868> Verified' : '<:cr0ss:1362851089761833110> Unverified'}`,
                 '',
-                '-# The bot has been **added to the whitelist** and can remain in the server.'
+                '-# <:arrows:1457808531678957784> The bot has been **added to the whitelist** and can remain in the server.'
               ].join('\n'))
               .setThumbnail(member.user.displayAvatarURL())
             
@@ -2575,8 +2134,8 @@ function setupAuditListeners(client) {
             await msg.edit({
               embeds: [
                 new EmbedBuilder()
-                  .setColor('#FF4D4D')
-                  .setDescription(`<:excl:1362858572677120252> <:arrows:1363099226375979058> **Bot denied by** <@${interaction.user.id}>.\n\n-# The bot has been removed from the server.`)
+                  .setColor('#838996')
+                  .setDescription(`<:disallowed:1457808577786806375> <:arrows:1457808531678957784> **Bot denied by** <@${interaction.user.id}>.\n-# <:tree:1457808523986731008> The bot has been **removed** from the server.`)
               ],
               components: []
             }).catch(() => {});
@@ -2593,18 +2152,18 @@ function setupAuditListeners(client) {
             embeds: [
               new EmbedBuilder()
                 .setColor('#838996')
-                .setDescription(`<:check:1362850043333316659> <:arrows:1363099226375979058> **Bot denied.**\n\n-# <@${member.user.id}> has been removed from the server.`)
+                .setDescription(`<:disallowed:1457808577786806375> <:arrows:1457808531678957784> **Bot denied.**\n-# <:tree:1457808523986731008> <@${member.user.id}> has been **removed** from the server.`)
             ],
-            ephemeral: true
+            flags: MessageFlags.Ephemeral
           }).catch(() => {});
         } else {
           await interaction.reply({
             embeds: [
               new EmbedBuilder()
                 .setColor('#838996')
-                .setDescription(`<:check:1362850043333316659> <:arrows:1363099226375979058> **Bot denied.**\n\n-# <@${member.user.id}> has been removed from the server.`)
+                .setDescription(`<:disallowed:1457808577786806375> <:arrows:1457808531678957784> **Bot denied.**\n-# <:tree:1457808523986731008> <@${member.user.id}> has been **removed** from the server.`)
             ],
-            ephemeral: true
+            flags: MessageFlags.Ephemeral
           }).catch(() => {});
         }
       } catch (error) {
@@ -2618,14 +2177,14 @@ function setupAuditListeners(client) {
           if (logChannel && logChannel.isTextBased()) {
             const logEmbed = new EmbedBuilder()
               .setColor('#FF4D4D')
-              .setTitle('<:cr0ss:1362851089761833110>  Bot Denied')
+              .setTitle('<:disallowed:1457808577786806375> <:arrows:1457808531678957784>  Bot Denied')
               .setDescription([
-                `**Bot:** <@${member.user.id}> (\`${member.user.tag}\`)`,
-                `**Bot ID:** \`${member.user.id}\``,
-                `**Denied by:** <@${interaction.user.id}> (\`${interaction.user.tag}\`)`,
-                `**Verification Status:** ${isVerified ? '<:verified:1457346742813986868> Verified' : '<:cr0ss:1362851089761833110> Unverified'}`,
+                `<:leese:1457834970486800567>**Bot:** <@${member.user.id}> (\`${member.user.tag}\`)`,
+                `<:leese:1457834970486800567>**Bot ID:** \`${member.user.id}\``,
+                `<:leese:1457834970486800567>**Denied by:** <@${interaction.user.id}> (\`${interaction.user.tag}\`)`,
+                `<:tree:1457808523986731008>**Verification Status:** ${isVerified ? '<:verified:1457346742813986868> Verified' : '<:cr0ss:1362851089761833110> Unverified'}`,
                 '',
-                '-# The bot has been **removed from the server**.'
+                '-# <:arrows:1457808531678957784> The bot has been **removed from the server**.'
               ].join('\n'))
               .setThumbnail(member.user.displayAvatarURL())
             
@@ -2658,7 +2217,7 @@ module.exports = {
   name: 'antinuke',
   aliases: ['an', 'antiraid'],
   category: ['antinuke'],
-  description: '<:arrows:1363099226375979058> Configure antinuke protection for the server.',
+  description: '<:arrows:1457808531678957784> Configure antinuke protection for the server.',
   setup: setupAuditListeners,
   trackCommand: trackCommandAction,
   async execute(message, args, { prefix }) {
@@ -2702,8 +2261,9 @@ module.exports = {
         embeds: [
           new EmbedBuilder()
             .setColor('#838996')
-            .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> Only the **server owner** or **antinuke admins** can configure this.')
-        ]
+            .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> Only the **server owner** or **antinuke admins** can configure this.')
+        ],
+        allowedMentions: { repliedUser: false }
       });
     }
 
@@ -2725,12 +2285,13 @@ module.exports = {
           { label: 'Bot Add Protection', value: 'botadd', description: 'Protect against unauthorized bot additions' }
         ]);
       
-      const embed = buildMainMenuEmbed();
+      const embed = buildMainMenuEmbed(message.guild.id);
       const components = buildMainMenuComponents(config);
       
       const reply = await message.reply({
         embeds: [embed],
-        components: components
+        components: components,
+        allowedMentions: { repliedUser: false }
       });
       
       // Initialize state
@@ -2771,8 +2332,11 @@ module.exports = {
 
     const subcommand = args[0].toLowerCase();
     
-    // Route to appropriate command module
-    if (commandModules[subcommand]) {
+    // Only allow utility subcommands (not module config commands which are accessible via dropdowns)
+    // Note: 'config' and 'list' are removed as they're redundant with the view config button
+    const allowedSubcommands = ['log', 'admin', 'admins', 'unadmin', 'whitelist', 'unwhitelist'];
+    
+    if (allowedSubcommands.includes(subcommand) && commandModules[subcommand]) {
       return commandModules[subcommand].execute(message, args, { prefix });
     }
 
@@ -2780,8 +2344,9 @@ module.exports = {
       embeds: [
         new EmbedBuilder()
           .setColor('#838996')
-          .setDescription(`<:excl:1362858572677120252> <:arrows:1363099226375979058> **Invalid subcommand.**\n-# Use \`${prefix}antinuke\` to view all available commands.`)
-      ]
+          .setDescription(`<:disallowed:1457808577786806375> <:arrows:1457808531678957784> **Invalid subcommand.**\n-# <:tree:1457808523986731008> Use \`${prefix}antinuke\` to view the **configuration menu.** Module configuration is done via the **dropdown interface.**`)
+      ],
+      allowedMentions: { repliedUser: false }
     });
   }
 };

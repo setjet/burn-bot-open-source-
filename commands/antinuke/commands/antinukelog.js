@@ -9,8 +9,9 @@ module.exports = {
         embeds: [
           new EmbedBuilder()
             .setColor('#838996')
-            .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> Only the **server owner** or **antinuke admins** can configure this.')
-        ]
+            .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> Only the **server owner** or **antinuke admins** can configure this.')
+        ],
+        allowedMentions: { repliedUser: false }
       });
     }
 
@@ -19,19 +20,17 @@ module.exports = {
       const currentChannel = config.logChannel ? `<#${config.logChannel}>` : 'Not set';
       
       return message.reply({
+        allowedMentions: { repliedUser: false },
         embeds: [
           new EmbedBuilder()
             .setColor('#838996')
             .setDescription([
-              '<:excl:1362858572677120252> <:arrows:1363099226375979058> **Invalid usage.**',
+              '<:disallowed:1457808577786806375> <:arrows:1457808531678957784> **Invalid usage.**',
               '',
-              '**Usage:**',
+              '<:settings:1457808572720087266> **Usage:**',
               `\`\`\`${prefix}antinuke log (channel)\`\`\``,
               '',
-              '**Current log channel:**',
-              `${currentChannel}`,
-              '',
-              '-# Sets the channel where all antinuke alerts and bot approval requests will be sent.'
+              '-# (This could be an error, Ignore it and try again.)'
             ].join('\n'))
         ]
       });
@@ -94,13 +93,14 @@ module.exports = {
 
     if (!channel) {
       return message.reply({
+        allowedMentions: { repliedUser: false },
         embeds: [
           new EmbedBuilder()
             .setColor('#838996')
             .setDescription([
-              '<:settings:1362876382375317565> **Usage:**',
+              '<:settings:1457808572720087266> **Usage:**',
               `\`\`\`${prefix}antinuke log (channel)\`\`\``,
-              '-# <:arrows:1363099226375979058> Sets channel for moderation logs.',
+              '-# <:arrows:1457808531678957784> Sets channel for antinuke logs.',
               '',
               `**Example:** \`${prefix}antinuke log #antinuke-log\``,
               '\n**Aliases:** `N/A`'
@@ -112,10 +112,11 @@ module.exports = {
     // Check if channel is text-based
     if (!channel.isTextBased()) {
       return message.reply({
+        allowedMentions: { repliedUser: false },
         embeds: [
           new EmbedBuilder()
             .setColor('#838996')
-            .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> **Invalid channel type.**\n\n-# Please select a text channel.')
+            .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> **Invalid** channel type, **Try again**.')
         ]
       });
     }
@@ -125,15 +126,16 @@ module.exports = {
     const permissions = channel.permissionsFor(botMember);
     if (!permissions || !permissions.has(['ViewChannel', 'SendMessages', 'EmbedLinks'])) {
       return message.reply({
+        allowedMentions: { repliedUser: false },
         embeds: [
           new EmbedBuilder()
             .setColor('#838996')
             .setDescription([
-              '<:excl:1362858572677120252> <:arrows:1363099226375979058> **Missing permissions.**',
+              '<:excl:1457809455268888679> <:arrows:1457808531678957784> **Missing permissions.**',
               '',
               `The bot needs **View Channel**, **Send Messages**, and **Embed Links** permissions in ${channel}.`,
               '',
-              '-# Please grant these **permissions** and try again.'
+              '-# Grant these **permissions** and try again.'
             ].join('\n'))
         ]
       });
@@ -145,11 +147,12 @@ module.exports = {
       // Check if trying to set the same channel
       if (config.logChannel === channel.id) {
         return message.reply({
+        allowedMentions: { repliedUser: false },
           embeds: [
             new EmbedBuilder()
               .setColor('#838996')
               .setDescription([
-                `<:excl:1362858572677120252> <:arrows:1363099226375979058> **Log channel is already set to ${channel}.**`,
+                `<:disallowed:1457808577786806375> <:arrows:1457808531678957784> **Log channel is already set to ${channel}.**`,
               ].join('\n'))
           ]
         });
@@ -165,16 +168,12 @@ module.exports = {
       saveAntinukeConfig(message.guild.id, config);
       
       return message.reply({
+        allowedMentions: { repliedUser: false },
         embeds: [
           new EmbedBuilder()
-            .setColor('#57F287')
+            .setColor('#838996')
             .setDescription([
-              '<:check:1362850043333316659> <:arrows:1363099226375979058> **Log channel updated.**',
-              '',
-              `**Previous channel:** ${currentChannelMention}`,
-              `**New channel:** ${channel}`,
-              '',
-              '-# The log channel has been updated successfully.'
+              `<:check:1457808518848581858> <:arrows:1457808531678957784> **Log channel updated** from ${currentChannelMention} to ${channel}.`,
             ].join('\n'))
         ]
       });
@@ -189,7 +188,7 @@ module.exports = {
         new EmbedBuilder()
           .setColor('#838996')
           .setDescription([
-            `<:check:1362850043333316659> <:arrows:1363099226375979058> **Log channel** has been set to ${channel}`,
+            `<:check:1457808518848581858> <:arrows:1457808531678957784> **Log channel** has been set to ${channel}`,
           ].join('\n'))
       ]
     });

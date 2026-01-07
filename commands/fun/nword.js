@@ -1,6 +1,6 @@
 const { EmbedBuilder } = require('discord.js');
 const { dbHelpers } = require('../../db');
-const OWNER_ID = "758522527885951016";
+const OWNER_ID = "1448417272631918735";
 
 // Helper functions for slur counts
 function getSlurCount(userId, type) {
@@ -9,7 +9,11 @@ function getSlurCount(userId, type) {
 }
 
 function setSlurCount(userId, type, count) {
-  const counts = dbHelpers.getSlurCounts(userId);
+  let counts = dbHelpers.getSlurCounts(userId) || {};
+  // Ensure counts is an object (not array, not null)
+  if (!counts || typeof counts !== 'object' || Array.isArray(counts)) {
+    counts = {};
+  }
   counts[`${type}_count`] = count;
   dbHelpers.setSlurCounts(userId, counts);
 }
@@ -100,7 +104,7 @@ module.exports = {
             .setTitle('how racist are you?')
             .setDescription(`<@${targetUser.id}> has said the nword **${totalCount}** times\n**${countNigger}** of those were the **Hard R**\n-# im arab, that means i can say the nword right?`)
             .setFooter({ 
-                text: `${message.author.tag}`, 
+                text: `${message.author.tag} | credits to jesse ♡ `, 
                 iconURL: message.author.displayAvatarURL({ dynamic: true }) 
             });
 
@@ -117,12 +121,12 @@ module.exports = {
         const niggerCount = (content.match(/nigger/g) || []).length;
 
         if (niggaCount > 0) {
-            const current = getSlurCount(userId, 'nigga');
+            const current = getSlurCount(userId, 'nigga') || 0;
             setSlurCount(userId, 'nigga', current + niggaCount);
         }
 
         if (niggerCount > 0) {
-            const current = getSlurCount(userId, 'nigger');
+            const current = getSlurCount(userId, 'nigger') || 0;
             setSlurCount(userId, 'nigger', current + niggerCount);
         }
     }

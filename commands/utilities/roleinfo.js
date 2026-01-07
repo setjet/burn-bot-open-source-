@@ -4,7 +4,7 @@ module.exports = {
   name: 'roleinfo',
   aliases: ['ri'],
   category: 'utilities', 
-  description: '<:arrows:1363099226375979058> View all information about a role.',
+  description: '<:arrows:1457808531678957784> View all information about a role.',
   async execute(message, args) {
     let role;
     if (!args[0]) {
@@ -13,8 +13,8 @@ module.exports = {
       if (!role) {
         const errorEmbed = new EmbedBuilder()
           .setColor('#838996')
-          .setDescription("<:excl:1362858572677120252> <:arrows:1363099226375979058> You don't have any **roles**");
-        return message.reply({ embeds: [errorEmbed] });
+          .setDescription("<:disallowed:1457808577786806375> <:arrows:1457808531678957784> You don't have any **roles**");
+        return message.reply({ embeds: [errorEmbed], allowedMentions: { repliedUser: false } });
       }
     } else {
       const searchQuery = args.join(' ').toLowerCase();
@@ -26,8 +26,8 @@ module.exports = {
       if (!role) {
         const errorEmbed = new EmbedBuilder()
           .setColor('#838996')
-          .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> Role not found, try a different **search term**.');
-        return message.reply({ embeds: [errorEmbed] });
+          .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> Role not found, try a different **search term**.');
+        return message.reply({ embeds: [errorEmbed], allowedMentions: { repliedUser: false } });
       }
 
       const allMatches = message.guild.roles.cache.filter(r => 
@@ -42,7 +42,7 @@ module.exports = {
           .addFields(
             { name: 'Matching Roles', value: allMatches.map(r => r.name).join(', ').slice(0, 1024) }
           );
-        await message.reply({ embeds: [matchesEmbed] });
+        await message.reply({ embeds: [matchesEmbed], allowedMentions: { repliedUser: false } });
       }
     }
 
@@ -68,13 +68,13 @@ module.exports = {
           iconURL: message.author.displayAvatarURL()
         });
 
-      await message.reply({ embeds: [embed] });
+      await message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } });
     } catch (error) {
       console.error('Error in roleinfo command:', error);
       const errorEmbed = new EmbedBuilder()
         .setColor('#838996')
-        .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> An error occurred while fetching role information.');
-      await message.reply({ embeds: [errorEmbed] });
+        .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> An error occurred while fetching role information.');
+      await message.reply({ embeds: [errorEmbed], allowedMentions: { repliedUser: false } });
     }
   }
 };

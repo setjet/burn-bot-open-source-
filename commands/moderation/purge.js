@@ -4,14 +4,14 @@ module.exports = {
   name: 'purge',
   aliases: ['c'],
   category: 'moderation', 
-  description: '<:arrows:1363099226375979058> Delete messages',
-  async execute(message, args, { prefix }) {
+  description: '<:arrows:1457808531678957784> Delete messages',
+  async execute(message, args, { prefix, getUser: getUserParam }) {
 
     if (!message.member.permissions.has(PermissionFlagsBits.ManageMessages)) {
       const embed = new EmbedBuilder()
         .setColor('#838996')
-        .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> You need the **Manage Messages** permission to use this command.');
-      return message.reply({ embeds: [embed] }).catch(() => {});
+        .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> You need the **Manage Messages** permission to use this command.');
+      return message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } }).catch(() => {});
     }
 
     if (args.length < 1) {
@@ -20,14 +20,21 @@ module.exports = {
           new EmbedBuilder()
             .setColor('#838996')
             .setDescription([
-              '<:settings:1362876382375317565> **Usage:**',
-              `\`\`\`${prefix}purge <user>\`\`\``,
-              '-# <:arrows:1363099226375979058> Delete messages from a user & channel.',
+              '<:settings:1457808572720087266> **Usage:**',
+              `\`\`\`${prefix}purge <amount> | <user> <amount> | <subcommand>\`\`\``,
+              '-# <:arrows:1457808531678957784> Delete messages from a channel or specific user.',
               '',
-              `**Example:** \`${prefix}purge @jet 69\``,
-              '\n**Aliases:** `c`'
+              `**Examples:**`,
+              `\`${prefix}purge 10\` - Delete 10 messages`,
+              `\`${prefix}purge @user 10\` - Delete 10 messages from a user`,
+              `\`${prefix}purge contains word\` - Delete messages containing a word`,
+              `\`${prefix}purge images\` - Delete messages with images`,
+              `\`${prefix}purge emojis\` - Delete messages with emojis`,
+              '',
+              '**Aliases:** `c`'
             ].join('\n'))
-        ]
+        ],
+        allowedMentions: { repliedUser: false }
       });
     }
 
@@ -39,8 +46,9 @@ module.exports = {
           embeds: [
             new EmbedBuilder()
               .setColor('#838996')
-              .setDescription(`<:excl:1362858572677120252> <:arrows:1363099226375979058> Provide a **word** to search for. **Example:** \`${prefix}c contains <word>\``)
-          ]
+              .setDescription(`<:disallowed:1457808577786806375> <:arrows:1457808531678957784> Provide a **word** to search for.\n-# <:tree:1457808523986731008> **Example:** \`${prefix}purge contains <word>\``)
+          ],
+          allowedMentions: { repliedUser: false }
         });
       }
 
@@ -73,45 +81,48 @@ module.exports = {
 
     if (!isNaN(args[0])) {
       count = parseInt(args[0]);
-      if (isNaN(count) || count < 1) {
+      if (isNaN(count) || count < 1 || count > 100) {
         const embed = new EmbedBuilder()
           .setColor('#838996')
-          .setDescription(`❌ Invalid amount. Usage: \`${prefix}clear <amount>\``);
-        return message.reply({ embeds: [embed] }).catch(() => {});
+          .setDescription(`<:disallowed:1457808577786806375> <:arrows:1457808531678957784> Invalid amount. Must be between **1** and **100**.\n-# <:tree:1457808523986731008> **Usage**: \`${prefix}purge <amount>\``);
+        return message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } }).catch(() => {});
       }
     } else {
       const userInput = args[0];
-      targetUser = message.mentions.users.first();
-
-      if (!targetUser) {
-        try {
-          targetUser = await message.client.users.fetch(userInput).catch(() => null);
-        } catch {}
-
-        if (!targetUser) {
-          const members = await message.guild.members.fetch();
-          targetUser = members.find(member => 
-            member.user.username.toLowerCase() === userInput.toLowerCase() ||
-            member.displayName.toLowerCase() === userInput.toLowerCase() ||
-            member.user.id === userInput
-          )?.user;
-        }
+      
+      // Check if getUser is available and is a function
+      const getUserFunction = getUserParam;
+      if (!getUserFunction || typeof getUserFunction !== 'function') {
+        const embed = new EmbedBuilder()
+          .setColor('#838996')
+          .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> User search functionality is not available. Please contact the bot developer.');
+        return message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } }).catch(() => {});
+      }
+      
+      try {
+        targetUser = await getUserFunction(message, userInput);
+      } catch (err) {
+        console.error('Error finding user in purge:', err);
+        const embed = new EmbedBuilder()
+          .setColor('#838996')
+          .setDescription(`<:disallowed:1457808577786806375> <:arrows:1457808531678957784> An error occurred while searching for user \`${userInput}\`.`);
+        return message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } }).catch(() => {});
       }
 
       if (!targetUser) {
         const embed = new EmbedBuilder()
           .setColor('#838996')
-          .setDescription(`<:excl:1362858572677120252> <:arrows:1363099226375979058> User not found. **Example**: \`${prefix}clear <user> <amount>\``);
-        return message.reply({ embeds: [embed] }).catch(() => {});
+          .setDescription(`<:disallowed:1457808577786806375> <:arrows:1457808531678957784> User \`${userInput}\` not found.\n-# <:tree:1457808523986731008> Try using a **user mention**, **user ID**, or **username**.\n-# <:tree:1457808523986731008> **Example**: \`${prefix}purge @user 10\` or \`${prefix}purge 123456789012345678 10\``);
+        return message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } }).catch(() => {});
       }
 
       // Default to 10 messages if no count is specified
       count = args[1] ? parseInt(args[1]) : 10;
-      if (isNaN(count) || count < 1) {
+      if (isNaN(count) || count < 1 || count > 100) {
         const embed = new EmbedBuilder()
           .setColor('#838996')
-          .setDescription(`<:excl:1362858572677120252> <:arrows:1363099226375979058> Invalid format. **Example**: \`${prefix}clear <amount>\``);
-        return message.reply({ embeds: [embed] }).catch(() => {});
+          .setDescription(`<:disallowed:1457808577786806375> <:arrows:1457808531678957784> Invalid amount. Must be between **1** and **100**.\n-# <:tree:1457808523986731008> **Example**: \`${prefix}purge @user 10\``);
+        return message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } }).catch(() => {});
       }
     }
 
@@ -152,6 +163,13 @@ module.exports = {
         if (remaining > 0) await new Promise(resolve => setTimeout(resolve, 1000));
       } catch (error) {
         console.error('Clear Error:', error);
+        // If it's a rate limit, wait a bit and continue
+        if (error.code === 429) {
+          const retryAfter = error.retryAfter || 2;
+          await new Promise(resolve => setTimeout(resolve, retryAfter * 1000));
+          continue;
+        }
+        // For other errors, break the loop
         break;
       }
     }

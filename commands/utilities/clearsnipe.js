@@ -4,7 +4,7 @@ module.exports = {
   name: 'clearsnipe',
   aliases: ['cs'],
   category: 'moderation', 
-  description: '<:arrows:1363099226375979058> Clear sniped messages.',
+  description: '<:arrows:1457808531678957784> Clear sniped messages.',
   async execute(message) {
 
     if (!message.member.permissions.has('ManageMessages')) {
@@ -12,8 +12,9 @@ module.exports = {
         embeds: [
           new EmbedBuilder()
             .setColor('#838996')
-            .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> You need the **Manage Messages** permission to use this command.')
-        ]
+            .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> You need the **Manage Messages** permission to use this command.')
+        ],
+        allowedMentions: { repliedUser: false }
       });
     }
 
@@ -23,7 +24,8 @@ module.exports = {
           new EmbedBuilder()
             .setColor('#838996')
             .setDescription('>>> No deleted messages found.')
-        ]
+        ],
+        allowedMentions: { repliedUser: false }
       });
     }
 
@@ -36,7 +38,7 @@ module.exports = {
     if (sniped) {
       try {
 
-        await message.react('<:tup:1363830714016989215>'); 
+        await message.react('<:tup:1457809442455294104>'); 
       } catch (error) {
         console.error('Error reacting to command message:', error);
       }

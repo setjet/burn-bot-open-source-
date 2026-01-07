@@ -6,8 +6,9 @@ module.exports = {
       const startTime = Date.now();
       const pingMessage = await message.reply({ 
         embeds: [{
-          description: '**Checking ping...**',
-        }]
+          description: '<a:loading:1458064376165564577> **Checking ping...**',
+        }],
+        allowedMentions: { repliedUser: false }
       });
 
       const latency = Date.now() - startTime;
@@ -15,6 +16,7 @@ module.exports = {
 
       await pingMessage.edit({
         embeds: [{
+          color: 0x838996,
           description: `>>> **API Latency:** \`${apiLatency}ms\`\n**Bot Latency:** \`${latency}ms\``,
         }]
       });

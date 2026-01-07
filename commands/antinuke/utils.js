@@ -59,7 +59,7 @@ function parseFlags(args) {
   return flags;
 }
 
-function getUserFromMention(message, mention) {
+async function getUserFromMention(message, mention) {
   if (!mention) return null;
   
   // Check if it's a mention
@@ -68,8 +68,15 @@ function getUserFromMention(message, mention) {
     // Try to get from cache first
     const cachedUser = message.guild.members.cache.get(id)?.user;
     if (cachedUser) return cachedUser;
-    // If not in cache, try to fetch (for bots that might not be in cache)
-    return message.client.users.cache.get(id) || null;
+    // Try client users cache
+    const clientUser = message.client.users.cache.get(id);
+    if (clientUser) return clientUser;
+    // If not in cache, try to fetch globally
+    try {
+      return await message.client.users.fetch(id);
+    } catch (error) {
+      return null;
+    }
   }
   
   // Check if it's a user ID
@@ -77,25 +84,77 @@ function getUserFromMention(message, mention) {
     // Try to get from cache first
     const cachedUser = message.guild.members.cache.get(mention)?.user;
     if (cachedUser) return cachedUser;
-    // If not in cache, try to fetch (for bots that might not be in cache)
-    return message.client.users.cache.get(mention) || null;
+    // Try client users cache
+    const clientUser = message.client.users.cache.get(mention);
+    if (clientUser) return clientUser;
+    // If not in cache, try to fetch globally
+    try {
+      return await message.client.users.fetch(mention);
+    } catch (error) {
+      return null;
+    }
   }
   
-  // Try to find by username
-  const member = message.guild.members.cache.find(m => 
+  // Try to find by username in guild (use cache first to avoid rate limits)
+  let member = message.guild.members.cache.find(m => 
+    m.user.username.toLowerCase() === mention.toLowerCase() ||
+    m.user.tag.toLowerCase() === mention.toLowerCase() ||
+    (m.nickname && m.nickname.toLowerCase() === mention.toLowerCase())
+  );
+  
+  if (member) return member.user;
+  
+  // If not in cache, try fetching all members (may cause rate limits, but more reliable)
+  if (!member && message.guild) {
+    try {
+      const members = await message.guild.members.fetch().catch(() => null);
+      if (members) {
+        member = members.find(m => 
+          m.user.username.toLowerCase() === mention.toLowerCase() ||
+          m.user.tag.toLowerCase() === mention.toLowerCase() ||
+          (m.nickname && m.nickname.toLowerCase() === mention.toLowerCase())
+        );
+        if (member) return member.user;
+      }
+    } catch (error) {
+      // Fetch failed, continue to try other methods
+    }
+  }
+  
+  // Try to find by partial username match in cache
+  member = message.guild.members.cache.find(m => 
     m.user.username.toLowerCase().includes(mention.toLowerCase()) ||
-    m.user.tag.toLowerCase().includes(mention.toLowerCase())
+    m.user.tag.toLowerCase().includes(mention.toLowerCase()) ||
+    (m.nickname && m.nickname.toLowerCase().includes(mention.toLowerCase()))
   );
   if (member) return member.user;
   
+  // Try partial match after fetching (if we fetched above)
+  if (!member && message.guild) {
+    try {
+      const members = await message.guild.members.fetch().catch(() => null);
+      if (members) {
+        member = members.find(m => 
+          m.user.username.toLowerCase().includes(mention.toLowerCase()) ||
+          m.user.tag.toLowerCase().includes(mention.toLowerCase()) ||
+          (m.nickname && m.nickname.toLowerCase().includes(mention.toLowerCase()))
+        );
+        if (member) return member.user;
+      }
+    } catch (error) {
+      // Ignore errors
+    }
+  }
+  
   // Try to find bot by username in client.users cache
   const bot = message.client.users.cache.find(u => 
-    u.bot && (
-      u.username.toLowerCase().includes(mention.toLowerCase()) ||
-      u.tag.toLowerCase().includes(mention.toLowerCase())
-    )
+    u.username.toLowerCase() === mention.toLowerCase() ||
+    u.tag.toLowerCase() === mention.toLowerCase() ||
+    (u.username.toLowerCase().includes(mention.toLowerCase()) && u.bot)
   );
-  return bot || null;
+  if (bot) return bot;
+  
+  return null;
 }
 
 module.exports = {

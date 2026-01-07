@@ -4,7 +4,7 @@ module.exports = {
   name: 'unlock',
   aliases: ['ul'],
   category: 'moderation', 
-  description: '<:arrows:1363099226375979058> Unlock a locked channel.',
+  description: '<:arrows:1457808531678957784> Unlock a locked channel.',
   async execute(message) {
     try {
      

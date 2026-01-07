@@ -7,7 +7,7 @@ module.exports = {
   name: 'birthday',
   aliases: ['bday'],
   category: ['miscellaneous'],
-  description: ['<:arrows:1363099226375979058> Set a birthday for yourself.'],
+  description: ['<:arrows:1457808531678957784> Set a birthday for yourself.'],
   async execute(message, args, { getUser, prefix }) {
     // --- SET BIRTHDAY ---
     if (args[0] === 'set') {
@@ -17,9 +17,10 @@ module.exports = {
       const mention = message.mentions.users.first();
       if (mention) {
         if (message.author.id !== OWNER_ID) {
-          return message.reply({
-            embeds: [new EmbedBuilder().setColor('#FF0000').setDescription("<:excl:1362858572677120252> <:arrows:1363099226375979058> You don't have **permission** to set birthdays for others.")]
-          });
+      return message.reply({
+        embeds: [new EmbedBuilder().setColor('#FF0000').setDescription("<:disallowed:1457808577786806375> <:arrows:1457808531678957784> You don't have **permission** to set birthdays for others.")],
+        allowedMentions: { repliedUser: false }
+      });
         }
         target = mention;
         dateStartIndex = 2;
@@ -31,9 +32,10 @@ module.exports = {
       const isNumeric = /^\d{1,2}\/\d{1,2}(\/\d{4})?$/.test(date);
 
       if (!date || (!isMonthDay && !isNumeric)) {
-        return message.reply({
-          embeds: [new EmbedBuilder().setColor('#838996').setDescription(`<:excl:1362858572677120252> <:arrows:1363099226375979058> **Specify a date** (e.g. \`${prefix}bday set 12/4/2002\`)`)]
-        });
+      return message.reply({
+        embeds: [new EmbedBuilder().setColor('#838996').setDescription(`<:disallowed:1457808577786806375> <:arrows:1457808531678957784> **Specify a date** (e.g. \`${prefix}bday set 12/4/2002\`)`)],
+        allowedMentions: { repliedUser: false }
+      });
       }
 
       let formattedDate;
@@ -53,26 +55,26 @@ module.exports = {
       dbHelpers.setBirthday(target.id, birthdayDate);
 
       return message.reply({
-        embeds: [new EmbedBuilder().setColor('#838996').setDescription(`<:check:1362850043333316659> <:arrows:1363099226375979058> Your **Birthday** has been set to **${formattedDate}**`)]
+        embeds: [new EmbedBuilder().setColor('#838996').setDescription(`<:check:1457808518848581858> <:arrows:1457808531678957784> ${target.id === message.author.id ? "Your" : `${target.username}'s`} **Birthday** has been set to **${formattedDate}**`)],
+        allowedMentions: { repliedUser: false }
       });
     }
 
     // --- VIEW BIRTHDAY ---
-    let target = message.mentions.users.first();
-    if (!target && args[0]) {
+    let target = message.author;
+    if (args[0]) {
       const input = args.join(' ');
-      const byIdOrUsername = await getUser(message, input);
-      const byDisplayName = message.guild.members.cache.find(m =>
-        m.displayName.toLowerCase() === input.toLowerCase()
-      );
-      target = byIdOrUsername || (byDisplayName ? byDisplayName.user : null);
+      const foundUser = await getUser(message, input);
+      if (foundUser) {
+        target = foundUser;
+      }
     }
-    if (!target) target = message.author;
 
     const rawBirthday = dbHelpers.getBirthday(target.id);
     if (!rawBirthday) {
       return message.reply({
-        embeds: [new EmbedBuilder().setColor('#838996').setDescription(`<:excl:1362858572677120252> <:arrows:1363099226375979058> You haven't set your **birthday** yet. Use \`${prefix}bday set <date>\``)]
+        embeds: [new EmbedBuilder().setColor('#838996').setDescription(`<:disallowed:1457808577786806375> <:arrows:1457808531678957784> ${target.id === message.author.id ? "You haven't" : "This user hasn't"} set ${target.id === message.author.id ? "your" : "their"} **birthday** yet. Use \`${prefix}bday set <date>\``)],
+        allowedMentions: { repliedUser: false }
       });
     }
 
@@ -80,8 +82,8 @@ module.exports = {
 
     const embed = new EmbedBuilder()
       .setColor('#838996')
-      .setDescription(`<:c4ke:1363829350692290651> <:arrows:1363099226375979058> Your **birthday** is on **${prettyDate}**`);
+      .setDescription(`<:c4ke:1363829350692290651> <:arrows:1457808531678957784> ${target.id === message.author.id ? "Your" : `${target.username}'s`} **birthday** is on **${prettyDate}**`);
 
-    await message.reply({ embeds: [embed] });
+    await message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } });
   }
 };

@@ -4,7 +4,7 @@ module.exports = {
   name: 'botclear',
   aliases: ['bc'],
   category: 'moderation', 
-  description: '<:arrows:1363099226375979058> Clear messages from bots.',
+  description: '<:arrows:1457808531678957784> Clear messages from bots.',
   async execute(message) {
     if (!message.member.permissions.has(PermissionsBitField.Flags.ManageMessages)) {
       return;
@@ -23,3 +23,4 @@ module.exports = {
     }
   }
 };
+

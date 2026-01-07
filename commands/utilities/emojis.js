@@ -3,7 +3,7 @@ const { PermissionFlagsBits, EmbedBuilder } = require('discord.js');
 module.exports = {
   name: 'emoji',
   aliases: ['ea', 'ed'],
-  description: '<:arrows:1363099226375979058> Add & remove an emoji from the server',
+  description: '<:arrows:1457808531678957784> Add & remove an emoji from the server',
   category: 'utilities',
   async execute(message, args, { client, prefix }) {
     if (!message.member.permissions.has(PermissionFlagsBits.ManageEmojisAndStickers)) {
@@ -11,8 +11,9 @@ module.exports = {
         embeds: [
           new EmbedBuilder()
             .setColor('#838996')
-            .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> You need **Manage Emojis and Stickers** permissions to use this command.')
-        ]
+            .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> You need **Manage Emojis and Stickers** permissions to use this command.')
+        ],
+        allowedMentions: { repliedUser: false }
       });
     }
 
@@ -22,8 +23,9 @@ module.exports = {
         embeds: [
           new EmbedBuilder()
             .setColor('#838996')
-            .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> I need **Manage Emojis and Stickers** permissions to manage emojis.')
-        ]
+            .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> I need **Manage Emojis and Stickers** permissions to manage emojis.')
+        ],
+        allowedMentions: { repliedUser: false }
       });
     }
 
@@ -37,12 +39,13 @@ module.exports = {
           new EmbedBuilder()
             .setColor('#838996')
             .setDescription([
-              '<:settings:1362876382375317565> **Usage:**',
+              '<:settings:1457808572720087266> **Usage:**',
               `\`\`\`${prefix}emoji (subcommand) (args)\`\`\``,
-              '-# <:arrows:1363099226375979058> Use `add` to add an emoji, or `delete` to remove it.',
+              '-# <:arrows:1457808531678957784> Use `add` to add an emoji, or `delete` to remove it.',
               '\n**Aliases:** `N/A`'
             ].join('\n'))
-        ]
+        ],
+        allowedMentions: { repliedUser: false }
       });
     }
 
@@ -58,22 +61,24 @@ module.exports = {
             new EmbedBuilder()
               .setColor('#838996')
               .setDescription([
-                '<:settings:1362876382375317565> **Usage:**',
+                '<:settings:1457808572720087266> **Usage:**',
                 `\`\`\`${prefix}emoji add <emoji>\`\`\``,
-                '-# <:arrows:1363099226375979058> Adds emoji(s) to the server',
+                '-# <:arrows:1457808531678957784> Adds emoji(s) to the server',
                 '',
                 `**Examples:** \`${prefix}emoji add 😭 💀 😄\``,
                 '\n**Aliases:** `N/A`',
                 '\n-# **Note:** You can add up to **10 emojis** at once'
               ].join('\n'))
-          ]
+          ],
+          allowedMentions: { repliedUser: false }
         });
       }
 
       const emojiInputs = args;
       if (emojiInputs.length > 10) {
         return message.reply({
-          embeds: [new EmbedBuilder().setColor('#838996').setDescription('<:info:1363009904293576744> You can only add up to **10** emojis at once.')]
+          embeds: [new EmbedBuilder().setColor('#838996').setDescription('<:info:1363009904293576744> You can only add up to **10** emojis at once.')],
+          allowedMentions: { repliedUser: false }
         });
       }
 
@@ -91,13 +96,13 @@ module.exports = {
             isAnimated = emojiInput.startsWith('<a:');
             emojiUrl = `https://cdn.discordapp.com/emojis/${emojiId}.${isAnimated ? 'gif' : 'png'}?v=1`;
           } else {
-            failedEmojis.push(`<:excl:1362858572677120252> <:arrows:1363099226375979058> \`${emojiInput}\` (Invalid emoji)`);
+            failedEmojis.push(`<:disallowed:1457808577786806375> <:arrows:1457808531678957784> \`${emojiInput}\` (Invalid emoji)`);
             continue;
           }
 
           const existingEmoji = message.guild.emojis.cache.find(e => e.name.toLowerCase() === emojiName.toLowerCase());
           if (existingEmoji) {
-            failedEmojis.push(`<:excl:1362858572677120252> <:arrows:1363099226375979058> The emoji \`${emojiName}\` already exists`);
+            failedEmojis.push(`<:disallowed:1457808577786806375> <:arrows:1457808531678957784> The emoji \`${emojiName}\` already exists`);
             continue;
           }
 
@@ -105,7 +110,7 @@ module.exports = {
           addedEmojis.push(`[\`${emojiName}\`](https://cdn.discordapp.com/emojis/${newEmoji.id}.${isAnimated ? 'gif' : 'png'})`);
         } catch (error) {
           console.error('Error adding emoji:', error);
-          failedEmojis.push('<:excl:1362858572677120252> <:arrows:1363099226375979058> Failed to add emoji');
+          failedEmojis.push('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> Failed to add emoji');
         }
       }
 
@@ -113,7 +118,7 @@ module.exports = {
       if (addedEmojis.length > 0) embed.addFields({ name: 'Emojis Added:', value: addedEmojis.join('\n') });
       if (failedEmojis.length > 0) embed.addFields({ name: '', value: failedEmojis.join('\n') });
 
-      return message.reply({ embeds: [embed] });
+      return message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } });
     }
 
     // ===== DELETE EMOJI =====
@@ -128,14 +133,15 @@ module.exports = {
             new EmbedBuilder()
               .setColor('#838996')
               .setDescription([
-                '<:settings:1362876382375317565> **Usage:**',
+                '<:settings:1457808572720087266> **Usage:**',
                 `\`\`\`${prefix}emoji delete <name>\`\`\``,
-                '-# <:arrows:1363099226375979058> Deletes an emoji from the server',
+                '-# <:arrows:1457808531678957784> Deletes an emoji from the server',
                 '',
                 `**Examples:** \`${prefix}emoji delete money\``,
                 '\n**Aliases:** `N/A`'
               ].join('\n'))
-          ]
+          ],
+          allowedMentions: { repliedUser: false }
         });
       }
 
@@ -147,8 +153,9 @@ module.exports = {
           embeds: [
             new EmbedBuilder()
               .setColor('#838996')
-              .setDescription(`<:excl:1362858572677120252> <:arrows:1363099226375979058> No **emoji** with the name \`${emojiName}\` found.`)
-          ]
+              .setDescription(`<:disallowed:1457808577786806375> <:arrows:1457808531678957784> No **emoji** with the name \`${emojiName}\` found.`)
+          ],
+          allowedMentions: { repliedUser: false }
         });
       }
 
@@ -158,8 +165,9 @@ module.exports = {
           embeds: [
             new EmbedBuilder()
               .setColor('#838996')
-              .setDescription(`<:deleted:1363170791457427546> <:arrows:1363099226375979058> **Deleted emoji** \`${emojiName}\``)
-          ]
+              .setDescription(`<:deleted:1363170791457427546> <:arrows:1457808531678957784> **Deleted emoji** \`${emojiName}\``)
+          ],
+          allowedMentions: { repliedUser: false }
         });
       } catch (error) {
         console.error('Error deleting emoji:', error);
@@ -167,8 +175,9 @@ module.exports = {
           embeds: [
             new EmbedBuilder()
               .setColor('#838996')
-              .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> An error occurred while deleting the emoji.')
-          ]
+              .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> An error occurred while deleting the emoji.')
+          ],
+          allowedMentions: { repliedUser: false }
         });
       }
     }

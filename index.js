@@ -3,7 +3,7 @@ const { Client, GatewayIntentBits, Collection, ActivityType, EmbedBuilder, Chann
 const fs = require('fs');
 const path = require('path');
 const { dbHelpers } = require('./db');
-const autorespond = require('./commands/utilities/autorespond');
+const autorespond = require('./commands/moderation/autorespond');
 const clearsnipeCommand = require('./commands/utilities/clearsnipe');
 const nwordCommand = require('./commands/fun/nword');
 const userTimezones = require('./commands/utilities/timezone');
@@ -361,22 +361,86 @@ function saveData() {
 async function getUser(message, input) {
   if (!input) return null;
 
+  const inputLower = input.toLowerCase();
+  
+  // Check mentions first (no fetch needed)
   const mention = message.mentions.users.first();
   if (mention) return mention;
 
+  // Check if it's a user ID (fetch from global cache, not guild members)
   if (/^\d{17,19}$/.test(input)) {
-    return await client.users.fetch(input).catch(() => null);
+    // Try cache first to avoid rate limits
+    const cachedUser = message.client.users.cache.get(input);
+    if (cachedUser) return cachedUser;
+    
+    // Only fetch if not in cache - this is a global user fetch, not a guild member fetch
+    try {
+      return await message.client.users.fetch(input);
+    } catch (err) {
+      return null;
+    }
   }
 
   const guild = message.guild;
   if (!guild) return null;
 
-  const members = await guild.members.fetch({ withPresences: false });
-  const found = members.find(member =>
-    member.user.username.toLowerCase() === input.toLowerCase()
-  );
+  // Try to find by username, display name, global name, or tag in cache first (no fetch)
+  const member = guild.members.cache.find(m => {
+    const username = m.user.username.toLowerCase();
+    const tag = m.user.tag.toLowerCase();
+    const displayName = m.displayName?.toLowerCase();
+    const globalName = m.user.globalName?.toLowerCase();
+    
+    return username === inputLower ||
+           tag === inputLower ||
+           (displayName && displayName === inputLower) ||
+           (globalName && globalName === inputLower) ||
+           username.includes(inputLower) ||
+           (displayName && displayName.includes(inputLower)) ||
+           (globalName && globalName.includes(inputLower));
+  });
+  
+  if (member) {
+    return member.user;
+  }
 
-  return found?.user || null;
+  // If not found in cache, try fetching members (but avoid if possible to prevent rate limits)
+  try {
+    const members = await guild.members.fetch({ withPresences: false, limit: 1000 }).catch(() => new Map());
+    const found = members.find(m => {
+      const username = m.user.username.toLowerCase();
+      const tag = m.user.tag.toLowerCase();
+      const displayName = m.displayName?.toLowerCase();
+      const globalName = m.user.globalName?.toLowerCase();
+      
+      return username === inputLower ||
+             tag === inputLower ||
+             (displayName && displayName === inputLower) ||
+             (globalName && globalName === inputLower) ||
+             username.includes(inputLower) ||
+             (displayName && displayName.includes(inputLower)) ||
+             (globalName && globalName.includes(inputLower));
+    });
+    
+    if (found) return found.user;
+  } catch (err) {
+    // If fetch fails, continue to try global cache
+  }
+
+  // Try global user cache as last resort (username, tag, global name)
+  const globalUser = message.client.users.cache.find(u => {
+    const username = u.username.toLowerCase();
+    const tag = u.tag.toLowerCase();
+    const globalName = u.globalName?.toLowerCase();
+    
+    return username === inputLower ||
+           tag === inputLower ||
+           (globalName && globalName === inputLower) ||
+           username.includes(inputLower) ||
+           (globalName && globalName.includes(inputLower));
+  });
+
+  return globalUser || null;
 }
 
 // Recursively load commands from subdirectories
@@ -420,13 +484,13 @@ client.once('ready', async () => {
   console.log(`Logged in as ${client.user.tag}!`);
   client.user.setPresence({
     activities: [{
-      name: '@fwjet',
+      name: 'Hey there!',
       type: ActivityType.Watching,
     }],
     status: 'online'
   });
 
-  autorespond.listenForTriggers(client, autoResponses);
+  autorespond.listenForTriggers(client, autoResponses, dbHelpers);
 
   // Initialize antinuke system
   const antinukeCommand = client.commands.get('antinuke');
@@ -450,11 +514,11 @@ client.on('guildCreate', async (guild) => {
       if (notificationChannel) {
         const blacklistEmbed = new EmbedBuilder()
           .setColor('#838996')
-          .setTitle('<:excl:1362858572677120252> <:arrows:1363099226375979058> **Server Blacklisted**')
+          .setTitle('<:alert:1457808529200119880> <:arrows:1457808531678957784> **Server Blacklisted**')
           .setDescription([
             `This server has been **blacklisted** from using **burn**.`,
             '',
-            `<:alert:1363009864112144394> <:arrows:1363099226375979058> If you believe this was a **mistake**, please join our [support server](https://discord.gg/SUPPORT_SERVER_LINK) and open a **support ticket**.`,
+            `<:arrows:1457808531678957784> If you believe this was a **mistake**, please join our [support server](https://discord.gg/yw8g6W2GV5) and open a **support ticket**.`,
             '',
             '-# The bot will now leave this server.'
           ].join('\n'));
@@ -503,32 +567,41 @@ client.on('guildCreate', async (guild) => {
     
     if (welcomeChannel) {
       const prefix = getPrefix(guild.id);
-      
+
       const welcomeEmbed = new EmbedBuilder()
         .setColor('#838996')
         .setTitle('Thank you for using **burn**!')
         .setDescription([
           ` Thank you for adding **burn** to your server! We're excited to have you as part of our community.`,
           '',
-          `<:settings:1362876382375317565> **__Prefix Information:__**`,
-          `• **Default Prefix:** \`${DEFAULT_PREFIX}\``,
-          `• **Current Prefix:** \`${prefix}\``,
+          `<:settings:1457808572720087266> **__Prefix Information:__**`,
+          `<:tree:1457808523986731008> **Default Prefix:** \`${DEFAULT_PREFIX}\``,
           '',
-          `<:miscellaneous:1363962180101341344> **__Getting Started:__**`,
-          `• Use \`${prefix}help\` to see all available commands`,
-          `• Change the prefix with \`${prefix}prefix set <char>\``,
-          `• Configure bot settings as needed for your server`,
+          `<:miscellaneous:1457808537211113668> **__Getting Started:__**`,
+          `<:leese:1457834970486800567>Use \`${prefix}help\` to see all available commands`,
+          `<:leese:1457834970486800567> Change the prefix with \`${prefix}prefix set <char>\``,
+          `<:tree:1457808523986731008> Configure bot settings as needed for your server`,
           '',
-          '<:excl:1362858572677120252> <:arrows:1363099226375979058> **__Note:__**',
+          '**__Note:__**',
           '',
           'This bot is fairly new and currently in **beta**. While we\'ve done our best to ensure stability, you may encounter some **mistakes** or **bugs** here and there. We appreciate your patience as we continue to improve!',
           '',
-          `<:alert:1363009864112144394> <:arrows:1363099226375979058> If you encounter any **issues** or have **suggestions**, please let us know.`,
+          `<:arrows:1457808531678957784> If you encounter any **issues** or have **suggestions**, please let us know.`,
           '',
           `-# Developed by [@fwjet](https://discord.com/users/1448417272631918735)`
-        ].join('\n'));
+        ].join('\n'))
 
-      await welcomeChannel.send({ embeds: [welcomeEmbed] });
+      const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+
+      const linkRow = new ActionRowBuilder()
+        .addComponents(
+          new ButtonBuilder()
+            .setLabel('Support Server')
+            .setStyle(ButtonStyle.Link)
+            .setURL('https://discord.gg/XYSXyKHpUx'),
+        );
+
+      await welcomeChannel.send({ embeds: [welcomeEmbed], components: [linkRow] });
     }
   } catch (err) {
     console.error(`Failed to send welcome message to ${guild.name}:`, err);
@@ -604,19 +677,7 @@ client.on('messageCreate', async (message) => {
 
     // Check if bot is mentioned
     if (message.mentions.has(client.user) && !message.content.startsWith(prefix)) {
-      const uptime = formatUptime(client.uptime);
-      const mentionEmbed = new EmbedBuilder()
-        .setColor('#838996')
-        .setDescription([
-          `**burn** — multipurpose bot.`,
-          '',
-          `**Prefix:** \`${prefix}\``,
-          `**Runtime:** \`${uptime}\``,
-          '',
-          `-# by [@fwjet](https://discord.com/users/1448417272631918735)`
-        ].join('\n'));
-      
-      return message.reply({ embeds: [mentionEmbed] }).catch(() => {});
+      return message.reply(`Hi, my prefix is \`${prefix}\`.`).catch(() => {});
     }
 
     if (!message.content.startsWith(prefix)) return;
@@ -651,7 +712,7 @@ client.on('messageCreate', async (message) => {
       const remainingTime = (COOLDOWN_DURATION - timeSinceCooldown) / 1000;
       const slowdownEmbed = new EmbedBuilder()
         .setColor('#838996')
-        .setDescription(`<:excl:1362858572677120252> <:arrows:1363099226375979058> Wait **${remainingTime.toFixed(1)}** seconds before using any command again`);
+        .setDescription(`<:disallowed:1457808577786806375> <:arrows:1457808531678957784> Wait **${remainingTime.toFixed(1)}** seconds before using any command again`);
       
       const embedMessage = await message.reply({ embeds: [slowdownEmbed] }).catch(() => null);
       if (embedMessage) {
@@ -678,7 +739,7 @@ client.on('messageCreate', async (message) => {
         if (message.client.currentAliasExecution && message.client.currentAliasExecution.has(message.guild.id + commandName)) {
           const errorEmbed = new EmbedBuilder()
             .setColor('#838996')
-            .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> Recursive alias execution detected. This alias cannot call itself.');
+            .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> Recursive alias execution detected. This alias cannot call itself.');
           return message.reply({ embeds: [errorEmbed] }).catch(() => {});
         }
 
@@ -709,7 +770,7 @@ client.on('messageCreate', async (message) => {
             message.client.currentAliasExecution.delete(aliasKey);
             const errorEmbed = new EmbedBuilder()
               .setColor('#838996')
-              .setDescription(`<:excl:1362858572677120252> <:arrows:1363099226375979058> Alias \`${commandName}\` requires at least **${maxPlaceholderIndex + 1}** argument${maxPlaceholderIndex + 1 === 1 ? '' : 's'}. Missing argument for placeholder \`{${maxPlaceholderIndex}}\`.`);
+              .setDescription(`<:disallowed:1457808577786806375> <:arrows:1457808531678957784> Alias \`${commandName}\` requires at least **${maxPlaceholderIndex + 1}** argument${maxPlaceholderIndex + 1 === 1 ? '' : 's'}. Missing argument for placeholder \`{${maxPlaceholderIndex}}\`.`);
             return message.reply({ embeds: [errorEmbed] }).catch(() => {});
           }
 
@@ -727,7 +788,7 @@ client.on('messageCreate', async (message) => {
             message.client.currentAliasExecution.delete(aliasKey);
             const errorEmbed = new EmbedBuilder()
               .setColor('#838996')
-              .setDescription(`<:excl:1362858572677120252> <:arrows:1363099226375979058> Alias \`${commandName}\` resolved to an empty command.`);
+              .setDescription(`<:disallowed:1457808577786806375> <:arrows:1457808531678957784> Alias \`${commandName}\` resolved to an empty command.`);
             return message.reply({ embeds: [errorEmbed] }).catch(() => {});
           }
 
@@ -740,7 +801,7 @@ client.on('messageCreate', async (message) => {
             message.client.currentAliasExecution.delete(aliasKey);
             const errorEmbed = new EmbedBuilder()
               .setColor('#838996')
-              .setDescription(`<:excl:1362858572677120252> <:arrows:1363099226375979058> Alias \`${commandName}\` points to command \`${targetCommandName}\` which does not exist.`);
+              .setDescription(`<:disallowed:1457808577786806375> <:arrows:1457808531678957784> Alias \`${commandName}\` points to command \`${targetCommandName}\` which does not exist.`);
             return message.reply({ embeds: [errorEmbed] }).catch(() => {});
           }
 
@@ -754,13 +815,14 @@ client.on('messageCreate', async (message) => {
               forcedNicknames,
               saveData,
               getUser,
+              dbHelpers,
               slurData: dbHelpers.getAllSlurCounts()
             });
           } catch (error) {
             console.error(`Error executing alias ${commandName}:`, error);
             const errorEmbed = new EmbedBuilder()
               .setColor('#838996')
-              .setDescription(`<:excl:1362858572677120252> <:arrows:1363099226375979058> An error occurred while executing alias \`${commandName}\`.`);
+              .setDescription(`<:disallowed:1457808577786806375> <:arrows:1457808531678957784> An error occurred while executing alias \`${commandName}\`.`);
             await message.reply({ embeds: [errorEmbed] }).catch(() => {});
           } finally {
             // Remove alias from execution tracking
@@ -776,7 +838,7 @@ client.on('messageCreate', async (message) => {
           console.error(`Error processing alias ${commandName}:`, error);
           const errorEmbed = new EmbedBuilder()
             .setColor('#838996')
-            .setDescription(`<:excl:1362858572677120252> <:arrows:1363099226375979058> An error occurred while processing alias \`${commandName}\`.`);
+            .setDescription(`<:disallowed:1457808577786806375> <:arrows:1457808531678957784> An error occurred while processing alias \`${commandName}\`.`);
           return message.reply({ embeds: [errorEmbed] }).catch(() => {});
         }
       }
@@ -786,6 +848,14 @@ client.on('messageCreate', async (message) => {
     if (!realCommand) {
       // Command not found - silently return (user might be typing)
       return;
+    }
+
+    // Block commands in DMs unless explicitly allowed
+    if (!message.guild) {
+      // Check if command explicitly allows DMs
+      if (!realCommand.allowDM) {
+        return; // Silently ignore - command doesn't work in DMs
+      }
     }
 
     // Track command for spam detection (use actual command name)
@@ -798,7 +868,7 @@ client.on('messageCreate', async (message) => {
       if (spamCheck.warning && spamCheck.warningCount === 1) {
         const warningEmbed = new EmbedBuilder()
           .setColor('#FF0000')
-          .setDescription(`<:alert:1363009864112144394> <:arrows:1363099226375979058> **Spam Warning ${spamCheck.warningCount}/${MAX_WARNINGS}**\n-# You are spamming commands. ${MAX_WARNINGS - spamCheck.warningCount} more violation(s) will result in a temporary blacklist.`);
+          .setDescription(`<:alert:1457808529200119880> <:arrows:1457808531678957784> **Spam Warning ${spamCheck.warningCount}/${MAX_WARNINGS}**\n-# You are spamming commands. ${MAX_WARNINGS - spamCheck.warningCount} more violation(s) will result in a temporary blacklist.`);
         await message.reply({ embeds: [warningEmbed] }).catch(() => {});
       }
       // Silently ignore subsequent spam commands to avoid stressing the bot
@@ -825,6 +895,7 @@ client.on('messageCreate', async (message) => {
         forcedNicknames,
         saveData,
         getUser,
+        dbHelpers,
         slurData: dbHelpers.getAllSlurCounts()
       });
       
@@ -840,7 +911,7 @@ client.on('messageCreate', async (message) => {
       console.error(`Error executing command ${commandName}:`, error);
       const errorEmbed = new EmbedBuilder()
         .setColor('#838996')
-        .setDescription('<:alert:1363009864112144394> <:arrows:1363099226375979058> **Unknown Error Occurred**')
+        .setDescription('<:alert:1457808529200119880> <:arrows:1457808531678957784> **Unknown Error Occurred**')
         .addFields(
           { name: '', value: '-# A copy of this error has been sent to the **developer** for review.' }
         )

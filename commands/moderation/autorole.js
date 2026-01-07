@@ -20,15 +20,16 @@ const MODERATOR_PERMISSIONS = [
 module.exports = {
   name: 'autorole',
   category: 'moderation',
-  description: '<:arrows:1363099226375979058> Manage the server\'s autorole.',
+  description: '<:arrows:1457808531678957784> Manage the server\'s autorole.',
   async execute(message, args, { client, prefix }) {
     if (!message.member.permissions.has(PermissionsBitField.Flags.ManageGuild)) {
       return message.reply({
         embeds: [
           new EmbedBuilder()
             .setColor('#838996')
-            .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> You need **Manage Guild** permissions to use this command.')
-        ]
+            .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> You need **Manage Guild** permissions to use this command.')
+        ],
+        allowedMentions: { repliedUser: false }
       });
     }
 
@@ -40,14 +41,17 @@ module.exports = {
       const usageEmbed = new EmbedBuilder()
         .setColor('#838996')
         .setDescription([
-          '<:settings:1362876382375317565> **Usage:**',
+          '<:settings:1457808572720087266> **Usage:**',
             `\`\`\`${prefix}autorole (subcommand) (args)\`\`\``,
-            '-# <:arrows:1363099226375979058> Use `set` to add an autorole, `remove` to remove it, or `view` to see list.',
+            '-# <:arrows:1457808531678957784> **__Subcommands__** \n <:leese:1457834970486800567> `set` to add an autorole \n <:leese:1457834970486800567> `remove` to remove it \n <:tree:1457808523986731008>`view` to see list.',
             '',
             '**Aliases:** `N/A`'
         ].join('\n'));
 
-      return message.reply({ embeds: [usageEmbed] });
+      return message.reply({ 
+        embeds: [usageEmbed],
+        allowedMentions: { repliedUser: false }
+      });
     }
 
     if (subcommand === 'view') {
@@ -58,8 +62,9 @@ module.exports = {
           embeds: [
             new EmbedBuilder()
               .setColor('#838996')
-              .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> This server has **no autorole** set.')
-          ]
+              .setDescription('<:cr0ss:1457809446620369098> <:arrows:1457808531678957784> This server has **no autorole** set.')
+          ],
+          allowedMentions: { repliedUser: false }
         });
       }
 
@@ -71,8 +76,9 @@ module.exports = {
           embeds: [
             new EmbedBuilder()
               .setColor('#838996')
-              .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> The **autorole** was set but the role **no longer exists**. It has been **cleared**.')
-          ]
+              .setDescription('<:excl:1457809455268888679> <:arrows:1457808531678957784> The **autorole** was set but the role **no longer exists**.')
+          ],
+          allowedMentions: { repliedUser: false }
         });
       }
 
@@ -80,8 +86,9 @@ module.exports = {
         embeds: [
           new EmbedBuilder()
             .setColor('#838996')
-            .setDescription(`<:arrows:1363099226375979058> Current **autorole**: ${role.toString()}`)
-        ]
+            .setDescription(`<:arrows:1457808531678957784> Current **autorole**: ${role.toString()}`)
+        ],
+        allowedMentions: { repliedUser: false }
       });
     }
 
@@ -92,8 +99,9 @@ module.exports = {
           embeds: [
             new EmbedBuilder()
               .setColor('#838996')
-              .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> This server has **no autorole** to remove.')
-          ]
+              .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> This server has **no autorole** to remove.')
+          ],
+          allowedMentions: { repliedUser: false }
         });
       }
 
@@ -102,8 +110,9 @@ module.exports = {
         embeds: [
           new EmbedBuilder()
             .setColor('#838996')
-            .setDescription('<:deleted:1363170791457427546> <:arrows:1363099226375979058> **Removed** the server\'s **autorole**.')
-        ]
+            .setDescription('<:deleted:1457808575316492309> <:arrows:1457808531678957784> **Removed** the server\'s **autorole**.')
+        ],
+        allowedMentions: { repliedUser: false }
       });
     }
 
@@ -112,11 +121,19 @@ module.exports = {
         return message.reply({
           embeds: [
             new EmbedBuilder()
-              .setColor('#838996')
-              .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> Mention a **role** or provide a **role ID**.')
-          ]
+            .setColor('#838996')
+            .setDescription([
+              '<:settings:1457808572720087266> **Usage:**',
+              `\`\`\`${prefix}autorole <set> <role>\`\`\``,
+              '-# <:arrows:1457808531678957784> Set the server\'s autorole.',
+              '',
+              `**Example:** \`${prefix}autorole set @member\``,
+              '\n**Aliases:** `N/A`'
+            ].join('\n'))
+          ],
+          allowedMentions: { repliedUser: false }
         });
-      }
+    }
 
       const role = message.mentions.roles.first() || message.guild.roles.cache.get(roleInput);
       if (!role) {
@@ -124,8 +141,9 @@ module.exports = {
           embeds: [
             new EmbedBuilder()
               .setColor('#838996')
-              .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> Mention a **valid role** or provide a **valid role ID**.')
-          ]
+              .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> Mention a **valid role** or provide a **valid role ID**.')
+          ],
+          allowedMentions: { repliedUser: false }
         });
       }
 
@@ -136,8 +154,9 @@ module.exports = {
           embeds: [
             new EmbedBuilder()
               .setColor('#838996')
-              .setDescription(`<:excl:1362858572677120252> <:arrows:1363099226375979058> I can't assign the ${role.toString()} role because it's **higher than my highest role**.`)
-          ]
+              .setDescription(`<:disallowed:1457808577786806375> <:arrows:1457808531678957784> I can't assign the ${role.toString()} role because it's **higher than my highest role**.`)
+          ],
+          allowedMentions: { repliedUser: false }
         });
       }
 
@@ -146,8 +165,9 @@ module.exports = {
           embeds: [
             new EmbedBuilder()
               .setColor('#838996')
-              .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> I can\'t assign **bot** or **integration** managed roles.')
-          ]
+              .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> I can\'t assign **bot** or **integration** managed roles.')
+          ],
+          allowedMentions: { repliedUser: false }
         });
       }
 
@@ -158,8 +178,9 @@ module.exports = {
           embeds: [
             new EmbedBuilder()
               .setColor('#838996')
-              .setDescription(`<:excl:1362858572677120252> <:arrows:1363099226375979058> Cannot set ${role.toString()} as **autorole** because it has **moderator permissions**.`)
-          ]
+              .setDescription(`<:disallowed:1457808577786806375> <:arrows:1457808531678957784> Cannot set ${role.toString()} as **autorole** because it has **moderator permissions**.`)
+          ],
+          allowedMentions: { repliedUser: false }
         });
       }
 
@@ -171,8 +192,9 @@ module.exports = {
             embeds: [
               new EmbedBuilder()
                 .setColor('#838996')
-                .setDescription(`<:excl:1362858572677120252> <:arrows:1363099226375979058> An **autorole** (${currentRole.toString()}) has already been set. **Remove** it first before setting a new one.`)
-            ]
+                .setDescription(`<:disallowed:1457808577786806375> <:arrows:1457808531678957784> An **autorole** (${currentRole.toString()}) has already been set. \n-# <:tree:1457808523986731008> Remove it first before setting a **new role**.`)
+            ],
+            allowedMentions: { repliedUser: false }
           });
         } else {
           // Clean up if role no longer exists
@@ -185,8 +207,9 @@ module.exports = {
         embeds: [
           new EmbedBuilder()
             .setColor('#838996')
-            .setDescription(`<:check:1362850043333316659> <:arrows:1363099226375979058> **Set** ${role.toString()} as the server's **autorole**.`)
-        ]
+            .setDescription(`<:check:1457808518848581858> <:arrows:1457808531678957784> **Set** ${role.toString()} as the server's **autorole**.`)
+        ],
+        allowedMentions: { repliedUser: false }
       });
     }
 
@@ -195,8 +218,9 @@ module.exports = {
       embeds: [
         new EmbedBuilder()
           .setColor('#838996')
-          .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> Invalid **subcommand**. Use `set`, `remove`, or `view`.')
-      ]
+          .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> Invalid **subcommand**. Use `set`, `remove`, or `view`.')
+      ],
+      allowedMentions: { repliedUser: false }
     });
   },
 

@@ -13,14 +13,15 @@ module.exports = {
                 new EmbedBuilder()
                   .setColor('#838996')
                   .setDescription([
-                    '<:settings:1362876382375317565> **Usage:**',
+                    '<:settings:1457808572720087266> **Usage:**',
                     `\`\`\`${prefix}urban <term>\`\`\``,
-                    '-# <:arrows:1363099226375979058> Searches for definition of a word.',
+                    '-# <:arrows:1457808531678957784> Searches for definition of a word.',
                     '',
                     `**Example:** \`${prefix}urban tonka\``,
                     '\n**Aliases:** `N/A`'
                   ].join('\n'))
-              ]
+              ],
+              allowedMentions: { repliedUser: false }
             });
           }
 
@@ -52,13 +53,14 @@ module.exports = {
                         new EmbedBuilder()
                             .setColor('#838996')
                             .setDescription([
-                                '<:excl:1362858572677120252> <:arrows:1363099226375979058> **No definitions found.**',
+                                '<:disallowed:1457808577786806375> <:arrows:1457808531678957784> **No definitions found.**',
                                 '',
                                 `No definitions found for **${term}**`,
                                 '',
                                 '-# Try searching for a different term or check your spelling.'
                             ].join('\n'))
-                    ]
+                    ],
+                    allowedMentions: { repliedUser: false }
                 });
             }
 
@@ -133,7 +135,8 @@ module.exports = {
 
             const reply = await message.reply({ 
                 embeds: [createEmbed(currentIndex)], 
-                components: [createButtons(currentIndex)] 
+                components: [createButtons(currentIndex)],
+                allowedMentions: { repliedUser: false }
             });
 
             // Store reply message ID for button customIds
@@ -177,7 +180,7 @@ module.exports = {
                         embeds: [
                             new EmbedBuilder()
                                 .setColor('#838996')
-                                .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> You **cannot interact** with this embed.')
+                                .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> You **cannot interact** with this embed.')
                         ],
                         ephemeral: true 
                     }).catch(() => {});
@@ -209,7 +212,7 @@ module.exports = {
                         embeds: [
                             new EmbedBuilder()
                                 .setColor('#FF4D4D')
-                                .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> **Error:** Invalid definition index.')
+                                .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> **Error:** Invalid definition index.')
                         ],
                         ephemeral: true
                     }).catch(() => {});
@@ -246,13 +249,14 @@ module.exports = {
                     new EmbedBuilder()
                         .setColor('#FF4D4D')
                         .setDescription([
-                            '<:excl:1362858572677120252> <:arrows:1363099226375979058> **Error fetching definition.**',
+                            '<:disallowed:1457808577786806375> <:arrows:1457808531678957784> **Error fetching definition.**',
                             '',
                             `**Error:** ${error.message}`,
                             '',
                             '-# Please try again later or check your internet connection.'
                         ].join('\n'))
-                ]
+                ],
+                allowedMentions: { repliedUser: false }
             });
         }
     }

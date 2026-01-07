@@ -5,7 +5,7 @@ module.exports = {
   name: 'prefix',
   aliases: [],
   category: 'moderation',
-  description: '<:arrows:1363099226375979058> Change the bot prefix for this server.',
+  description: '<:arrows:1457808531678957784> Change the bot prefix for this server.',
   async execute(message, args, { prefix }) {
     // Check permissions
     if (!message.member.permissions.has(PermissionFlagsBits.Administrator)) {
@@ -13,7 +13,7 @@ module.exports = {
         embeds: [
           new EmbedBuilder()
             .setColor('#838996')
-            .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> You need **Administrator** permissions to use this command.')
+            .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> You need **Administrator** permissions to use this command.')
         ]
       });
     }
@@ -27,9 +27,9 @@ module.exports = {
           new EmbedBuilder()
             .setColor('#838996')
             .setDescription([
-              '<:settings:1362876382375317565> **Usage:**',
+              '<:settings:1457808572720087266> **Usage:**',
               `\`\`\`${prefix}prefix set (char)\`\`\``,
-              '-# <:arrows:1363099226375979058> Change the bot prefix for this server.',
+              '-# <:arrows:1457808531678957784> Change the bot prefix for this server.',
               '',
               `**Examples:** \`${prefix}prefix set !\``,
               '\n**Aliases:** `N/A`'
@@ -48,9 +48,9 @@ module.exports = {
             new EmbedBuilder()
               .setColor('#838996')
               .setDescription([
-                '<:settings:1362876382375317565> **Usage:**',
+                '<:settings:1457808572720087266> **Usage:**',
                 `\`\`\`${prefix}prefix set <new prefix>\`\`\``,
-                '-# <:arrows:1363099226375979058> Set a new prefix for this server.',
+                '-# <:arrows:1457808531678957784> Set a new prefix for this server.',
                 '',
                 `**Examples:** \`${prefix}prefix set !\` \`${prefix}prefix set -\` \`${prefix}prefix set .\``,
                 '\n**Aliases:** `N/A`'
@@ -65,7 +65,7 @@ module.exports = {
           embeds: [
             new EmbedBuilder()
               .setColor('#838996')
-              .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> Prefix must be **5 characters or less**.')
+              .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> Prefix must be **5 characters or less**.')
           ]
         });
       }
@@ -75,7 +75,7 @@ module.exports = {
           embeds: [
             new EmbedBuilder()
               .setColor('#838996')
-              .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> Prefix **cannot contain spaces**.')
+              .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> Prefix **cannot contain spaces**.')
           ]
         });
       }
@@ -87,11 +87,9 @@ module.exports = {
         embeds: [
           new EmbedBuilder()
             .setColor('#838996')
-            .setDescription(`<:check:1362850043333316659> <:arrows:1363099226375979058> **Prefix changed** to \`${newPrefix}\``)
-            .addFields(
-              { name: '', value: `-# Use \`${newPrefix}help\` to see commands.` }
-            )
-        ]
+            .setDescription(`<:check:1457808518848581858> <:arrows:1457808531678957784> **Prefix changed** to \`${newPrefix}\``)
+        ],
+        allowedMentions: { repliedUser: false }
       });
     }
 
@@ -101,9 +99,9 @@ module.exports = {
         new EmbedBuilder()
           .setColor('#838996')
           .setDescription([
-            '<:settings:1362876382375317565> **Usage:**',
+            '<:settings:1457808572720087266> **Usage:**',
             `\`\`\`${prefix}prefix set <new prefix>\`\`\``,
-            '-# <:arrows:1363099226375979058> Change the bot prefix for this server.',
+            '-# <:arrows:1457808531678957784> Change the bot prefix for this server.',
             '',
             `**Current Prefix:** \`${prefix}\``,
             '\n**Aliases:** `N/A`'

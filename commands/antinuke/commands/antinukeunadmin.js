@@ -6,10 +6,11 @@ module.exports = {
   execute: async (message, args, { prefix }) => {
     if (!canConfigureAntinuke(message)) {
       return message.reply({
+        allowedMentions: { repliedUser: false },
         embeds: [
           new EmbedBuilder()
             .setColor('#838996')
-            .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> Only the **server owner** or **antinuke admins** can configure this.')
+            .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784>  Only the **server owner** or **antinuke admins** can configure this.')
         ]
       });
     }
@@ -20,37 +21,40 @@ module.exports = {
     
     if (!isServerOwner && !isOverrideUser) {
       return message.reply({
+        allowedMentions: { repliedUser: false },
         embeds: [
           new EmbedBuilder()
             .setColor('#838996')
-            .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> Only the **server owner** can remove antinuke admins.')
+            .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> Only the **server owner** can remove antinuke admins.')
         ]
       });
     }
 
     if (args.length < 2) {
       return message.reply({
+        allowedMentions: { repliedUser: false },
         embeds: [
           new EmbedBuilder()
             .setColor('#838996')
             .setDescription([
-              '<:excl:1362858572677120252> <:arrows:1363099226375979058> **Invalid usage.**',
-              '',
-              '**Usage:**',
+              '<:settings:1457808572720087266> **Usage:**',
               `\`\`\`${prefix}antinuke unadmin (user)\`\`\``,
+              '-# <:arrows:1457808531678957784> Removes user from antinuke admins.',
               '',
-              '-# Removes a user\'s permission to configure antinuke settings.'
+              `**Example:** \`${prefix}antinuke unadmin @jet\``,
+              '\n**Aliases:** `N/A`'
             ].join('\n'))
         ]
       });
     }
-    const user = getUserFromMention(message, args[1]);
+    const user = await getUserFromMention(message, args[1]);
     if (!user) {
       return message.reply({
+        allowedMentions: { repliedUser: false },
         embeds: [
           new EmbedBuilder()
             .setColor('#838996')
-            .setDescription('<:excl:1362858572677120252> <:arrows:1363099226375979058> **User not found.**')
+            .setDescription(`<:disallowed:1457808577786806375> <:arrows:1457808531678957784> **User not found.**\n-# Try using a mention (\`@user\`), user ID, or make sure the user is in this server.`)
         ]
       });
     }
@@ -58,10 +62,11 @@ module.exports = {
     if (!config.admins) config.admins = [];
     if (!config.admins.includes(user.id)) {
       return message.reply({
+        allowedMentions: { repliedUser: false },
         embeds: [
           new EmbedBuilder()
             .setColor('#838996')
-            .setDescription(`<:excl:1362858572677120252> <:arrows:1363099226375979058> <@${user.id}> **is not an antinuke admin**.`)
+            .setDescription(`<:disallowed:1457808577786806375> <:arrows:1457808531678957784> <@${user.id}> is not an **antinuke admin**.`)
         ]
       });
     }
@@ -72,7 +77,7 @@ module.exports = {
         new EmbedBuilder()
           .setColor('#838996')
           .setDescription([
-            `<:check:1362850043333316659> <:arrows:1363099226375979058> <@${user.id}> removed from **antinuke admins**`,
+            `<:check:1457808518848581858> <:arrows:1457808531678957784> <@${user.id}> removed from **antinuke admins**`,
           ].join('\n'))
       ]
     });
