@@ -497,6 +497,12 @@ client.once('ready', async () => {
   if (antinukeCommand && antinukeCommand.setup) {
     antinukeCommand.setup(client);
   }
+
+  // Initialize welcome message system
+  const dmCommand = client.commands.get('dm');
+  if (dmCommand && dmCommand.setup) {
+    dmCommand.setup(client);
+  }
 });
 
 const logChannelId = '1457555112481259552';

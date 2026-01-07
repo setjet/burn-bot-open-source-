@@ -140,6 +140,14 @@ function initializeDatabase() {
       command_string TEXT NOT NULL,
       PRIMARY KEY (guild_id, alias_name)
     );
+
+    -- Welcome messages (DM-only, guild-specific)
+    CREATE TABLE IF NOT EXISTS welcome_messages (
+      guild_id TEXT PRIMARY KEY,
+      enabled INTEGER DEFAULT 0,
+      message TEXT NOT NULL,
+      link TEXT
+    );
   `);
 }
 
@@ -234,6 +242,20 @@ function migrateDatabase() {
     }
   } catch (error) {
     // Table might not exist yet, that's okay - it will be created with new structure
+  }
+
+  // Ensure welcome_messages table exists
+  try {
+    db.prepare('SELECT 1 FROM welcome_messages LIMIT 1').get();
+  } catch (error) {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS welcome_messages (
+        guild_id TEXT PRIMARY KEY,
+        enabled INTEGER DEFAULT 0,
+        message TEXT NOT NULL,
+        link TEXT
+      )
+    `);
   }
   
 }
@@ -697,6 +719,35 @@ const dbHelpers = {
 
   removeAllAliases(guildId) {
     db.prepare('DELETE FROM command_aliases WHERE guild_id = ?').run(guildId);
+  },
+
+  // Welcome messages
+  getWelcomeMessage(guildId) {
+    const row = db.prepare('SELECT enabled, message, link FROM welcome_messages WHERE guild_id = ?').get(guildId);
+    if (!row) return null;
+    return {
+      enabled: row.enabled === 1,
+      message: row.message,
+      link: row.link || null
+    };
+  },
+
+  setWelcomeMessage(guildId, message, link = null) {
+    db.prepare('INSERT OR REPLACE INTO welcome_messages (guild_id, message, link) VALUES (?, ?, ?)')
+      .run(guildId, message, link);
+  },
+
+  setWelcomeEnabled(guildId, enabled) {
+    const enabledInt = enabled ? 1 : 0;
+    // Check if welcome message exists
+    const exists = db.prepare('SELECT 1 FROM welcome_messages WHERE guild_id = ?').get(guildId);
+    if (exists) {
+      db.prepare('UPDATE welcome_messages SET enabled = ? WHERE guild_id = ?').run(enabledInt, guildId);
+    }
+  },
+
+  removeWelcomeMessage(guildId) {
+    db.prepare('DELETE FROM welcome_messages WHERE guild_id = ?').run(guildId);
   }
 };
 
