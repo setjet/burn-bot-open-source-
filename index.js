@@ -480,6 +480,8 @@ for (const filePath of commandFiles) {
   }
 }
 
+
+
 client.once('ready', async () => {
   console.log(`Logged in as ${client.user.tag}!`);
   client.user.setPresence({
@@ -504,6 +506,11 @@ client.once('ready', async () => {
     dmCommand.setup(client);
   }
 });
+
+const ticketCommand = client.commands.get('ticket');
+if (ticketCommand && ticketCommand.setup) {
+  ticketCommand.setup(client);
+}
 
 const logChannelId = '1457555112481259552';
 
