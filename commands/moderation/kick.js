@@ -34,7 +34,8 @@ module.exports = {
               `**Example:** \`${prefix}kick @jet spamming\``,
               '\n**Aliases:** `k`'
             ].join('\n'))
-        ]
+        ],
+        allowedMentions: { repliedUser: false }
       });
     }
 

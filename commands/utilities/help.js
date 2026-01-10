@@ -45,7 +45,7 @@ module.exports = {
           name: '__Note:__',
           value: [
             '-# <:leese:1457834970486800567> Expect **occasional bugs**.',
-            '-# <:tree:1457808523986731008> **[New features](https://placeholder.documentation)** added often.',
+            '-# <:tree:1457808523986731008> **[New features](https://discord.gg/RDNk935Jzy)** added often.',
           ].join('\n')
         }
       )
