@@ -102,7 +102,7 @@ module.exports = {
         } else {
           embed.setDescription([
             `**${category}** (Page ${page + 1}/${totalPages})`, // Reduced spacing here
-            ...pageCommands.map(cmd => `[ \`${prefix}${cmd.name}\` ](https://place.holder)\n${cmd.description || '*No description*'}`)
+            ...pageCommands.map(cmd => `[ \`${prefix}${cmd.name}\` ](https://discord.gg/RDNk935Jzy)\n${cmd.description || '*No description*'}`)
           ].join('\n\n'));
         }
         return embed;
