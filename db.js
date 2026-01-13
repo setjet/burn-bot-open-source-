@@ -148,6 +148,19 @@ function initializeDatabase() {
       message TEXT NOT NULL,
       link TEXT
     );
+
+    -- Bot server welcome message (embed in channel)
+    CREATE TABLE IF NOT EXISTS bot_welcome (
+      id TEXT PRIMARY KEY DEFAULT 'bot_server',
+      enabled INTEGER DEFAULT 0,
+      channel_id TEXT,
+      title TEXT,
+      description TEXT,
+      color TEXT DEFAULT '#838996',
+      thumbnail_url TEXT,
+      image_url TEXT,
+      footer_text TEXT
+    );
   `);
 }
 
@@ -254,6 +267,25 @@ function migrateDatabase() {
         enabled INTEGER DEFAULT 0,
         message TEXT NOT NULL,
         link TEXT
+      )
+    `);
+  }
+
+  // Ensure bot_welcome table exists
+  try {
+    db.prepare('SELECT 1 FROM bot_welcome LIMIT 1').get();
+  } catch (error) {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS bot_welcome (
+        id TEXT PRIMARY KEY DEFAULT 'bot_server',
+        enabled INTEGER DEFAULT 0,
+        channel_id TEXT,
+        title TEXT,
+        description TEXT,
+        color TEXT DEFAULT '#838996',
+        thumbnail_url TEXT,
+        image_url TEXT,
+        footer_text TEXT
       )
     `);
   }
@@ -748,6 +780,53 @@ const dbHelpers = {
 
   removeWelcomeMessage(guildId) {
     db.prepare('DELETE FROM welcome_messages WHERE guild_id = ?').run(guildId);
+  },
+
+  // Bot server welcome message
+  getBotWelcome() {
+    const row = db.prepare('SELECT enabled, channel_id, title, description, color, thumbnail_url, image_url, footer_text FROM bot_welcome WHERE id = ?').get('bot_server');
+    if (!row) return null;
+    return {
+      enabled: row.enabled === 1,
+      channelId: row.channel_id,
+      title: row.title,
+      description: row.description,
+      color: row.color || '#838996',
+      thumbnailUrl: row.thumbnail_url,
+      imageUrl: row.image_url,
+      footerText: row.footer_text
+    };
+  },
+
+  setBotWelcome(config) {
+    const enabledInt = config.enabled ? 1 : 0;
+    db.prepare(`
+      INSERT OR REPLACE INTO bot_welcome 
+      (id, enabled, channel_id, title, description, color, thumbnail_url, image_url, footer_text) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      'bot_server',
+      enabledInt,
+      config.channelId || null,
+      config.title || null,
+      config.description || null,
+      config.color || '#838996',
+      config.thumbnailUrl || null,
+      config.imageUrl || null,
+      config.footerText || null
+    );
+  },
+
+  setBotWelcomeEnabled(enabled) {
+    const enabledInt = enabled ? 1 : 0;
+    const exists = db.prepare('SELECT 1 FROM bot_welcome WHERE id = ?').get('bot_server');
+    if (exists) {
+      db.prepare('UPDATE bot_welcome SET enabled = ? WHERE id = ?').run(enabledInt, 'bot_server');
+    }
+  },
+
+  removeBotWelcome() {
+    db.prepare('DELETE FROM bot_welcome WHERE id = ?').run('bot_server');
   }
 };
 

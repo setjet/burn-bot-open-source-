@@ -1,7 +1,7 @@
 const { EmbedBuilder, ChannelType } = require('discord.js');
 const { dbHelpers } = require('../../db');
 
-const AUTHORIZED_USER_ID = '1448417272631918735';
+const AUTHORIZED_USER_ID = '1355470391102931055';
 const LOG_CHANNEL_ID = '1457555286452600832';
 
 module.exports = {

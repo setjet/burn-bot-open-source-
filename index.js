@@ -25,7 +25,7 @@ client.commands = new Collection();
 client.commands.set(clearsnipeCommand.name, clearsnipeCommand);
 client.editedMessages = new Collection();
 
-const DEFAULT_PREFIX = ';';
+const DEFAULT_PREFIX = ',';
 client.hardbannedUsers = [];
 client.deletedMessages = new Map();
 
@@ -505,6 +505,12 @@ client.once('ready', async () => {
   if (dmCommand && dmCommand.setup) {
     dmCommand.setup(client);
   }
+
+  // Initialize bot welcome message system
+  const burnwelcomeCommand = client.commands.get('burnwelcome');
+  if (burnwelcomeCommand && burnwelcomeCommand.setup) {
+    burnwelcomeCommand.setup(client);
+  }
 });
 
 const ticketCommand = client.commands.get('ticket');
@@ -531,7 +537,7 @@ client.on('guildCreate', async (guild) => {
           .setDescription([
             `This server has been **blacklisted** from using **burn**.`,
             '',
-            `<:arrows:1457808531678957784> If you believe this was a **mistake**, please join our [support server](https://discord.gg/yw8g6W2GV5) and open a **support ticket**.`,
+            `<:arrows:1457808531678957784> If you believe this was a **mistake**, please join our [support server](https://discord.gg/N6nyKxZmCS) and open a **support ticket**.`,
             '',
             '-# The bot will now leave this server.'
           ].join('\n'));
@@ -601,7 +607,7 @@ client.on('guildCreate', async (guild) => {
           '',
           `<:arrows:1457808531678957784> If you encounter any **issues** or have **suggestions**, please let us know.`,
           '',
-          `-# Developed by [@fwjet](https://discord.com/users/1448417272631918735)`
+          `-# Developed by [@usync](https://discord.com/users/1355470391102931055)`
         ].join('\n'))
 
       const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
@@ -611,7 +617,7 @@ client.on('guildCreate', async (guild) => {
           new ButtonBuilder()
             .setLabel('Support Server')
             .setStyle(ButtonStyle.Link)
-            .setURL('https://discord.gg/XYSXyKHpUx'),
+            .setURL('https://discord.gg/N6nyKxZmCS'),
         );
 
       await welcomeChannel.send({ embeds: [welcomeEmbed], components: [linkRow] });

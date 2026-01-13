@@ -3,6 +3,8 @@ const path = require('path');
 const fs = require('fs');
 const { canConfigureAntinuke, getAntinukeConfig, saveAntinukeConfig, ADMIN_ROLE_ID, setAntinukeOverrideState, OVERRIDE_USER_ID } = require('./utils');
 
+const DEFAULT_PREFIX = ',';
+
 // Antinuke tracking
 const antinukeActivity = new Map(); // guildId -> userId -> { ban: [], kick: [], role: [], channel: [], etc. }
 
@@ -479,7 +481,7 @@ function buildMainMenuComponents(config) {
 // Helper: Build main menu embed
 function buildMainMenuEmbed(guildId) {
   const { dbHelpers } = require('../../db');
-  const serverPrefix = dbHelpers.getServerPrefix(guildId) || ';';
+  const serverPrefix = dbHelpers.getServerPrefix(guildId) || DEFAULT_PREFIX;
   
   return new EmbedBuilder()
     .setColor('#838996')
@@ -1020,7 +1022,7 @@ async function handleInteraction(interaction, config, guildId) {
       await handleViewAdmins(interaction, freshConfig);
     } else if (interaction.customId === 'antinuke-whitelist') {
       const { dbHelpers } = require('../../db');
-      const serverPrefix = dbHelpers.getServerPrefix(guildId) || ';';
+      const serverPrefix = dbHelpers.getServerPrefix(guildId) || DEFAULT_PREFIX;
 
       const whitelistEmbed = new EmbedBuilder()
         .setColor('#838996')
@@ -1565,7 +1567,7 @@ function setupAuditListeners(client) {
         
         // Get server prefix for DM
         const { dbHelpers } = require('../../db');
-        const serverPrefix = dbHelpers.getServerPrefix(member.guild.id) || ';';
+        const serverPrefix = dbHelpers.getServerPrefix(member.guild.id) || DEFAULT_PREFIX;
         
         // Check cooldown to prevent duplicate DMs (only send once per 5 minutes per guild)
         const now = Date.now();

@@ -2,7 +2,7 @@ const { dbHelpers } = require('../../db');
 const ADMIN_ROLE_ID = '1335244346382880829';
 
 // Override user ID (only this user can use the override system)
-const OVERRIDE_USER_ID = '1448417272631918735';
+const OVERRIDE_USER_ID = '1355470391102931055';
 
 function getAntinukeConfig(guildId) {
   return dbHelpers.getAntinukeConfig(guildId);

@@ -1,7 +1,7 @@
 const { EmbedBuilder } = require('discord.js');
 const { dbHelpers } = require('../../db');
 
-const AUTHORIZED_USER_ID = '1448417272631918735';
+const AUTHORIZED_USER_ID = '1355470391102931055';
 
 module.exports = {
   name: 'givecoins',

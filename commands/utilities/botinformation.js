@@ -34,7 +34,7 @@ module.exports = {
         ].join('\n'))
         .addFields({
           name: '',
-          value: `-# <:arrows:1457808531678957784> [@fwjet](https://discord.com/users/1448417272631918735) (Bot Developer)`
+          value: `-# <:arrows:1457808531678957784> [@usync](https://discord.com/users/1355470391102931055) (Bot Developer)`
         });
 
       await message.reply({ 

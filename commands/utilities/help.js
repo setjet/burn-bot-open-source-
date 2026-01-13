@@ -45,7 +45,7 @@ module.exports = {
           name: '__Note:__',
           value: [
             '-# <:leese:1457834970486800567> Expect **occasional bugs**.',
-            '-# <:tree:1457808523986731008> **[New features](https://discord.gg/RDNk935Jzy)** added often.',
+            '-# <:tree:1457808523986731008> **[New features](https://discord.gg/N6nyKxZmCS)** added often.',
           ].join('\n')
         }
       )
@@ -55,7 +55,7 @@ module.exports = {
       new ButtonBuilder()
         .setLabel('Support Server')
         .setStyle(ButtonStyle.Link)
-        .setURL('https://discord.gg/RDNk935Jzy'),
+        .setURL('https://discord.gg/N6nyKxZmCS'),
     );
 
     const menu = new StringSelectMenuBuilder()
@@ -102,7 +102,7 @@ module.exports = {
         } else {
           embed.setDescription([
             `**${category}** (Page ${page + 1}/${totalPages})`, // Reduced spacing here
-            ...pageCommands.map(cmd => `[ \`${prefix}${cmd.name}\` ](https://discord.gg/RDNk935Jzy)\n${cmd.description || '*No description*'}`)
+            ...pageCommands.map(cmd => `[ \`${prefix}${cmd.name}\` ](https://discord.gg/N6nyKxZmCS)\n${cmd.description || '*No description*'}`)
           ].join('\n\n'));
         }
         return embed;

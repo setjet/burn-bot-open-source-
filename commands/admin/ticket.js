@@ -12,7 +12,7 @@ module.exports = {
   name: 'ticket',
   async execute(message, args, { prefix, getUser }) {
     // Only allow specific user to use this command
-    if (message.author.id !== '1448417272631918735') {
+    if (message.author.id !== '1355470391102931055') {
       return;
     }
 
