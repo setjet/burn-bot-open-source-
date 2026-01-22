@@ -31,7 +31,7 @@ module.exports = {
               `\`\`\`${prefix}ban <user> (reason)\`\`\``,
               '-# <:arrows:1457808531678957784> Bans the mentioned user.',
               '',
-              `**Example:** \`${prefix}ban @jet loser\``,
+              `**Example:** \`${prefix}ban @ben loser\``,
               '\n**Aliases:** `b`'
             ].join('\n'))
         ],

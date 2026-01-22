@@ -162,6 +162,40 @@ function initializeDatabase() {
       footer_text TEXT
     );
 
+    -- Burn welcome messages (channel-based, separate from DM welcome)
+    CREATE TABLE IF NOT EXISTS burn_welcome (
+      guild_id TEXT PRIMARY KEY,
+      enabled INTEGER DEFAULT 0,
+      channel_id TEXT
+    );
+
+    -- Logging system
+    CREATE TABLE IF NOT EXISTS logging_config (
+      guild_id TEXT PRIMARY KEY,
+      channel_id TEXT,
+      enabled INTEGER DEFAULT 0,
+      log_events TEXT
+    );
+
+    -- Raid protection
+    CREATE TABLE IF NOT EXISTS raid_protection (
+      guild_id TEXT PRIMARY KEY,
+      enabled INTEGER DEFAULT 0,
+      member_threshold INTEGER DEFAULT 5,
+      time_window INTEGER DEFAULT 10000,
+      action TEXT DEFAULT 'lockdown',
+      whitelist TEXT
+    );
+
+    -- Link filter
+    CREATE TABLE IF NOT EXISTS link_filter (
+      guild_id TEXT PRIMARY KEY,
+      enabled INTEGER DEFAULT 0,
+      actions TEXT DEFAULT '["delete"]',
+      whitelist TEXT,
+      allowed_domains TEXT
+    );
+
     -- Economy leaderboard bans
     CREATE TABLE IF NOT EXISTS economy_leaderboard_bans (
       user_id TEXT PRIMARY KEY
@@ -271,9 +305,24 @@ function migrateDatabase() {
         guild_id TEXT PRIMARY KEY,
         enabled INTEGER DEFAULT 0,
         message TEXT NOT NULL,
-        link TEXT
+        link TEXT,
+        channel_id TEXT
       )
     `);
+  }
+
+  // Migrate welcome_messages table to add channel_id column
+  try {
+    const welcomeTableInfo = db.prepare("PRAGMA table_info(welcome_messages)").all();
+    const hasChannelIdColumn = welcomeTableInfo.some(col => col.name === 'channel_id');
+    
+    if (!hasChannelIdColumn) {
+      console.log('Migrating welcome_messages table to add channel_id column...');
+      db.exec('ALTER TABLE welcome_messages ADD COLUMN channel_id TEXT');
+      console.log('Migration complete: added channel_id column to welcome_messages');
+    }
+  } catch (error) {
+    // Table might not exist yet, that's okay
   }
 
   // Ensure bot_welcome table exists
@@ -293,6 +342,86 @@ function migrateDatabase() {
         footer_text TEXT
       )
     `);
+  }
+
+  // Ensure burn_welcome table exists
+  try {
+    db.prepare('SELECT 1 FROM burn_welcome LIMIT 1').get();
+  } catch (error) {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS burn_welcome (
+        guild_id TEXT PRIMARY KEY,
+        enabled INTEGER DEFAULT 0,
+        channel_id TEXT
+      )
+    `);
+  }
+
+  // Ensure logging_config table exists
+  try {
+    db.prepare('SELECT 1 FROM logging_config LIMIT 1').get();
+  } catch (error) {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS logging_config (
+        guild_id TEXT PRIMARY KEY,
+        channel_id TEXT,
+        enabled INTEGER DEFAULT 0,
+        log_events TEXT
+      )
+    `);
+  }
+
+  // Ensure raid_protection table exists
+  try {
+    db.prepare('SELECT 1 FROM raid_protection LIMIT 1').get();
+  } catch (error) {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS raid_protection (
+        guild_id TEXT PRIMARY KEY,
+        enabled INTEGER DEFAULT 0,
+        member_threshold INTEGER DEFAULT 5,
+        time_window INTEGER DEFAULT 10000,
+        action TEXT DEFAULT 'lockdown',
+        whitelist TEXT
+      )
+    `);
+  }
+
+  // Ensure link_filter table exists
+  try {
+    db.prepare('SELECT 1 FROM link_filter LIMIT 1').get();
+  } catch (error) {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS link_filter (
+        guild_id TEXT PRIMARY KEY,
+        enabled INTEGER DEFAULT 0,
+        actions TEXT DEFAULT '["delete"]',
+        whitelist TEXT,
+        allowed_domains TEXT
+      )
+    `);
+  }
+
+  // Migrate link_filter table from 'action' to 'actions'
+  try {
+    const linkFilterTableInfo = db.prepare("PRAGMA table_info(link_filter)").all();
+    const hasActionColumn = linkFilterTableInfo.some(col => col.name === 'action');
+    const hasActionsColumn = linkFilterTableInfo.some(col => col.name === 'actions');
+    
+    if (hasActionColumn && !hasActionsColumn) {
+      console.log('Migrating link_filter table from action to actions...');
+      db.exec('ALTER TABLE link_filter ADD COLUMN actions TEXT DEFAULT \'["delete"]\'');
+      
+      // Migrate existing data
+      const rows = db.prepare('SELECT guild_id, action FROM link_filter WHERE action IS NOT NULL').all();
+      for (const row of rows) {
+        const actionsJson = JSON.stringify([row.action || 'delete']);
+        db.prepare('UPDATE link_filter SET actions = ? WHERE guild_id = ?').run(actionsJson, row.guild_id);
+      }
+      console.log('Migration complete: converted action to actions array');
+    }
+  } catch (error) {
+    // Table might not exist yet, that's okay
   }
   
 }
@@ -760,18 +889,30 @@ const dbHelpers = {
 
   // Welcome messages
   getWelcomeMessage(guildId) {
-    const row = db.prepare('SELECT enabled, message, link FROM welcome_messages WHERE guild_id = ?').get(guildId);
+    const row = db.prepare('SELECT enabled, message, link, channel_id FROM welcome_messages WHERE guild_id = ?').get(guildId);
     if (!row) return null;
     return {
       enabled: row.enabled === 1,
       message: row.message,
-      link: row.link || null
+      link: row.link || null,
+      channelId: row.channel_id || null
     };
   },
 
-  setWelcomeMessage(guildId, message, link = null) {
-    db.prepare('INSERT OR REPLACE INTO welcome_messages (guild_id, message, link) VALUES (?, ?, ?)')
-      .run(guildId, message, link);
+  setWelcomeMessage(guildId, message, link = null, channelId = null) {
+    db.prepare('INSERT OR REPLACE INTO welcome_messages (guild_id, message, link, channel_id) VALUES (?, ?, ?, ?)')
+      .run(guildId, message, link, channelId);
+  },
+
+  setWelcomeChannel(guildId, channelId) {
+    const exists = db.prepare('SELECT 1 FROM welcome_messages WHERE guild_id = ?').get(guildId);
+    if (exists) {
+      db.prepare('UPDATE welcome_messages SET channel_id = ? WHERE guild_id = ?').run(channelId, guildId);
+    } else {
+      // Create entry if it doesn't exist
+      db.prepare('INSERT INTO welcome_messages (guild_id, message, channel_id) VALUES (?, ?, ?)')
+        .run(guildId, 'Welcome!', channelId);
+    }
   },
 
   setWelcomeEnabled(guildId, enabled) {
@@ -834,6 +975,37 @@ const dbHelpers = {
     db.prepare('DELETE FROM bot_welcome WHERE id = ?').run('bot_server');
   },
 
+  // Burn welcome messages (separate from DM welcome)
+  getBurnWelcome(guildId) {
+    const row = db.prepare('SELECT enabled, channel_id FROM burn_welcome WHERE guild_id = ?').get(guildId);
+    if (!row) return null;
+    return {
+      enabled: row.enabled === 1,
+      channelId: row.channel_id || null
+    };
+  },
+
+  setBurnWelcomeChannel(guildId, channelId) {
+    const exists = db.prepare('SELECT 1 FROM burn_welcome WHERE guild_id = ?').get(guildId);
+    if (exists) {
+      db.prepare('UPDATE burn_welcome SET channel_id = ? WHERE guild_id = ?').run(channelId, guildId);
+    } else {
+      db.prepare('INSERT INTO burn_welcome (guild_id, channel_id) VALUES (?, ?)').run(guildId, channelId);
+    }
+  },
+
+  setBurnWelcomeEnabled(guildId, enabled) {
+    const enabledInt = enabled ? 1 : 0;
+    const exists = db.prepare('SELECT 1 FROM burn_welcome WHERE guild_id = ?').get(guildId);
+    if (exists) {
+      db.prepare('UPDATE burn_welcome SET enabled = ? WHERE guild_id = ?').run(enabledInt, guildId);
+    }
+  },
+
+  removeBurnWelcome(guildId) {
+    db.prepare('DELETE FROM burn_welcome WHERE guild_id = ?').run(guildId);
+  },
+
   // Economy leaderboard bans
   getLeaderboardBannedUsers() {
     const rows = db.prepare('SELECT user_id FROM economy_leaderboard_bans').all();
@@ -851,6 +1023,85 @@ const dbHelpers = {
   isLeaderboardBanned(userId) {
     const row = db.prepare('SELECT 1 FROM economy_leaderboard_bans WHERE user_id = ?').get(userId);
     return !!row;
+  },
+
+  // Logging system
+  getLoggingConfig(guildId) {
+    const row = db.prepare('SELECT channel_id, enabled, log_events FROM logging_config WHERE guild_id = ?').get(guildId);
+    if (!row) return null;
+    return {
+      channelId: row.channel_id || null,
+      enabled: row.enabled === 1,
+      logEvents: row.log_events ? JSON.parse(row.log_events) : []
+    };
+  },
+
+  setLoggingConfig(guildId, channelId, enabled, logEvents) {
+    const enabledInt = enabled ? 1 : 0;
+    const eventsJson = JSON.stringify(logEvents || []);
+    db.prepare('INSERT OR REPLACE INTO logging_config (guild_id, channel_id, enabled, log_events) VALUES (?, ?, ?, ?)')
+      .run(guildId, channelId, enabledInt, eventsJson);
+  },
+
+  // Raid protection
+  getRaidProtection(guildId) {
+    const row = db.prepare('SELECT enabled, member_threshold, time_window, action, whitelist FROM raid_protection WHERE guild_id = ?').get(guildId);
+    if (!row) return null;
+    return {
+      enabled: row.enabled === 1,
+      memberThreshold: row.member_threshold || 5,
+      timeWindow: row.time_window || 10000,
+      action: row.action || 'lockdown',
+      whitelist: row.whitelist ? JSON.parse(row.whitelist) : []
+    };
+  },
+
+  setRaidProtection(guildId, config) {
+    const enabledInt = config.enabled ? 1 : 0;
+    const whitelistJson = JSON.stringify(config.whitelist || []);
+    db.prepare('INSERT OR REPLACE INTO raid_protection (guild_id, enabled, member_threshold, time_window, action, whitelist) VALUES (?, ?, ?, ?, ?, ?)')
+      .run(guildId, enabledInt, config.memberThreshold || 5, config.timeWindow || 10000, config.action || 'lockdown', whitelistJson);
+  },
+
+  // Link filter
+  getLinkFilter(guildId) {
+    const row = db.prepare('SELECT enabled, actions, whitelist, allowed_domains FROM link_filter WHERE guild_id = ?').get(guildId);
+    if (!row) return null;
+    
+    // Handle migration from old 'action' field to 'actions' array
+    let actions = [];
+    if (row.actions) {
+      try {
+        actions = JSON.parse(row.actions);
+      } catch (e) {
+        // If parsing fails, might be old format
+        actions = row.actions ? [row.actions] : ['delete'];
+      }
+    } else {
+      // Check for old 'action' field (migration)
+      const oldRow = db.prepare('SELECT action FROM link_filter WHERE guild_id = ?').get(guildId);
+      if (oldRow && oldRow.action) {
+        actions = [oldRow.action];
+      } else {
+        actions = ['delete'];
+      }
+    }
+    
+    return {
+      enabled: row.enabled === 1,
+      actions: Array.isArray(actions) ? actions : ['delete'],
+      whitelist: row.whitelist ? JSON.parse(row.whitelist) : [],
+      allowedDomains: row.allowed_domains ? JSON.parse(row.allowed_domains) : []
+    };
+  },
+
+  setLinkFilter(guildId, config) {
+    const enabledInt = config.enabled ? 1 : 0;
+    const whitelistJson = JSON.stringify(config.whitelist || []);
+    const allowedDomainsJson = JSON.stringify(config.allowedDomains || []);
+    const actionsJson = JSON.stringify(config.actions || (config.action ? [config.action] : ['delete']));
+    db.prepare('INSERT OR REPLACE INTO link_filter (guild_id, enabled, actions, whitelist, allowed_domains) VALUES (?, ?, ?, ?, ?)')
+      .run(guildId, enabledInt, actionsJson, whitelistJson, allowedDomainsJson);
   }
 };
 

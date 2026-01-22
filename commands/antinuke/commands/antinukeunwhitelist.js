@@ -25,7 +25,7 @@ module.exports = {
               `\`\`\`${prefix}antinuke unwhitelist (user|bot)\`\`\``,
               '-# <:arrows:1457808531678957784> Removes a user or bot from whitelist.',
               '',
-              `**Example:** \`${prefix}antinuke unwhitelist @jet\``,
+              `**Example:** \`${prefix}antinuke unwhitelist @ben\``,
               '\n**Aliases:** `N/A`'
             ].join('\n'))
         ]

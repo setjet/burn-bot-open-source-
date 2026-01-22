@@ -38,7 +38,7 @@ module.exports = {
               `\`\`\`${prefix}unban <user> (reason)\`\`\``,
               '-# <:arrows:1457808531678957784> Unbans the mentioned user.',
               '',
-              `**Example:** \`${prefix}unban @jet goat\``,
+              `**Example:** \`${prefix}unban @ben goat\``,
               '\n**Aliases:** `ub`'
             ].join('\n'))
         ],

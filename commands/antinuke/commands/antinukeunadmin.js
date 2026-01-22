@@ -41,7 +41,7 @@ module.exports = {
               `\`\`\`${prefix}antinuke unadmin (user)\`\`\``,
               '-# <:arrows:1457808531678957784> Removes user from antinuke admins.',
               '',
-              `**Example:** \`${prefix}antinuke unadmin @jet\``,
+              `**Example:** \`${prefix}antinuke unadmin @ben\``,
               '\n**Aliases:** `N/A`'
             ].join('\n'))
         ]

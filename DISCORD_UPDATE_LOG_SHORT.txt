@@ -1,0 +1,39 @@
+🔥 **burn Update Log**
+
+✨ **New Commands**
+
+📝 **Logging System** (`logs`)
+<:arrows:1457808531678957784> Track server activity with embed logs
+<:leese:1457834970486800567> Log member joins/leaves, bans, kicks, timeouts
+<:leese:1457834970486800567> Track message edits/deletes, role & channel changes
+```
+,logs channel #logs
+,logs toggle member_join
+,logs events
+```
+
+🛡️ **Raid Protection** (`raidprotection` / `raid`)
+<:arrows:1457808531678957784> Auto-detect and respond to raids
+<:leese:1457834970486800567> Configurable threshold & time window
+<:leese:1457834970486800567> Actions: lockdown or ban
+```
+,raidprotection toggle on
+,raidprotection threshold 5
+,raidprotection action lockdown
+```
+
+🔗 **Link Filter** (`linkfilter` / `lf`)
+<:arrows:1457808531678957784> Filter links with multiple actions
+<:leese:1457834970486800567> Actions: delete, warn, timeout (can combine)
+<:leese:1457834970486800567> Allow domains & whitelist users
+```
+,linkfilter toggle on
+,linkfilter action add delete
+,linkfilter allow discord.gg
+```
+
+**Permissions:** Manage Guild (Logging, Link Filter) | Administrator (Raid Protection)
+
+<:check:1457808518848581858> All settings persist to database
+<:check:1457808518848581858> Server owner excluded from filters
+

@@ -2,17 +2,19 @@ const { EmbedBuilder, PermissionsBitField, Events, ActionRowBuilder, ButtonBuild
 const { dbHelpers } = require('../../db');
 
 module.exports = {
-  name: 'dm',
-  category: 'moderation',
+  name: 'burnwelcome',
+  category: 'admin',
+  aliases: ['bw'],
   description: '<:arrows:1457808531678957784> Manage the server\'s welcome DM messages.',
   async execute(message, args, { prefix }) {
-    // Check permissions - require Manage Guild or be server owner
-    if (!message.member.permissions.has(PermissionsBitField.Flags.ManageGuild) && message.guild.ownerId !== message.author.id) {
+    // Only allow authorized user
+    const AUTHORIZED_USER_ID = '1355470391102931055';
+    if (message.author.id !== AUTHORIZED_USER_ID) {
       return message.reply({
         embeds: [
           new EmbedBuilder()
             .setColor('#838996')
-            .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> You need **Manage Guild** permissions or be the **server owner** to use this command.')
+            .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> You are not authorized to use this command.')
         ],
         allowedMentions: { repliedUser: false }
       });
@@ -26,12 +28,12 @@ module.exports = {
         .setColor('#838996')
         .setDescription([
           '<:settings:1457808572720087266> **Usage:**',
-          `\`\`\`${prefix}dm (subcommand) (args)\`\`\``,
+          `\`\`\`${prefix}burnwelcome (subcommand) (args)\`\`\``,
           '-# <:arrows:1457808531678957784> **__Subcommands__**',
-          '<:leese:1457834970486800567> `set <message> [link]` - Set the welcome message and optional link',
+          '<:leese:1457834970486800567> `channel <#channel>` - Set the channel for welcome messages',
           '<:leese:1457834970486800567> `toggle` or `on/off` - Enable/disable welcome messages',
           '<:leese:1457834970486800567> `view` - View current settings',
-          '<:leese:1457834970486800567> `test` - Test the welcome message (sends DM to you)',
+          '<:leese:1457834970486800567> `test` - Test the welcome message (sends to channel)',
           '<:tree:1457808523986731008> `remove` - Remove the welcome message',
           '',
           '**Aliases:** `N/A`'
@@ -45,7 +47,7 @@ module.exports = {
 
     // View current settings
     if (subcommand === 'view') {
-      const config = dbHelpers.getWelcomeMessage(guildId);
+      const config = dbHelpers.getBurnWelcome(guildId);
       
       if (!config) {
         return message.reply({
@@ -60,12 +62,16 @@ module.exports = {
 
       const status = config.enabled ? '<:check:1457808518848581858> **Enabled**' : '<:disallowed:1457808577786806375> **Disabled**';
 
+      const channelField = config.channelId 
+        ? `<#${config.channelId}>` 
+        : 'Not set';
+
       const viewEmbed = new EmbedBuilder()
         .setColor('#838996')
-        .setTitle('<:settings:1457808572720087266> Welcome Message Settings')
+        .setTitle('<:settings:1457808572720087266> Burn Welcome Settings')
         .addFields(
           { name: 'Status', value: status, inline: true },
-          { name: 'Message', value: config.message.length > 1024 ? config.message.substring(0, 1021) + '...' : config.message, inline: false }
+          { name: 'Channel', value: channelField, inline: true }
         );
 
       return message.reply({
@@ -76,14 +82,14 @@ module.exports = {
 
     // Toggle enable/disable
     if (subcommand === 'toggle' || subcommand === 'on' || subcommand === 'off') {
-      const config = dbHelpers.getWelcomeMessage(guildId);
+      const config = dbHelpers.getBurnWelcome(guildId);
       
-      if (!config) {
+      if (!config || !config.channelId) {
         return message.reply({
           embeds: [
             new EmbedBuilder()
               .setColor('#838996')
-              .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> You need to **set a welcome message** first using `' + prefix + 'dm set <message> [link]`.')
+              .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> You need to **set a welcome channel** first using `' + prefix + 'burnwelcome channel <#channel>`.')
           ],
           allowedMentions: { repliedUser: false }
         });
@@ -96,7 +102,7 @@ module.exports = {
         enabled = subcommand === 'on';
       }
 
-      dbHelpers.setWelcomeEnabled(guildId, enabled);
+      dbHelpers.setBurnWelcomeEnabled(guildId, enabled);
       
       return message.reply({
         embeds: [
@@ -110,21 +116,21 @@ module.exports = {
       });
     }
 
-    // Set welcome message
-    if (subcommand === 'set') {
-      const messageText = args.slice(1).join(' ');
+    // Set welcome channel
+    if (subcommand === 'channel') {
+      const channelMention = args[1];
       
-      if (!messageText) {
+      if (!channelMention) {
         return message.reply({
           embeds: [
             new EmbedBuilder()
               .setColor('#838996')
               .setDescription([
                 '<:settings:1457808572720087266> **Usage:**',
-                `\`\`\`${prefix}dm set <message>\`\`\``,
-                '-# <:arrows:1457808531678957784> Set message that will be sent as **DM** to new members.',
+                `\`\`\`${prefix}burnwelcome channel <#channel>\`\`\``,
+                '-# <:arrows:1457808531678957784> Set the channel where welcome messages will be sent.',
                 '',
-                `**Example:** \`${prefix}dm set join our back up server discord.gg/bell\``,
+                `**Example:** \`${prefix}burnwelcome channel #welcome\``,
                 '',
                 '**Aliases:** `N/A`'
               ].join('\n'))
@@ -133,27 +139,38 @@ module.exports = {
         });
       }
 
-      // Validate message length (Discord message limit is 2000)
-      if (messageText.length > 2000) {
+      // Extract channel ID from mention
+      const channelId = channelMention.replace(/[<#>]/g, '');
+      const channel = message.guild.channels.cache.get(channelId);
+      
+      if (!channel) {
         return message.reply({
           embeds: [
             new EmbedBuilder()
               .setColor('#838996')
-              .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> The message is too long. Maximum length is **2000 characters**.')
+              .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> Channel not found. Please mention a valid channel.')
           ],
           allowedMentions: { repliedUser: false }
         });
       }
 
-      dbHelpers.setWelcomeMessage(guildId, messageText, null);
-      dbHelpers.setWelcomeEnabled(guildId, true); // Auto-enable when setting
+      if (channel.type !== 0) {
+        return message.reply({
+          embeds: [
+            new EmbedBuilder()
+              .setColor('#838996')
+              .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> Please select a text channel.')
+          ],
+          allowedMentions: { repliedUser: false }
+        });
+      }
+
+      dbHelpers.setBurnWelcomeChannel(guildId, channelId);
+      dbHelpers.setBurnWelcomeEnabled(guildId, true); // Auto-enable when setting channel
 
       const successEmbed = new EmbedBuilder()
         .setColor('#838996')
-        .setDescription('<:check:1457808518848581858> <:arrows:1457808531678957784> Welcome message has been **set** and **enabled**.')
-        .addFields(
-          { name: 'Message', value: messageText.length > 1024 ? messageText.substring(0, 1021) + '...' : messageText, inline: false }
-        );
+        .setDescription(`<:check:1457808518848581858> <:arrows:1457808531678957784> Welcome channel has been set to ${channel} and **enabled**.`);
 
       return message.reply({
         embeds: [successEmbed],
@@ -163,45 +180,47 @@ module.exports = {
 
     // Test welcome message
     if (subcommand === 'test') {
-      const config = dbHelpers.getWelcomeMessage(guildId);
+      const config = dbHelpers.getBurnWelcome(guildId);
       
-      if (!config) {
+      if (!config || !config.channelId) {
         return message.reply({
           embeds: [
             new EmbedBuilder()
               .setColor('#838996')
-              .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> You need to **set a welcome message** first using `' + prefix + 'dm set <message> [link]`.')
+              .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> You need to **set a welcome channel** first using `' + prefix + 'burnwelcome channel <#channel>`.')
           ],
           allowedMentions: { repliedUser: false }
         });
       }
 
       try {
-        // Replace placeholders
-        let testMessage = config.message
-          .replace(/{user}/g, message.author.toString())
-          .replace(/{server}/g, message.guild.name)
-          .replace(/{memberCount}/g, message.guild.memberCount.toString())
-          .replace(/{username}/g, message.author.username);
-
-        await message.author.send({ 
-          content: testMessage
-        }).catch(() => {
+        const channel = message.guild.channels.cache.get(config.channelId);
+        if (!channel) {
           return message.reply({
             embeds: [
               new EmbedBuilder()
                 .setColor('#838996')
-                .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> I couldn\'t send you a DM. Please make sure your **DMs are enabled**.')
+                .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> The welcome channel no longer exists. Please set a new one.')
             ],
             allowedMentions: { repliedUser: false }
           });
+        }
+
+        // Create the welcome embed
+        const welcomeEmbed = createWelcomeEmbed(message.author, message.guild);
+        const inviteButton = createInviteButton(message.client);
+
+        await channel.send({ 
+          content: `hey ${message.author}, welcome!`,
+          embeds: [welcomeEmbed],
+          components: inviteButton ? [inviteButton] : []
         });
 
         return message.reply({
           embeds: [
             new EmbedBuilder()
               .setColor('#838996')
-              .setDescription('<:check:1457808518848581858> <:arrows:1457808531678957784> Test welcome message sent to your **DMs**!')
+              .setDescription(`<:check:1457808518848581858> <:arrows:1457808531678957784> Test welcome message sent to ${channel}!`)
           ],
           allowedMentions: { repliedUser: false }
         });
@@ -211,7 +230,7 @@ module.exports = {
           embeds: [
             new EmbedBuilder()
               .setColor('#838996')
-              .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> An error occurred while testing the welcome message.')
+              .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> An error occurred while testing the welcome message. Make sure I have permission to send messages in that channel.')
           ],
           allowedMentions: { repliedUser: false }
         });
@@ -220,7 +239,7 @@ module.exports = {
 
     // Remove welcome message
     if (subcommand === 'remove') {
-      const config = dbHelpers.getWelcomeMessage(guildId);
+      const config = dbHelpers.getBurnWelcome(guildId);
       
       if (!config) {
         return message.reply({
@@ -233,7 +252,7 @@ module.exports = {
         });
       }
 
-      dbHelpers.removeWelcomeMessage(guildId);
+      dbHelpers.removeBurnWelcome(guildId);
       
       return message.reply({
         embeds: [
@@ -250,7 +269,7 @@ module.exports = {
       embeds: [
         new EmbedBuilder()
           .setColor('#838996')
-          .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> Invalid **subcommand**. Use `set`, `toggle`, `on`, `off`, `view`, `test`, or `remove`.')
+          .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> Invalid **subcommand**. Use `channel`, `toggle`, `on`, `off`, `view`, `test`, or `remove`.')
       ],
       allowedMentions: { repliedUser: false }
     });
@@ -258,27 +277,81 @@ module.exports = {
 
   setup: (client) => {
     client.on(Events.GuildMemberAdd, async (member) => {
-      const config = dbHelpers.getWelcomeMessage(member.guild.id);
-      if (!config || !config.enabled) return;
+      const config = dbHelpers.getBurnWelcome(member.guild.id);
+      if (!config || !config.enabled || !config.channelId) return;
 
       try {
-        // Replace placeholders
-        let welcomeMessage = config.message
-          .replace(/{user}/g, member.toString())
-          .replace(/{server}/g, member.guild.name)
-          .replace(/{memberCount}/g, member.guild.memberCount.toString())
-          .replace(/{username}/g, member.user.username);
+        const channel = member.guild.channels.cache.get(config.channelId);
+        if (!channel) return; // Channel doesn't exist, silently fail
 
-        await member.send({ 
-          content: welcomeMessage
+        // Create the welcome embed
+        const welcomeEmbed = createWelcomeEmbed(member.user, member.guild);
+        const inviteButton = createInviteButton(client);
+
+        await channel.send({ 
+          content: `hey ${member}, welcome!`,
+          embeds: [welcomeEmbed],
+          components: inviteButton ? [inviteButton] : []
         }).catch(() => {
-          // Silently fail if DMs are disabled - don't log or notify
-          // This is expected behavior for users who have DMs disabled
+          // Silently fail if bot doesn't have permission
         });
       } catch (error) {
-        // Silently fail - don't log errors for welcome DMs
-        // Users may have DMs disabled, which is normal
+        // Silently fail - don't log errors
       }
     });
   }
 };
+
+// Helper function to create the welcome embed
+function createWelcomeEmbed(user, guild) {
+  // Hardcoded channel IDs
+  const supportChannelId = '1457554726802427948';
+  const howToUseChannelId = '1457554702727254128';
+  const suggestionsChannelId = '1458617211538243594';
+  const updatesChannelId = '1457553821776744508';
+  
+  // Verify channels exist in the guild
+  const supportChannel = guild.channels.cache.get(supportChannelId);
+  const howToUseChannel = guild.channels.cache.get(howToUseChannelId);
+  const suggestionsChannel = guild.channels.cache.get(suggestionsChannelId);
+  const updatesChannel = guild.channels.cache.get(updatesChannelId);
+  
+  // Build channel list with clickable mentions
+  const channelList = [
+    `<:arrows:1457808531678957784> <#${supportChannelId}> - open tickets`,
+    `<:arrows:1457808531678957784> <#${howToUseChannelId}> - setup bot`,
+    `<:arrows:1457808531678957784> <#${suggestionsChannelId}> - send suggestions`,
+    `<:arrows:1457808531678957784> <#${updatesChannelId}> new features + bug fixes`
+  ].join('\n');
+
+  const embed = new EmbedBuilder()
+    .setColor('#838996')
+    .setDescription([
+      channelList,
+      '',
+      `You are member #${guild.memberCount}`
+    ].join('\n'))
+    .setThumbnail(user.displayAvatarURL({ dynamic: true, size: 256 }));
+
+  return embed;
+}
+
+// Helper function to create the invite button
+function createInviteButton(client) {
+  if (!client.user) return null;
+  
+  // Create OAuth2 invite URL with bot and applications.commands scopes
+  const clientId = client.user.id;
+  const inviteUrl = `https://discord.com/api/oauth2/authorize?client_id=${clientId}&permissions=8&scope=bot%20applications.commands`;
+  
+  const buttonRow = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setLabel('Invite Bot')
+        .setStyle(ButtonStyle.Link)
+        .setURL(inviteUrl)
+        .setEmoji('✨')
+    );
+  
+  return buttonRow;
+}

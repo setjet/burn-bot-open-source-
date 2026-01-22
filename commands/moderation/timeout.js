@@ -31,7 +31,7 @@ module.exports = {
               `\`\`\`${prefix}timeout <user> (reason)\`\`\``,
               '-# <:arrows:1457808531678957784> Times out the mentioned user.',
               '',
-              `**Example:** \`${prefix}timeout @jet lame\``,
+              `**Example:** \`${prefix}timeout @ben lame\``,
               '\n**Aliases:** `to`'
             ].join('\n'))
         ],

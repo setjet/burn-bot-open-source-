@@ -1,4 +1,4 @@
-const { EmbedBuilder, PermissionsBitField, Events, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { EmbedBuilder, PermissionsBitField, Events } = require('discord.js');
 const { dbHelpers } = require('../../db');
 
 module.exports = {
@@ -28,13 +28,11 @@ module.exports = {
           '<:settings:1457808572720087266> **Usage:**',
           `\`\`\`${prefix}dm (subcommand) (args)\`\`\``,
           '-# <:arrows:1457808531678957784> **__Subcommands__**',
-          '<:leese:1457834970486800567> `set <message> [link]` - Set the DM message and optional link',
+          '<:leese:1457834970486800567> `set <message>` - Set the DM message',
           '<:leese:1457834970486800567> `toggle` or `on/off` - Enable/disable DM messages',
           '<:leese:1457834970486800567> `view` - View current settings',
           '<:leese:1457834970486800567> `test` - Test the DM message (sends DM to you)',
           '<:tree:1457808523986731008> `remove` - Remove the DM message',
-          '',
-          '**Note:** DM messages are sent as **DMs** to users when they join the server.',
           '',
           '**Aliases:** `N/A`'
         ].join('\n'));
@@ -61,15 +59,13 @@ module.exports = {
       }
 
       const status = config.enabled ? '<:check:1457808518848581858> **Enabled**' : '<:disallowed:1457808577786806375> **Disabled**';
-      const linkText = config.link ? `\n<:arrows:1457808531678957784> **Link:** ${config.link}` : '\n<:arrows:1457808531678957784> **Link:** Not set';
 
       const viewEmbed = new EmbedBuilder()
         .setColor('#838996')
         .setTitle('<:settings:1457808572720087266> DM Message Settings')
         .addFields(
           { name: 'Status', value: status, inline: true },
-          { name: 'Message', value: config.message.length > 1024 ? config.message.substring(0, 1021) + '...' : config.message, inline: false },
-          { name: 'Link', value: config.link || 'Not set', inline: false }
+          { name: 'Message', value: config.message.length > 1024 ? config.message.substring(0, 1021) + '...' : config.message, inline: false }
         );
 
       return message.reply({
@@ -87,7 +83,7 @@ module.exports = {
           embeds: [
             new EmbedBuilder()
               .setColor('#838996')
-              .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> You need to **set a DM message** first using `' + prefix + 'dm set <message> [link]`.')
+              .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> You need to **set a DM message** first using `' + prefix + 'dm set <message>`.')
           ],
           allowedMentions: { repliedUser: false }
         });
@@ -125,12 +121,10 @@ module.exports = {
               .setColor('#838996')
               .setDescription([
                 '<:settings:1457808572720087266> **Usage:**',
-                `\`\`\`${prefix}dm set <message> [link]\`\`\``,
-                '-# <:arrows:1457808531678957784> Set the DM message that will be sent as a **DM** to new members.',
+                `\`\`\`${prefix}dm set <message>\`\`\``,
+                '-# <:arrows:1457808531678957784> Message that will be sent as **DM** to new members.',
                 '',
-                `**Example:** \`${prefix}dm set Welcome to our server! https://discord.gg/example\``,
-                '',
-                '**Note:** The link is optional. If provided, it will be added as a button in the DM.',
+                `**Example:** \`${prefix}dm set join discord.gg/[vanity]\``,
                 '',
                 '**Aliases:** `N/A`'
               ].join('\n'))
@@ -139,60 +133,27 @@ module.exports = {
         });
       }
 
-      // Extract link if present (look for URLs in the message)
-      const urlRegex = /(https?:\/\/[^\s]+)/gi;
-      const urlMatch = messageText.match(urlRegex);
-      let link = null;
-      let finalMessage = messageText;
-
-      if (urlMatch && urlMatch.length > 0) {
-        // Use the last URL found as the link
-        link = urlMatch[urlMatch.length - 1];
-        // Remove the link from the message text
-        finalMessage = messageText.replace(urlRegex, '').trim();
-      }
-
-      // Validate message length (Discord embed description limit is 4096, but we'll use 2000 for safety)
-      if (finalMessage.length > 2000) {
+      // Validate message length (Discord message limit is 2000)
+      if (messageText.length > 2000) {
         return message.reply({
           embeds: [
             new EmbedBuilder()
               .setColor('#838996')
-              .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> The message is too long. Maximum length is **2000 characters**.')
+              .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> The message is too long. \n -# <:tree:1457808523986731008> Maximum length is **2000 characters**.')
           ],
           allowedMentions: { repliedUser: false }
         });
       }
 
-      // Validate link if provided
-      if (link) {
-        try {
-          new URL(link);
-        } catch (error) {
-          return message.reply({
-            embeds: [
-              new EmbedBuilder()
-                .setColor('#838996')
-                .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> The provided link is **not a valid URL**.')
-            ],
-            allowedMentions: { repliedUser: false }
-          });
-        }
-      }
-
-      dbHelpers.setWelcomeMessage(guildId, finalMessage, link);
+      dbHelpers.setWelcomeMessage(guildId, messageText, null);
       dbHelpers.setWelcomeEnabled(guildId, true); // Auto-enable when setting
 
       const successEmbed = new EmbedBuilder()
         .setColor('#838996')
         .setDescription('<:check:1457808518848581858> <:arrows:1457808531678957784> DM message has been **set** and **enabled**.')
         .addFields(
-          { name: 'Message', value: finalMessage.length > 1024 ? finalMessage.substring(0, 1021) + '...' : finalMessage, inline: false }
+          { name: 'Message', value: messageText.length > 1024 ? messageText.substring(0, 1021) + '...' : messageText, inline: false }
         );
-
-      if (link) {
-        successEmbed.addFields({ name: 'Link', value: link, inline: false });
-      }
 
       return message.reply({
         embeds: [successEmbed],
@@ -209,7 +170,7 @@ module.exports = {
           embeds: [
             new EmbedBuilder()
               .setColor('#838996')
-              .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> You need to **set a DM message** first using `' + prefix + 'dm set <message> [link]`.')
+              .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> You need to **set a DM message** first using `' + prefix + 'dm set <message>`.')
           ],
           allowedMentions: { repliedUser: false }
         });
@@ -223,35 +184,13 @@ module.exports = {
           .replace(/{memberCount}/g, message.guild.memberCount.toString())
           .replace(/{username}/g, message.author.username);
 
-        const embed = new EmbedBuilder()
-          .setColor('#57F287')
-          .setTitle(`DM from ${message.guild.name}`)
-          .setDescription(testMessage)
-          .setThumbnail(message.author.displayAvatarURL({ dynamic: true }))
-          .setTimestamp();
-
-        const components = [];
-        if (config.link) {
-          components.push(
-            new ActionRowBuilder()
-              .addComponents(
-                new ButtonBuilder()
-                  .setLabel('Visit Link')
-                  .setStyle(ButtonStyle.Link)
-                  .setURL(config.link)
-              )
-          );
-        }
-
-        await message.author.send({ 
-          embeds: [embed],
-          components: components.length > 0 ? components : undefined
-        }).catch(() => {
+        // IMPORTANT: Send ONLY plain text, no embeds
+        await message.author.send(testMessage).catch(() => {
           return message.reply({
             embeds: [
               new EmbedBuilder()
                 .setColor('#838996')
-                .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> I couldn\'t send you a DM. Please make sure your **DMs are enabled**.')
+                .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> I couldn\'t send you a DM. \n -# <:tree:1457808523986731008> Please make sure your **DMs are enabled**.')
             ],
             allowedMentions: { repliedUser: false }
           });
@@ -310,7 +249,7 @@ module.exports = {
       embeds: [
         new EmbedBuilder()
           .setColor('#838996')
-          .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> Invalid **subcommand**. Use `set`, `toggle`, `on`, `off`, `view`, `test`, or `remove`.')
+          .setDescription('<:disallowed:1457808577786806375> <:arrows:1457808531678957784> Invalid **subcommand**. \n -# <:tree:1457808523986731008> Use `set`, `toggle`, `on`, `off`, `view`, `test`, or `remove`.')
       ],
       allowedMentions: { repliedUser: false }
     });
@@ -329,38 +268,13 @@ module.exports = {
           .replace(/{memberCount}/g, member.guild.memberCount.toString())
           .replace(/{username}/g, member.user.username);
 
-        const embed = new EmbedBuilder()
-          .setColor('#57F287')
-          .setTitle(`DM from ${member.guild.name}`)
-          .setDescription(dmMessage)
-          .setThumbnail(member.user.displayAvatarURL({ dynamic: true }))
-          .setTimestamp();
-
-        const components = [];
-        if (config.link) {
-          components.push(
-            new ActionRowBuilder()
-              .addComponents(
-                new ButtonBuilder()
-                  .setLabel('Visit Link')
-                  .setStyle(ButtonStyle.Link)
-                  .setURL(config.link)
-              )
-          );
-        }
-
-        await member.send({ 
-          embeds: [embed],
-          components: components.length > 0 ? components : undefined
-        }).catch(() => {
-          // Silently fail if DMs are disabled - don't log or notify
-          // This is expected behavior for users who have DMs disabled
+        // IMPORTANT: Send ONLY plain text, no embeds, no content object
+        await member.send(dmMessage).catch(() => {
+          // Silently fail if DMs are disabled
         });
       } catch (error) {
-        // Silently fail - don't log errors for DM messages
-        // Users may have DMs disabled, which is normal
+        // Silently fail
       }
     });
   }
 };
-

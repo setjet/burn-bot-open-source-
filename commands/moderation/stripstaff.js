@@ -32,7 +32,7 @@ module.exports = {
               `\`\`\`${prefix}stripstaff <user>\`\`\``,
               '-# <:arrows:1457808531678957784> Remove roles with dangerous permissions from a user.',
               '',
-              `**Example:** \`${prefix}stripstaff @jet\``,
+              `**Example:** \`${prefix}stripstaff @ben\``,
               '\n**Aliases:** `ss`'
             ].join('\n'))
         ],

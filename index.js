@@ -511,6 +511,24 @@ client.once('ready', async () => {
   if (burnwelcomeCommand && burnwelcomeCommand.setup) {
     burnwelcomeCommand.setup(client);
   }
+
+  // Initialize logging system
+  const logsCommand = client.commands.get('logs');
+  if (logsCommand && logsCommand.setup) {
+    logsCommand.setup(client);
+  }
+
+  // Initialize raid protection
+  const raidProtectionCommand = client.commands.get('raidprotection');
+  if (raidProtectionCommand && raidProtectionCommand.setup) {
+    raidProtectionCommand.setup(client);
+  }
+
+  // Initialize link filter
+  const linkFilterCommand = client.commands.get('linkfilter');
+  if (linkFilterCommand && linkFilterCommand.setup) {
+    linkFilterCommand.setup(client);
+  }
 });
 
 const ticketCommand = client.commands.get('ticket');
