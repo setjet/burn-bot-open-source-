@@ -1,17 +1,36 @@
-const { EmbedBuilder, Events, ChannelType } = require('discord.js');
+const { EmbedBuilder, Events, ChannelType, ButtonBuilder, ButtonStyle, ActionRowBuilder } = require('discord.js');
 const { dbHelpers } = require('../../db');
 
 const AUTHORIZED_USER_ID = '1355470391102931055';
 
 // Helper function to build the hardcoded welcome embed
-function buildWelcomeEmbed(member) {
-  return new EmbedBuilder()
-    .setColor('#57F287')
-    .setTitle(`Welcome to ${member.guild.name}!`)
-    .setDescription(`Hey ${member.toString()}, welcome to **${member.guild.name}**!\n\nWe're glad to have you here! Make sure to read the rules and have fun!`)
+function buildWelcomeEmbed(member, botUser) {
+  // Compose the top welcome message
+  const topMessage = `hey ${member.user}, welcome!`;
+
+  // Build the embed as before, but also add an invite button as an actual Discord button
+
+  const embed = new EmbedBuilder()
+    .setColor('#838996')
+    .setDescription(
+      `<:leese:1457834970486800567> <#1457554726802427948> - open tickets\n` +
+      `<:leese:1457834970486800567> <#1457554702727254128> - setup bot\n` +
+      `<:leese:1457834970486800567> <#1458617211538243594> - send suggestions\n` +
+      `<:tree:1457808523986731008> <#1457553821776744508> new features + bug fixes`
+    )
     .setThumbnail(member.user.displayAvatarURL({ dynamic: true, size: 256 }))
     .setFooter({ text: `You are member #${member.guild.memberCount}` })
-    .setTimestamp();
+
+  const inviteButton = new ButtonBuilder()
+    .setLabel('Invite Bot')
+    .setStyle(ButtonStyle.Link)
+    .setURL(`https://discord.com/oauth2/authorize?client_id=${member.client.user.id}&scope=bot+applications.commands&permissions=8`)
+    .setEmoji('✨');
+
+  const row = new ActionRowBuilder().addComponents(inviteButton);
+
+  // Return both top message, embed, and the button row (for usage in send/return logic)
+  return { content: topMessage, embed, components: [row] };
 }
 
 module.exports = {
@@ -224,8 +243,12 @@ module.exports = {
           });
         }
 
-        const embed = buildWelcomeEmbed(message.member);
-        await channel.send({ embeds: [embed] });
+        const welcomeData = buildWelcomeEmbed(message.member, message.client.user);
+        await channel.send({
+          content: welcomeData.content,
+          embeds: [welcomeData.embed],
+          components: welcomeData.components
+        });
 
         return message.reply({
           embeds: [
@@ -296,8 +319,12 @@ module.exports = {
         // Only send if channel exists in this server
         if (!channel || channel.guild.id !== member.guild.id) return;
 
-        const embed = buildWelcomeEmbed(member);
-        await channel.send({ embeds: [embed] }).catch(() => {
+        const welcomeData = buildWelcomeEmbed(member, member.client.user);
+        await channel.send({
+          content: welcomeData.content,
+          embeds: [welcomeData.embed],
+          components: welcomeData.components
+        }).catch(() => {
           // Silently fail if channel doesn't exist or bot lacks permissions
         });
       } catch (error) {

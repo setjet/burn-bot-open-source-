@@ -161,6 +161,11 @@ function initializeDatabase() {
       image_url TEXT,
       footer_text TEXT
     );
+
+    -- Economy leaderboard bans
+    CREATE TABLE IF NOT EXISTS economy_leaderboard_bans (
+      user_id TEXT PRIMARY KEY
+    );
   `);
 }
 
@@ -827,6 +832,25 @@ const dbHelpers = {
 
   removeBotWelcome() {
     db.prepare('DELETE FROM bot_welcome WHERE id = ?').run('bot_server');
+  },
+
+  // Economy leaderboard bans
+  getLeaderboardBannedUsers() {
+    const rows = db.prepare('SELECT user_id FROM economy_leaderboard_bans').all();
+    return new Set(rows.map(row => row.user_id));
+  },
+
+  addLeaderboardBan(userId) {
+    db.prepare('INSERT OR IGNORE INTO economy_leaderboard_bans (user_id) VALUES (?)').run(userId);
+  },
+
+  removeLeaderboardBan(userId) {
+    db.prepare('DELETE FROM economy_leaderboard_bans WHERE user_id = ?').run(userId);
+  },
+
+  isLeaderboardBanned(userId) {
+    const row = db.prepare('SELECT 1 FROM economy_leaderboard_bans WHERE user_id = ?').get(userId);
+    return !!row;
   }
 };
 

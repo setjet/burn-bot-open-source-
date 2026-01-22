@@ -7,8 +7,24 @@ module.exports = {
   category: 'utilities',
   description: '<:arrows:1457808531678957784> View the richest users.',
   async execute(message, args, { prefix }) {
-    // Get all balances from database
-    const rows = db.prepare('SELECT user_id, balance FROM economy_balances ORDER BY balance DESC LIMIT 10').all();
+    // Get banned users from leaderboard
+    const { dbHelpers } = require('../../db');
+    const bannedUsers = dbHelpers.getLeaderboardBannedUsers();
+    
+    // Build query to exclude banned users
+    let query = 'SELECT user_id, balance FROM economy_balances';
+    const params = [];
+    
+    if (bannedUsers.size > 0) {
+      const placeholders = Array.from(bannedUsers).map(() => '?').join(', ');
+      query += ` WHERE user_id NOT IN (${placeholders})`;
+      params.push(...Array.from(bannedUsers));
+    }
+    
+    query += ' ORDER BY balance DESC LIMIT 10';
+    
+    // Get all balances from database (excluding banned users)
+    const rows = db.prepare(query).all(...params);
     
     // Sort users by balance
     const sortedUsers = rows.map(row => [row.user_id, row.balance]);
