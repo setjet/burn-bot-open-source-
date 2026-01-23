@@ -1097,6 +1097,190 @@ if (antinukeCommand && antinukeCommand.setup) {
   antinukeCommand.setup(client);
 }
 
+// Start HTTP server for verification API
+const http = require('http');
+const url = require('url');
+
+const VERIFICATION_API_PORT = process.env.VERIFICATION_API_PORT || 3001;
+const VERIFICATION_API_SECRET = process.env.VERIFICATION_API_SECRET || require('crypto').randomBytes(32).toString('hex');
+
+const verificationServer = http.createServer(async (req, res) => {
+  // CORS headers
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  
+  if (req.method === 'OPTIONS') {
+    res.writeHead(200);
+    res.end();
+    return;
+  }
+
+  const parsedUrl = url.parse(req.url, true);
+  
+  // Get nonce info endpoint (for message generation)
+  if (parsedUrl.pathname === '/api/nonce' && req.method === 'GET') {
+    const { nonce } = parsedUrl.query;
+    
+    if (!nonce) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Nonce parameter required' }));
+      return;
+    }
+    
+    const nonceData = dbHelpers.getVerificationNonce(nonce);
+    if (!nonceData) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Nonce not found' }));
+      return;
+    }
+    
+    if (nonceData.used) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Nonce already used' }));
+      return;
+    }
+    
+    if (Date.now() > nonceData.expiresAt) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Nonce expired' }));
+      return;
+    }
+    
+    // Return only necessary info for message generation
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      userId: nonceData.userId,
+      currency: nonceData.currency,
+      address: nonceData.address,
+      createdAt: nonceData.createdAt
+    }));
+    return;
+  }
+  
+  // Verification result endpoint
+  if (parsedUrl.pathname === '/api/verify' && req.method === 'POST') {
+    let body = '';
+    req.on('data', chunk => {
+      body += chunk.toString();
+    });
+    
+    req.on('end', async () => {
+      try {
+        const data = JSON.parse(body);
+        const { nonce, verified, signature, address, secret } = data;
+        
+        // Verify secret
+        if (secret !== VERIFICATION_API_SECRET) {
+          res.writeHead(401, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Unauthorized' }));
+          return;
+        }
+        
+        // Validate nonce
+        const nonceData = dbHelpers.getVerificationNonce(nonce);
+        if (!nonceData) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Invalid or expired nonce' }));
+          return;
+        }
+        
+        if (nonceData.used) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Nonce already used' }));
+          return;
+        }
+        
+        if (Date.now() > nonceData.expiresAt) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Nonce expired' }));
+          return;
+        }
+        
+        // Verify signature if provided
+        if (verified && signature && address) {
+          const { verifyCryptoSignature, generateVerificationMessage } = require('./commands/crypto/utils');
+          
+          // Generate the same message that was used for signing
+          const message = generateVerificationMessage(nonceData.userId, nonceData.currency, nonceData.address, nonceData.createdAt);
+          
+          // Verify address matches
+          if (address.toLowerCase() !== nonceData.address.toLowerCase()) {
+            dbHelpers.markNonceAsUsed(nonce, false);
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Address mismatch' }));
+            return;
+          }
+          
+          try {
+            const isValid = verifyCryptoSignature(nonceData.currency, message, signature, address);
+            if (!isValid) {
+              dbHelpers.markNonceAsUsed(nonce, false);
+              res.writeHead(400, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: 'Signature verification failed' }));
+              return;
+            }
+          } catch (error) {
+            console.error('Signature verification error:', error);
+            dbHelpers.markNonceAsUsed(nonce, false);
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Signature verification error: ' + error.message }));
+            return;
+          }
+        }
+        
+        // Mark wallet as verified
+        if (verified) {
+          dbHelpers.setCryptoWallet(nonceData.userId, nonceData.currency, nonceData.address, true);
+          dbHelpers.markNonceAsUsed(nonce, true);
+          
+          // Send DM to user
+          try {
+            const user = await client.users.fetch(nonceData.userId);
+            const embed = new EmbedBuilder()
+              .setColor('#838996')
+              .setDescription([
+                `<:allowed:1457808577786806374> <:arrows:1457808531678957784> **Wallet Verified!**`,
+                '',
+                `> Your ${nonceData.currency} wallet has been successfully verified!`,
+                `> Address: \`${nonceData.address}\``,
+                '',
+                `-# Your wallet is now marked as verified on the leaderboard.`
+              ].join('\n'));
+            
+            await user.send({ embeds: [embed] }).catch(() => {});
+          } catch (error) {
+            console.error('Failed to send verification DM:', error);
+          }
+        }
+        
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true, verified }));
+      } catch (error) {
+        console.error('Verification API error:', error);
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Internal server error' }));
+      }
+    });
+  } else {
+    res.writeHead(404, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'Not found' }));
+  }
+});
+
+verificationServer.listen(VERIFICATION_API_PORT, () => {
+  console.log(`Verification API server running on port ${VERIFICATION_API_PORT}`);
+  console.log(`API Secret: ${VERIFICATION_API_SECRET.substring(0, 8)}... (set VERIFICATION_API_SECRET in .env)`);
+});
+
+// Cleanup expired nonces every 5 minutes
+setInterval(() => {
+  const deleted = dbHelpers.cleanupExpiredNonces();
+  if (deleted > 0) {
+    console.log(`Cleaned up ${deleted} expired nonces`);
+  }
+}, 5 * 60 * 1000);
+
 const token = process.env.DISCORD_TOKEN;
 if (!token) {
   console.error('Error: DISCORD_TOKEN is not set in environment variables!');

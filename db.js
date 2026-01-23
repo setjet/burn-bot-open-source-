@@ -200,6 +200,30 @@ function initializeDatabase() {
     CREATE TABLE IF NOT EXISTS economy_leaderboard_bans (
       user_id TEXT PRIMARY KEY
     );
+
+    -- Crypto wallets
+    CREATE TABLE IF NOT EXISTS crypto_wallets (
+      user_id TEXT,
+      currency TEXT,
+      address TEXT,
+      verified INTEGER DEFAULT 0,
+      verification_code TEXT,
+      verification_message TEXT,
+      verification_timestamp INTEGER,
+      PRIMARY KEY (user_id, currency)
+    );
+
+    -- Verification nonces (for web-based verification)
+    CREATE TABLE IF NOT EXISTS verification_nonces (
+      nonce TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      currency TEXT NOT NULL,
+      address TEXT NOT NULL,
+      created_at INTEGER NOT NULL,
+      expires_at INTEGER NOT NULL,
+      used INTEGER DEFAULT 0,
+      verified INTEGER DEFAULT 0
+    );
   `);
 }
 
@@ -422,6 +446,27 @@ function migrateDatabase() {
     }
   } catch (error) {
     // Table might not exist yet, that's okay
+  }
+
+  // Migrate crypto_wallets table to add verification columns
+  try {
+    const cryptoWalletsTableInfo = db.prepare("PRAGMA table_info(crypto_wallets)").all();
+    const hasVerificationMessage = cryptoWalletsTableInfo.some(col => col.name === 'verification_message');
+    const hasVerificationTimestamp = cryptoWalletsTableInfo.some(col => col.name === 'verification_timestamp');
+    
+    if (!hasVerificationMessage || !hasVerificationTimestamp) {
+      console.log('Migrating crypto_wallets table to add verification columns...');
+      if (!hasVerificationMessage) {
+        db.exec('ALTER TABLE crypto_wallets ADD COLUMN verification_message TEXT');
+      }
+      if (!hasVerificationTimestamp) {
+        db.exec('ALTER TABLE crypto_wallets ADD COLUMN verification_timestamp INTEGER');
+      }
+      console.log('Migration complete: added verification_message and verification_timestamp columns to crypto_wallets');
+    }
+  } catch (error) {
+    // Table might not exist yet, that's okay - it will be created with new structure
+    console.error('Error migrating crypto_wallets table:', error.message);
   }
   
 }
@@ -1102,6 +1147,125 @@ const dbHelpers = {
     const actionsJson = JSON.stringify(config.actions || (config.action ? [config.action] : ['delete']));
     db.prepare('INSERT OR REPLACE INTO link_filter (guild_id, enabled, actions, whitelist, allowed_domains) VALUES (?, ?, ?, ?, ?)')
       .run(guildId, enabledInt, actionsJson, whitelistJson, allowedDomainsJson);
+  },
+
+  // Crypto wallets
+  getCryptoWallet(userId, currency) {
+    const row = db.prepare('SELECT address, verified, verification_code, verification_message, verification_timestamp FROM crypto_wallets WHERE user_id = ? AND currency = ?').get(userId, currency.toUpperCase());
+    return row ? {
+      address: row.address,
+      verified: row.verified === 1,
+      verificationCode: row.verification_code,
+      verificationMessage: row.verification_message,
+      verificationTimestamp: row.verification_timestamp
+    } : null;
+  },
+
+  setCryptoWallet(userId, currency, address, verified = false, verificationCode = null, verificationMessage = null, verificationTimestamp = null) {
+    const verifiedInt = verified ? 1 : 0;
+    db.prepare('INSERT OR REPLACE INTO crypto_wallets (user_id, currency, address, verified, verification_code, verification_message, verification_timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)')
+      .run(userId, currency.toUpperCase(), address, verifiedInt, verificationCode, verificationMessage, verificationTimestamp);
+  },
+
+  setVerificationMessage(userId, currency, message, timestamp) {
+    db.prepare('UPDATE crypto_wallets SET verification_message = ?, verification_timestamp = ? WHERE user_id = ? AND currency = ?')
+      .run(message, timestamp, userId, currency.toUpperCase());
+  },
+
+  getVerificationMessage(userId, currency) {
+    const row = db.prepare('SELECT verification_message, verification_timestamp FROM crypto_wallets WHERE user_id = ? AND currency = ?').get(userId, currency.toUpperCase());
+    if (!row || !row.verification_message) return null;
+    
+    // Check if message is expired (24 hours)
+    const MESSAGE_EXPIRY = 24 * 60 * 60 * 1000; // 24 hours
+    if (row.verification_timestamp && (Date.now() - row.verification_timestamp > MESSAGE_EXPIRY)) {
+      return null; // Message expired
+    }
+    
+    return {
+      message: row.verification_message,
+      timestamp: row.verification_timestamp
+    };
+  },
+
+  removeCryptoWallet(userId, currency) {
+    db.prepare('DELETE FROM crypto_wallets WHERE user_id = ? AND currency = ?').run(userId, currency.toUpperCase());
+  },
+
+  getAllCryptoWallets(userId) {
+    const rows = db.prepare('SELECT currency, address, verified FROM crypto_wallets WHERE user_id = ?').all(userId);
+    const result = {};
+    rows.forEach(row => {
+      result[row.currency] = {
+        address: row.address,
+        verified: row.verified === 1
+      };
+    });
+    return result;
+  },
+
+  getAllUsersWithCrypto(currency = null) {
+    if (currency) {
+      const rows = db.prepare('SELECT user_id, address, verified FROM crypto_wallets WHERE currency = ?').all(currency.toUpperCase());
+      return rows.map(row => ({
+        userId: row.user_id,
+        address: row.address,
+        verified: row.verified === 1
+      }));
+    } else {
+      const rows = db.prepare('SELECT DISTINCT user_id FROM crypto_wallets').all();
+      return rows.map(row => row.user_id);
+    }
+  },
+
+  // Verification nonces
+  createVerificationNonce(userId, currency, address, expirationMinutes = 10) {
+    const crypto = require('crypto');
+    const nonce = crypto.randomBytes(32).toString('hex');
+    const now = Date.now();
+    const expiresAt = now + (expirationMinutes * 60 * 1000);
+    
+    db.prepare(`
+      INSERT INTO verification_nonces (nonce, user_id, currency, address, created_at, expires_at, used, verified)
+      VALUES (?, ?, ?, ?, ?, ?, 0, 0)
+    `).run(nonce, userId, currency.toUpperCase(), address, now, expiresAt);
+    
+    return nonce;
+  },
+
+  getVerificationNonce(nonce) {
+    const row = db.prepare('SELECT * FROM verification_nonces WHERE nonce = ?').get(nonce);
+    if (!row) return null;
+    
+    return {
+      nonce: row.nonce,
+      userId: row.user_id,
+      currency: row.currency,
+      address: row.address,
+      createdAt: row.created_at,
+      expiresAt: row.expires_at,
+      used: row.used === 1,
+      verified: row.verified === 1
+    };
+  },
+
+  markNonceAsUsed(nonce, verified = true) {
+    db.prepare(`
+      UPDATE verification_nonces 
+      SET used = 1, verified = ?
+      WHERE nonce = ?
+    `).run(verified ? 1 : 0, nonce);
+  },
+
+  deleteExpiredNonces() {
+    const now = Date.now();
+    const deleted = db.prepare('DELETE FROM verification_nonces WHERE expires_at < ? OR (used = 1 AND verified = 1)').run(now);
+    return deleted.changes;
+  },
+
+  cleanupExpiredNonces() {
+    // Clean up expired or used nonces (run periodically)
+    return this.deleteExpiredNonces();
   }
 };
 

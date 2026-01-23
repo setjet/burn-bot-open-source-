@@ -92,6 +92,47 @@
 
 ---
 
+### 💰 Crypto Wallet Commands (`eth`, `sol`, `btc`, `ltc`, `cryptoleaderboard`)
+<:arrows:1457808531678957784> **Manage and track cryptocurrency wallets directly in Discord!**
+
+**Features:**
+<:leese:1457834970486800567> **Multi-currency support** - Ethereum (ETH), Solana (SOL), Bitcoin (BTC), and Litecoin (LTC)
+<:leese:1457834970486800567> **Automatic address validation** - Format validation + on-chain verification when setting wallets
+<:leese:1457834970486800567> **Web-based verification** - Secure wallet ownership verification via Vercel web app
+<:leese:1457834970486800567> **Real-time balance tracking** - Fetches live balances from blockchain APIs
+<:leese:1457834970486800567> **USD conversion** - All balances converted to USD for fair leaderboard comparison
+<:leese:1457834970486800567> **Smart leaderboard** - Shows only highest-value wallet per user, ranked by USD value
+<:leese:1457834970486800567> **Library-based validation** - Uses ethers.js, @solana/web3.js, and bitcoinjs-lib for accurate address validation
+<:leese:1457834970486800567> **Role restriction** - Only users with specific role can use crypto commands
+<:tree:1457808523986731008> Comprehensive error handling with detailed validation messages
+
+**Commands:**
+\`\`\`
+,eth set <address>     # Set Ethereum wallet
+,eth                    # View your Ethereum wallet
+,eth remove             # Remove Ethereum wallet
+,sol set <address>      # Set Solana wallet
+,btc set <address>      # Set Bitcoin wallet
+,ltc set <address>      # Set Litecoin wallet
+,cryptoleaderboard      # View crypto leaderboard
+\`\`\`
+
+**Validation Features:**
+- **Format Validation:** Checks address format using proper crypto libraries
+- **On-Chain Validation:** Verifies address exists on blockchain by fetching balance
+- **Currency Detection:** Detects if wrong currency address is used (e.g., ETH address in SOL command)
+- **Detailed Error Messages:** Provides specific feedback on what's wrong with addresses
+
+**Verification System:**
+- Web-based verification via Vercel app
+- Nonce-based security (single-use, time-limited tokens)
+- Message signing verification for wallet ownership
+- Automatic verification link sent via DM
+
+**Note:** Crypto commands are restricted to users with role ID `1458579256077586453`. Users without this role will be silently ignored.
+
+---
+
 ## 🎯 Quick Setup Guide
 
 **1. Set up logging:**
@@ -116,6 +157,15 @@
 ,linkfilter allow discord.gg
 \`\`\`
 
+**4. Set up crypto wallets:**
+\`\`\`
+,eth set 0xYourEthereumAddress
+,sol set YourSolanaAddress
+,btc set YourBitcoinAddress
+,ltc set YourLitecoinAddress
+,cryptoleaderboard
+\`\`\`
+
 ---
 
 ## 📋 Permissions Required
@@ -123,6 +173,7 @@
 - **Logging:** Manage Guild
 - **Raid Protection:** Administrator
 - **Link Filter:** Manage Guild
+- **Crypto Commands:** Role ID `1458579256077586453` (restricted access)
 
 ---
 
@@ -136,6 +187,10 @@
 <:check:1457808518848581858> **Enhanced log formatting** - All log embeds use clean, professional Discord formatting
 <:check:1457808518848581858> **Attachment preservation** - Message delete logs include images, videos, and files with clickable links
 <:check:1457808518848581858> **Complete event coverage** - All 15 logging events are now fully functional
+<:check:1457808518848581858> **Crypto wallet system** - Full support for ETH, SOL, BTC, and LTC with automatic validation
+<:check:1457808518848581858> **Web-based verification** - Secure wallet ownership verification via external Vercel app
+<:check:1457808518848581858> **Smart address validation** - Library-based validation with currency detection and on-chain verification
+<:check:1457808518848581858> **USD leaderboard** - Fair comparison by converting all balances to USD and showing only highest-value wallet
 
 ## 🐛 Bug Fixes
 
@@ -145,6 +200,9 @@
 <:check:1457808518848581858> Fixed view display - "Enabled Events" now shows count instead of cluttering with full list
 <:check:1457808518848581858> Fixed link filter actions - All actions (delete, warn, timeout) now work correctly together
 <:check:1457808518848581858> Improved event organization - Events grouped into category-based dropdowns for better UX
+<:check:1457808518848581858> Fixed Etherscan API deprecation - Updated to V2 API with Ethplorer fallback
+<:check:1457808518848581858> Fixed address validation - Enhanced validation with proper library checks and currency detection
+<:check:1457808518848581858> Fixed balance fetching - Improved error handling for API responses and rate limiting
 
 ---
 
