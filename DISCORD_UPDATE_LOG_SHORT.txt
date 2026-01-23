@@ -37,3 +37,30 @@
 <:check:1457808518848581858> All settings persist to database
 <:check:1457808518848581858> Server owner excluded from filters
 
+---
+
+🔧 **Latest Updates**
+
+📝 **Logging System Improvements**
+<:arrows:1457808531678957784> **Interactive dropdown menus** - Easy configuration with visual interface
+<:leese:1457834970486800567> **All 15 events now working** - Added missing events (bans, kicks, timeouts, role/channel changes)
+<:leese:1457834970486800567> **Enhanced formatting** - Clean, professional embed logs with proper Discord formatting
+<:leese:1457834970486800567> **Attachment support** - Message delete now logs images, videos, and files with clickable links
+<:tree:1457808523986731008> **Better organization** - Events grouped by category in dropdown menus
+
+**New Events Added:**
+- Member ban/unban/kick/timeout/untimeout
+- Role create/delete/update
+- Channel create/delete/update
+
+<:check:1457808518848581858> All logging events are now fully functional
+<:check:1457808518848581858> Message delete preserves attachments (images/videos) in logs
+
+🐛 **Bug Fixes**
+
+<:check:1457808518848581858> **Fixed component limit error** - Resolved Discord 5-row limit issue in logging system
+<:check:1457808518848581858> **Fixed missing logging events** - Added 11 missing events (bans, kicks, timeouts, role/channel changes)
+<:check:1457808518848581858> **Fixed message delete logging** - Now properly logs images, videos, and file attachments
+<:check:1457808518848581858> **Fixed view display** - "Enabled Events" now shows count instead of cluttering with full list
+<:check:1457808518848581858> **Improved event organization** - Events grouped into category-based dropdowns for better UX
+
