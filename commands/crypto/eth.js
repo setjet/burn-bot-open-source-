@@ -1,7 +1,6 @@
 const { EmbedBuilder } = require('discord.js');
 const { dbHelpers } = require('../../db');
-const { validateAddress, formatBalance, getCurrencyName, getCurrencySymbol, fetchCryptoBalance, generateVerificationMessage } = require('./utils');
-const { handleVerification } = require('./verifyHelper');
+const { validateAddress, getCurrencyName, getCurrencySymbol, fetchCryptoBalance } = require('./utils');
 
 module.exports = {
   name: 'eth',
@@ -82,7 +81,7 @@ module.exports = {
       statusLines.push(`> **On-Chain Valid:** ${onChainValid ? '<:allowed:1457808577786806374> Yes' : '<:disallowed:1457808577786806375> No'}`);
       statusLines.push(`> **Verified:** ${wallet.verified ? '<:allowed:1457808577786806374> Yes' : '<:disallowed:1457808577786806375> No'}`);
       if (balance !== null) {
-        statusLines.push(`> **Balance:** \`${formatBalance(balance, currency)} ${getCurrencySymbol(currency)}\``);
+        statusLines.push(`> **Balance:** \`${balance.toLocaleString('en-US', { maximumFractionDigits: 8, minimumFractionDigits: 0 })} ${getCurrencySymbol(currency)}\``);
       } else if (balanceError) {
         statusLines.push(`> **Balance:** \`Error: ${balanceError}\``);
       }
@@ -176,73 +175,34 @@ module.exports = {
       validationStatus.push(`**Format Valid:** <:allowed:1457808577786806374> Yes`);
       validationStatus.push(`**On-Chain Valid:** ${onChainValid ? '<:allowed:1457808577786806374> Yes' : '<:disallowed:1457808577786806375> No'}`);
       if (onChainValid && balance !== null) {
-        validationStatus.push(`**Balance:** \`${formatBalance(balance, currency)} ${getCurrencySymbol(currency)}\``);
+        validationStatus.push(`**Balance:** \`${balance.toLocaleString('en-US', { maximumFractionDigits: 8, minimumFractionDigits: 0 })} ${getCurrencySymbol(currency)}\``);
       } else if (onChainError) {
         validationStatus.push(`**On-Chain Error:** ${onChainError}`);
       }
 
       // Send DM with verification link
+      const dmEmbed = new EmbedBuilder()
+        .setColor(onChainValid ? '#838996' : '#FFA500')
+        .setTitle('<:arrows:1457808531678957784> **Wallet Set & Validated**')
+        .setDescription([
+          ...validationStatus,
+          '',
+          `**To verify ownership, click the link below:**`,
+          `[🔗 Verify Wallet](${verificationLink})`,
+          '',
+          `**Instructions:**`,
+          `1. Click the verification link above`,
+          `2. Connect your wallet (MetaMask, WalletConnect, etc.)`,
+          `3. Sign the message to verify ownership`,
+          `4. Verification expires in **10 minutes**`,
+          '',
+          `-# This link is **single-use** and will expire soon.`
+        ].join('\n'))
+        .setFooter({ text: 'If you did not request this, please ignore this message.' });
+
       try {
-        const dmEmbed = new EmbedBuilder()
-          .setColor(onChainValid ? '#838996' : '#FFA500')
-          .setTitle('<:arrows:1457808531678957784> **Wallet Set & Validated**')
-          .setDescription([
-            ...validationStatus,
-            '',
-            `**To verify ownership, click the link below:**`,
-            `[🔗 Verify Wallet](${verificationLink})`,
-            '',
-            `**Instructions:**`,
-            `1. Click the verification link above`,
-            `2. Connect your wallet (MetaMask, WalletConnect, etc.)`,
-            `3. Sign the message to verify ownership`,
-            `4. Verification expires in **10 minutes**`,
-            '',
-            `-# This link is **single-use** and will expire soon.`
-          ].join('\n'))
-          .setFooter({ text: 'If you did not request this, please ignore this message.' });
-
-        await message.author.send({ embeds: [dmEmbed] }).catch(() => {
-          // If DM fails, send in channel
-          const validationStatus = [];
-          validationStatus.push(`**Address:** \`${address}\``);
-          validationStatus.push(`**Format Valid:** <:allowed:1457808577786806374> Yes`);
-          validationStatus.push(`**On-Chain Valid:** ${onChainValid ? '<:allowed:1457808577786806374> Yes' : '<:disallowed:1457808577786806375> No'}`);
-          if (onChainValid && balance !== null) {
-            validationStatus.push(`**Balance:** \`${formatBalance(balance, currency)} ${getCurrencySymbol(currency)}\``);
-          } else if (onChainError) {
-            validationStatus.push(`**On-Chain Error:** ${onChainError}`);
-          }
-
-          return message.reply({
-            embeds: [
-              new EmbedBuilder()
-                .setColor(onChainValid ? '#838996' : '#FFA500')
-                .setDescription([
-                  `<:allowed:1457808577786806374> <:arrows:1457808531678957784> **Wallet Set & Validated**`,
-                  '',
-                  ...validationStatus,
-                  '',
-                  `**Verification link:**`,
-                  `[🔗 Click here to verify](${verificationLink})`,
-                  '',
-                  `-# This link expires in **10 minutes**.`
-                ].join('\n'))
-            ],
-            allowedMentions: { repliedUser: false }
-          });
-        });
-
-        const validationStatus = [];
-        validationStatus.push(`**Address:** \`${address}\``);
-        validationStatus.push(`**Format Valid:** <:allowed:1457808577786806374> Yes`);
-        validationStatus.push(`**On-Chain Valid:** ${onChainValid ? '<:allowed:1457808577786806374> Yes' : '<:disallowed:1457808577786806375> No'}`);
-        if (onChainValid && balance !== null) {
-          validationStatus.push(`**Balance:** \`${formatBalance(balance, currency)} ${getCurrencySymbol(currency)}\``);
-        } else if (onChainError) {
-          validationStatus.push(`**On-Chain Error:** ${onChainError}`);
-        }
-
+        await message.author.send({ embeds: [dmEmbed] });
+        
         return message.reply({
           embeds: [
             new EmbedBuilder()
@@ -260,15 +220,15 @@ module.exports = {
           allowedMentions: { repliedUser: false }
         });
       } catch (error) {
+        // If DM fails, send in channel
         return message.reply({
           embeds: [
             new EmbedBuilder()
-              .setColor('#838996')
+              .setColor(onChainValid ? '#838996' : '#FFA500')
               .setDescription([
-                `<:allowed:1457808577786806374> <:arrows:1457808531678957784> **Wallet Set**`,
+                `<:allowed:1457808577786806374> <:arrows:1457808531678957784> **Wallet Set & Validated**`,
                 '',
-                `> Your Ethereum wallet address has been set to:`,
-                `> \`${address}\``,
+                ...validationStatus,
                 '',
                 `**Verification link:**`,
                 `[🔗 Click here to verify](${verificationLink})`,

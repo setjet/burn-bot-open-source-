@@ -1,6 +1,6 @@
 const { EmbedBuilder } = require('discord.js');
 const { dbHelpers } = require('../../db');
-const { fetchCryptoBalance, formatBalance, getCurrencyName, getCurrencySymbol, convertToUSD, CRYPTO_CONFIG } = require('./utils');
+const { fetchCryptoBalance, getCurrencyName, getCurrencySymbol, convertToUSD, CRYPTO_CONFIG } = require('./utils');
 
 module.exports = {
   name: 'cryptoleaderboard',
@@ -120,7 +120,7 @@ module.exports = {
         });
         
         // Format crypto balance
-        const formattedBalance = formatBalance(bestWallet.balance, bestWallet.currency);
+        const formattedBalance = bestWallet.balance.toLocaleString('en-US', { maximumFractionDigits: 8, minimumFractionDigits: 0 });
         const currencySymbol = getCurrencySymbol(bestWallet.currency);
         
         const medal = i === 0 ? '🥇.' : i === 1 ? '🥈.' : i === 2 ? '🥉.' : `\`${i + 1}\`.`;
