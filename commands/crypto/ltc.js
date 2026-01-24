@@ -102,19 +102,85 @@ module.exports = {
     const subcommand = args[0].toLowerCase();
 
     if (subcommand === 'set') {
-      if (args.length < 2) {
-        return message.reply({
-          embeds: [
-            new EmbedBuilder()
-              .setColor('#838996')
-              .setDescription([
-                `<:disallowed:1457808577786806375> <:arrows:1457808531678957784> **Invalid Usage**`,
-                '',
-                `-# Use \`${prefix}ltc set <address>\` to set your Litecoin wallet address.`
-              ].join('\n'))
-          ],
-          allowedMentions: { repliedUser: false }
-        });
+      if (args.length < 1) {
+        // No additional args needed - user will connect wallet
+        // Generate verification nonce (no address needed yet - user will connect wallet)
+        const nonce = dbHelpers.createVerificationNonce(userId, currency, null, 10); // 10 minute expiry, address set during verification
+        const verificationUrl = process.env.VERIFICATION_URL;
+        if (!verificationUrl) {
+          console.error('VERIFICATION_URL is not set in environment variables!');
+          return message.reply({
+            embeds: [
+              new EmbedBuilder()
+                .setColor('#FF6B6B')
+                .setDescription([
+                  `<:disallowed:1457808577786806375> <:arrows:1457808531678957784> **Configuration Error**`,
+                  '',
+                  `> Verification URL is not configured.`,
+                  '',
+                  `-# Please set \`VERIFICATION_URL\` in your bot's environment variables.`
+                ].join('\n'))
+            ],
+            allowedMentions: { repliedUser: false }
+          });
+        }
+        const verificationLink = `${verificationUrl}/verify?discord_id=${userId}&nonce=${nonce}&currency=${currency}`;
+
+        // Send DM with verification link
+        const dmEmbed = new EmbedBuilder()
+          .setColor('#838996')
+          .setTitle('<:arrows:1457808531678957784> **Verify Your Litecoin Wallet**')
+          .setDescription([
+            `Click the link below to verify your Litecoin wallet:`,
+            `[🔗 Verify Wallet](${verificationLink})`,
+            '',
+            `**What happens next:**`,
+            `1. Click the link above`,
+            `2. Connect your Litecoin wallet (MetaMask, Ledger, etc.)`,
+            `3. That's it! Your wallet is verified automatically`,
+            `4. Verification expires in **10 minutes**`,
+            '',
+            `-# This link is **single-use** and will expire soon.`
+          ].join('\n'))
+          .setFooter({ text: 'If you did not request this, please ignore this message.' });
+
+        try {
+          await message.author.send({ embeds: [dmEmbed] });
+          
+          return message.reply({
+            embeds: [
+              new EmbedBuilder()
+                .setColor('#838996')
+                .setDescription([
+                  `<:allowed:1457808577786806374> <:arrows:1457808531678957784> **Verification Link Sent**`,
+                  '',
+                  `**Check your DMs!**`,
+                  '',
+                  `Click the link in your DMs to connect your Litecoin wallet and verify ownership.`,
+                  '',
+                  `-# The link expires in **10 minutes**.`
+                ].join('\n'))
+            ],
+            allowedMentions: { repliedUser: false }
+          });
+        } catch (error) {
+          // If DM fails, send in channel
+          return message.reply({
+            embeds: [
+              new EmbedBuilder()
+                .setColor('#838996')
+                .setDescription([
+                  `<:allowed:1457808577786806374> <:arrows:1457808531678957784> **Verification Link**`,
+                  '',
+                  `**Click the link below to verify your wallet:**`,
+                  `[🔗 Verify Wallet](${verificationLink})`,
+                  '',
+                  `-# The link expires in **10 minutes**.`
+                ].join('\n'))
+            ],
+            allowedMentions: { repliedUser: false }
+          });
+        }
       }
 
       const address = args[1];
@@ -161,8 +227,25 @@ module.exports = {
 
       // Generate verification nonce
       const nonce = dbHelpers.createVerificationNonce(userId, currency, address, 10);
-      const verificationUrl = process.env.VERIFICATION_URL || 'https://your-vercel-app.vercel.app';
-      const verificationLink = `${verificationUrl}/verify?discord_id=${userId}&nonce=${nonce}`;
+      const verificationUrl = process.env.VERIFICATION_URL;
+      if (!verificationUrl) {
+        console.error('VERIFICATION_URL is not set in environment variables!');
+        return message.reply({
+          embeds: [
+            new EmbedBuilder()
+              .setColor('#FF6B6B')
+              .setDescription([
+                `<:disallowed:1457808577786806375> <:arrows:1457808531678957784> **Configuration Error**`,
+                '',
+                `> Verification URL is not configured.`,
+                '',
+                `-# Please set \`VERIFICATION_URL\` in your bot's environment variables.`
+              ].join('\n'))
+          ],
+          allowedMentions: { repliedUser: false }
+        });
+      }
+      const verificationLink = `${verificationUrl}/verify?discord_id=${userId}&nonce=${nonce}&currency=${currency}`;
 
       // Build validation status
       const validationStatus = [];
@@ -178,17 +261,17 @@ module.exports = {
       // Send DM with verification link
       const dmEmbed = new EmbedBuilder()
         .setColor(onChainValid ? '#838996' : '#FFA500')
-        .setTitle('<:arrows:1457808531678957784> **Wallet Set & Validated**')
+        .setTitle('<:arrows:1457808531678957784> **Wallet Set & Ready to Verify**')
         .setDescription([
           ...validationStatus,
           '',
-          `**To verify ownership, click the link below:**`,
+          `**Click the link below to verify your wallet:**`,
           `[🔗 Verify Wallet](${verificationLink})`,
           '',
-          `**Instructions:**`,
-          `1. Click the verification link above`,
+          `**What happens next:**`,
+          `1. Click the link above`,
           `2. Connect your wallet`,
-          `3. Sign the message to verify ownership`,
+          `3. That's it! Your wallet is verified automatically`,
           `4. Verification expires in **10 minutes**`,
           '',
           `-# This link is **single-use** and will expire soon.`
@@ -203,13 +286,13 @@ module.exports = {
             new EmbedBuilder()
               .setColor(onChainValid ? '#838996' : '#FFA500')
               .setDescription([
-                `<:allowed:1457808577786806374> <:arrows:1457808531678957784> **Wallet Set & Validated**`,
+                `<:allowed:1457808577786806374> <:arrows:1457808531678957784> **Wallet Set & Ready to Verify**`,
                 '',
                 ...validationStatus,
                 '',
                 `**Verification link sent via DM!**`,
                 '',
-                `-# Check your DMs to verify your wallet. The link expires in 10 minutes.`
+                `-# Check your DMs to connect your wallet and verify. The link expires in 10 minutes.`
               ].join('\n'))
           ],
           allowedMentions: { repliedUser: false }
@@ -221,14 +304,14 @@ module.exports = {
             new EmbedBuilder()
               .setColor(onChainValid ? '#838996' : '#FFA500')
               .setDescription([
-                `<:allowed:1457808577786806374> <:arrows:1457808531678957784> **Wallet Set & Validated**`,
+                `<:allowed:1457808577786806374> <:arrows:1457808531678957784> **Wallet Set & Ready to Verify**`,
                 '',
                 ...validationStatus,
                 '',
                 `**Verification link:**`,
                 `[🔗 Click here to verify](${verificationLink})`,
                 '',
-                `-# This link expires in **10 minutes**.`
+                `-# Click the link, connect your wallet, and you're done! Expires in **10 minutes**.`
               ].join('\n'))
           ],
           allowedMentions: { repliedUser: false }
@@ -272,7 +355,24 @@ module.exports = {
 
       // Generate new nonce for verification
       const nonce = dbHelpers.createVerificationNonce(userId, currency, wallet.address, 10);
-      const verificationUrl = process.env.VERIFICATION_URL || 'https://your-vercel-app.vercel.app';
+      const verificationUrl = process.env.VERIFICATION_URL;
+      if (!verificationUrl) {
+        console.error('VERIFICATION_URL is not set in environment variables!');
+        return message.reply({
+          embeds: [
+            new EmbedBuilder()
+              .setColor('#FF6B6B')
+              .setDescription([
+                `<:disallowed:1457808577786806375> <:arrows:1457808531678957784> **Configuration Error**`,
+                '',
+                `> Verification URL is not configured.`,
+                '',
+                `-# Please set \`VERIFICATION_URL\` in your bot's environment variables.`
+              ].join('\n'))
+          ],
+          allowedMentions: { repliedUser: false }
+        });
+      }
       const verificationLink = `${verificationUrl}/verify?discord_id=${userId}&nonce=${nonce}`;
 
       return message.reply({

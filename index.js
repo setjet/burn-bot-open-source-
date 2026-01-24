@@ -1158,7 +1158,7 @@ const verificationServer = http.createServer(async (req, res) => {
     return;
   }
   
-  // Verification result endpoint
+  // Verification result endpoint (simplified - no signature verification needed)
   if (parsedUrl.pathname === '/api/verify' && req.method === 'POST') {
     let body = '';
     req.on('data', chunk => {
@@ -1168,7 +1168,7 @@ const verificationServer = http.createServer(async (req, res) => {
     req.on('end', async () => {
       try {
         const data = JSON.parse(body);
-        const { nonce, verified, signature, address, secret } = data;
+        const { nonce, address, secret } = data;
         
         // Verify secret
         if (secret !== VERIFICATION_API_SECRET) {
@@ -1197,65 +1197,39 @@ const verificationServer = http.createServer(async (req, res) => {
           return;
         }
         
-        // Verify signature if provided
-        if (verified && signature && address) {
-          const { verifyCryptoSignature, generateVerificationMessage } = require('./commands/crypto/utils');
-          
-          // Generate the same message that was used for signing
-          const message = generateVerificationMessage(nonceData.userId, nonceData.currency, nonceData.address, nonceData.createdAt);
-          
-          // Verify address matches
-          if (address.toLowerCase() !== nonceData.address.toLowerCase()) {
-            dbHelpers.markNonceAsUsed(nonce, false);
-            res.writeHead(400, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: 'Address mismatch' }));
-            return;
-          }
-          
-          try {
-            const isValid = verifyCryptoSignature(nonceData.currency, message, signature, address);
-            if (!isValid) {
-              dbHelpers.markNonceAsUsed(nonce, false);
-              res.writeHead(400, { 'Content-Type': 'application/json' });
-              res.end(JSON.stringify({ error: 'Signature verification failed' }));
-              return;
-            }
-          } catch (error) {
-            console.error('Signature verification error:', error);
-            dbHelpers.markNonceAsUsed(nonce, false);
-            res.writeHead(400, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: 'Signature verification error: ' + error.message }));
-            return;
-          }
+        // Verify address is provided
+        if (!address) {
+          dbHelpers.markNonceAsUsed(nonce, false);
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Wallet address required' }));
+          return;
         }
         
-        // Mark wallet as verified
-        if (verified) {
-          dbHelpers.setCryptoWallet(nonceData.userId, nonceData.currency, nonceData.address, true);
-          dbHelpers.markNonceAsUsed(nonce, true);
+        // Mark wallet as verified with the connected address
+        dbHelpers.setCryptoWallet(nonceData.userId, nonceData.currency, address, true);
+        dbHelpers.markNonceAsUsed(nonce, true);
+        
+        // Send DM to user
+        try {
+          const user = await client.users.fetch(nonceData.userId);
+          const embed = new EmbedBuilder()
+            .setColor('#838996')
+            .setDescription([
+              `<:allowed:1457808577786806374> <:arrows:1457808531678957784> **Wallet Verified!**`,
+              '',
+              `> Your ${nonceData.currency} wallet has been successfully verified!`,
+              `> Address: \`${address}\``,
+              '',
+              `-# Your wallet is now marked as verified on the leaderboard.`
+            ].join('\n'));
           
-          // Send DM to user
-          try {
-            const user = await client.users.fetch(nonceData.userId);
-            const embed = new EmbedBuilder()
-              .setColor('#838996')
-              .setDescription([
-                `<:allowed:1457808577786806374> <:arrows:1457808531678957784> **Wallet Verified!**`,
-                '',
-                `> Your ${nonceData.currency} wallet has been successfully verified!`,
-                `> Address: \`${nonceData.address}\``,
-                '',
-                `-# Your wallet is now marked as verified on the leaderboard.`
-              ].join('\n'));
-            
-            await user.send({ embeds: [embed] }).catch(() => {});
-          } catch (error) {
-            console.error('Failed to send verification DM:', error);
-          }
+          await user.send({ embeds: [embed] }).catch(() => {});
+        } catch (error) {
+          console.error('Failed to send verification DM:', error);
         }
         
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ success: true, verified }));
+        res.end(JSON.stringify({ success: true, verified: true }));
       } catch (error) {
         console.error('Verification API error:', error);
         res.writeHead(500, { 'Content-Type': 'application/json' });

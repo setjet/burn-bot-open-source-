@@ -1219,7 +1219,7 @@ const dbHelpers = {
   },
 
   // Verification nonces
-  createVerificationNonce(userId, currency, address, expirationMinutes = 10) {
+  createVerificationNonce(userId, currency, address = null, expirationMinutes = 10) {
     const crypto = require('crypto');
     const nonce = crypto.randomBytes(32).toString('hex');
     const now = Date.now();
