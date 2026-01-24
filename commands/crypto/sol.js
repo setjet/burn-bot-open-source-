@@ -1,4 +1,4 @@
-const { EmbedBuilder } = require('discord.js');
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { dbHelpers } = require('../../db');
 const { validateAddress, getCurrencyName, getCurrencySymbol, fetchCryptoBalance, fetchCryptoPrice, convertToUSD, obfuscateAddress } = require('./utils');
 
@@ -103,7 +103,19 @@ module.exports = {
       // Check if user already has a verified wallet
       const existingWallet = dbHelpers.getCryptoWallet(userId, currency);
       if (existingWallet && existingWallet.verified) {
-        return message.reply({
+        const yesButton = new ButtonBuilder()
+          .setCustomId('verify_yes')
+          .setLabel('Yes')
+          .setStyle(ButtonStyle.Success);
+
+        const noButton = new ButtonBuilder()
+          .setCustomId('verify_no')
+          .setLabel('No')
+          .setStyle(ButtonStyle.Danger);
+
+        const row = new ActionRowBuilder().addComponents(yesButton, noButton);
+
+        const msg = await message.reply({
           embeds: [
             new EmbedBuilder()
               .setColor('#838996')
@@ -113,38 +125,40 @@ module.exports = {
                 `> You already have a verified **Solana** wallet set.`,
                 `> Address: \`${obfuscateAddress(existingWallet.address)}\``,
                 '',
-                `**Do you want to verify a different wallet?**`,
-                `React with ✅ to proceed, or ignore to cancel.`
+                `**Do you want to verify a different wallet?**`
               ].join('\n'))
           ],
+          components: [row],
           allowedMentions: { repliedUser: false }
-        }).then(async (msg) => {
-          try {
-            await msg.react('✅');
-            const filter = (reaction, user) => reaction.emoji.name === '✅' && user.id === message.author.id;
-            const collected = await msg.awaitReactions({ filter, max: 1, time: 30000 });
-            
-            if (collected.size === 0) {
-              await msg.edit({
-                embeds: [
-                  new EmbedBuilder()
-                    .setColor('#838996')
-                    .setDescription([
-                      `<:disallowed:1457808577786806375> <:arrows:1457808531678957784> **Cancelled**`,
-                      '',
-                      `> Verification cancelled.`
-                    ].join('\n'))
-                ]
-              }).catch(() => {});
-              return;
-            }
-            
-            // User confirmed, proceed with verification
-            await proceedWithVerification(message, userId, currency, prefix);
-          } catch (error) {
-            console.error('Error in wallet verification confirmation:', error);
+        });
+
+        try {
+          const filter = (interaction) => interaction.user.id === message.author.id && (interaction.customId === 'verify_yes' || interaction.customId === 'verify_no');
+          const interaction = await msg.awaitMessageComponent({ filter, time: 30000 });
+
+          if (interaction.customId === 'verify_no') {
+            await interaction.update({
+              embeds: [
+                new EmbedBuilder()
+                  .setColor('#838996')
+                  .setDescription([
+                    `<:disallowed:1457808577786806375> <:arrows:1457808531678957784> **Cancelled**`,
+                    '',
+                    `> Verification cancelled.`
+                  ].join('\n'))
+              ],
+              components: []
+            });
+            return;
           }
-        }).catch(() => {});
+
+          // User clicked Yes, proceed with verification
+          await interaction.deferUpdate();
+          await proceedWithVerification(message, userId, currency, prefix);
+        } catch (error) {
+          console.error('Error in wallet verification confirmation:', error);
+          await msg.edit({ components: [] }).catch(() => {});
+        }
         return;
       }
 
