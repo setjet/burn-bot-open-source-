@@ -71,7 +71,7 @@ module.exports = {
       dbHelpers.removeCryptoWallet(userId, null); // Pass null to remove all currencies
       
       // Also delete any pending verification nonces for this user
-      const noncesDeleted = dbHelpers.db.prepare('DELETE FROM verification_nonces WHERE user_id = ?').run(userId).changes;
+      const noncesDeleted = dbHelpers.deleteUserNonces(userId);
 
       return message.reply({
         embeds: [

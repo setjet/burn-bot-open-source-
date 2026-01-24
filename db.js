@@ -1319,6 +1319,17 @@ const dbHelpers = {
     return this.deleteExpiredNonces();
   },
 
+  // Delete all verification nonces for a specific user
+  deleteUserNonces(userId) {
+    try {
+      const result = db.prepare('DELETE FROM verification_nonces WHERE user_id = ?').run(userId);
+      return result.changes;
+    } catch (error) {
+      console.error('Error deleting user nonces:', error);
+      return 0;
+    }
+  },
+
   // Reset all crypto wallets (admin only)
   resetAllCryptoWallets() {
     try {
