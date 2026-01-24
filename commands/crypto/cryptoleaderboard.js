@@ -4,7 +4,7 @@ const { fetchCryptoBalance, getCurrencyName, getCurrencySymbol, convertToUSD, CR
 
 module.exports = {
   name: 'cryptoleaderboard',
-  aliases: ['cryptolb', 'cryptotop', 'cryptorich'],
+  aliases: ['cryptolb', 'clb', 'cryptorich'],
   category: 'utilities',
   description: '<:arrows:1457808531678957784> View the crypto leaderboard.',
   async execute(message, args, { prefix }) {

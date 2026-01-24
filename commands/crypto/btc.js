@@ -188,20 +188,26 @@ module.exports = {
         .setColor('#838996')
         .setTitle('<:bitcoin:1464571530779431037> <:arrows:1457808531678957784> **Verify Bitcoin Wallet**')
         .setDescription([
-          `Click the link below to verify your Bitcoin wallet:`,
-          `<:arrows:1457808531678957784> [Verify Wallet](${verificationLink})`,
+          `Click the button below to verify your Bitcoin wallet:`,
           '',
           `**What happens next:**`,
-          `<:leese:1457834970486800567> Click the link above`,
+          `<:leese:1457834970486800567> Click the button below`,
           `<:leese:1457834970486800567> Connect your Bitcoin wallet (Phantom, Exodus, etc.)`,
           `<:leese:1457834970486800567> Your wallet is verified automatically`,
-          `<:tree:1457808523986731008> Verification link expires in **10 minutes**`,
+          `> **Note:** Verification link expires in **10 minutes**`,
           '',
           `-# Do NOT share this link with anyone else.`
         ].join('\n'))
 
+      const verifyButton = new ButtonBuilder()
+        .setLabel('Verify Wallet')
+        .setStyle(ButtonStyle.Link)
+        .setURL(verificationLink);
+
+      const row = new ActionRowBuilder().addComponents(verifyButton);
+
       try {
-        await message.author.send({ embeds: [dmEmbed] });
+        await message.author.send({ embeds: [dmEmbed], components: [row] });
         
         // If called from button interaction, update the embed. Otherwise send a new message.
         if (interaction) {
@@ -222,7 +228,7 @@ module.exports = {
               new EmbedBuilder()
                 .setColor('#838996')
                 .setDescription([
-                  `<:allowed:1457808577786806374> <:arrows:1457808531678957784> **Verification Link** sent to your **DMs**.`,
+                  `<:check:1457808518848581858> <:arrows:1457808531678957784> **Verification Link** sent to your **DMs**.`,
                   `-# <:tree:1457808523986731008> The link expires in **10 minutes**.`
                 ].join('\n'))
             ],
@@ -270,7 +276,6 @@ module.exports = {
             `-# Available commands:`,
             `> \`${prefix}btc\` - View your wallet`,
             `> \`${prefix}btc set\` - Set and verify your wallet`,
-            `> \`${prefix}btc remove\` - Remove your wallet`
           ].join('\n'))
       ],
       allowedMentions: { repliedUser: false }

@@ -188,21 +188,26 @@ module.exports = {
         .setColor('#838996')
         .setTitle('<:arrows:1457808531678957784> **Verify Your Litecoin Wallet**')
         .setDescription([
-          `Click the link below to verify your Litecoin wallet:`,
-          `[🔗 Verify Wallet](${verificationLink})`,
+          `Click the button below to verify your Litecoin wallet:`,
           '',
           `**What happens next:**`,
-          `1. Click the link above`,
-          `2. Connect your Litecoin wallet (MetaMask, Ledger, etc.)`,
-          `3. That's it! Your wallet is verified automatically`,
-          `4. Verification expires in **10 minutes**`,
+          `<:leese:1457834970486800567> Click the button below`,
+          `<:leese:1457834970486800567> Connect your Litecoin wallet (MetaMask, Ledger, etc.)`,
+          `<:leese:1457834970486800567> Your wallet is verified automatically`,
+          `> **Note:** Verification link expires in **10 minutes**`,
           '',
-          `-# This link is **single-use** and will expire soon.`
+          `-# Do NOT share this link with anyone else.`
         ].join('\n'))
-        .setFooter({ text: 'If you did not request this, please ignore this message.' });
+
+      const verifyButton = new ButtonBuilder()
+        .setLabel('Verify Wallet')
+        .setStyle(ButtonStyle.Link)
+        .setURL(verificationLink);
+
+      const row = new ActionRowBuilder().addComponents(verifyButton);
 
       try {
-        await message.author.send({ embeds: [dmEmbed] });
+        await message.author.send({ embeds: [dmEmbed], components: [row] });
         
         // If called from button interaction, update the embed. Otherwise send a new message.
         if (interaction) {

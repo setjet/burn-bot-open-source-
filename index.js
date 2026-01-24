@@ -955,7 +955,7 @@ client.on('messageCreate', async (message) => {
         .setFooter({ text: `Error ID: ${Date.now()}` });
       await message.reply({ embeds: [errorEmbed] });
 
-      const logChannel = message.client.channels.cache.get('1457556095957729324');
+      const logChannel = message.client.channels.cache.get('1460567465141604383');
       if (logChannel) {
         const logEmbed = new EmbedBuilder()
           .setColor('#838996')

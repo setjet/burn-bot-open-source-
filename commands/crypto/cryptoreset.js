@@ -74,7 +74,7 @@ module.exports = {
       return message.reply({
         embeds: [
           new EmbedBuilder()
-            .setColor('#43b581')
+            .setColor('#838996')
             .setDescription([
               `<:check:1457808518848581858> <:arrows:1457808531678957784> All your crypto data have been reset.`,
               `-# <:tree:1457808523986731008> You can now **set** and **verify** your wallets again.`
