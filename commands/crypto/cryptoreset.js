@@ -32,9 +32,7 @@ module.exports = {
           new EmbedBuilder()
             .setColor('#838996')
             .setDescription([
-              `<:arrows:1457808531678957784> **Crypto Data Reset**`,
-              '',
-              `> You have no crypto data to reset.`
+              `<:disallowed:1457808577786806375> <:arrows:1457808531678957784> You have no **crypto data** to reset.`,
             ].join('\n'))
         ],
         allowedMentions: { repliedUser: false }
@@ -46,20 +44,20 @@ module.exports = {
       return message.reply({
         embeds: [
           new EmbedBuilder()
-            .setColor('#FFA500')
+            .setColor('#FF4D4D')
             .setDescription([
               `<:alert:1457808529200119880> <:arrows:1457808531678957784> **Reset Your Crypto Data**`,
               '',
-              `> This will delete all your crypto wallets and verification data.`,
-              `> You will need to set and verify your wallets again.`,
+              `<:leese:1457834970486800567> This will delete **all your crypto wallets and verification data.**`,
+              `<:tree:1457808523986731008> You will need to **set** and **verify** your wallets again.`,
               '',
-              `**Wallets to be deleted:**`,
+              `> **Wallets to be deleted:**`,
               ...Object.keys(allWallets).map(currency => `• ${currency}`),
               '',
-              `**To confirm, run:**`,
+              `> **To confirm, run:**`,
               `\`${prefix}cr confirm\``,
               '',
-              `-# ⚠️ This action cannot be undone.`
+              `-# Warning: This action **cannot be undone.**`
             ].join('\n'))
         ],
         allowedMentions: { repliedUser: false }
@@ -78,13 +76,8 @@ module.exports = {
           new EmbedBuilder()
             .setColor('#43b581')
             .setDescription([
-              `<:allowed:1457808577786806374> <:arrows:1457808531678957784> **Crypto Data Reset Complete**`,
-              '',
-              `> All your crypto wallets have been deleted.`,
-              `> Wallets reset: \`${walletCount}\``,
-              `> Nonces cleared: \`${noncesDeleted}\``,
-              '',
-              `> You can now set and verify your wallets again using the crypto commands.`
+              `<:check:1457808518848581858> <:arrows:1457808531678957784> All your crypto data have been reset.`,
+              `-# <:tree:1457808523986731008> You can now **set** and **verify** your wallets again.`
             ].join('\n'))
         ],
         allowedMentions: { repliedUser: false }
@@ -96,11 +89,7 @@ module.exports = {
           new EmbedBuilder()
             .setColor('#FF6B6B')
             .setDescription([
-              `<:disallowed:1457808577786806375> <:arrows:1457808531678957784> **Reset Failed**`,
-              '',
-              `> An error occurred while resetting your crypto data.`,
-              '',
-              `**Error:** \`${error.message}\``
+              `<:disallowed:1457808577786806375> <:arrows:1457808531678957784> An error occurred while resetting your crypto data.`,
             ].join('\n'))
         ],
         allowedMentions: { repliedUser: false }

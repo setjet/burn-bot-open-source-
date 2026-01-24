@@ -1,6 +1,6 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { dbHelpers } = require('../../db');
-const { validateAddress, getCurrencyName, getCurrencySymbol, fetchCryptoBalance, fetchCryptoPrice, convertToUSD, obfuscateAddress } = require('./utils');
+const { getCurrencySymbol, fetchCryptoBalance, convertToUSD, obfuscateAddress } = require('./utils');
 
 module.exports = {
   name: 'ltc',
@@ -54,10 +54,10 @@ module.exports = {
         // Validate balance is a valid number
         if (!isNaN(balance) && isFinite(balance)) {
           try {
-            const price = await fetchCryptoPrice(currency);
-            usdValue = await convertToUSD(balance, price);
+            usdValue = await convertToUSD(currency, balance);
           } catch (priceError) {
             console.error(`Error fetching price for ${currency}:`, priceError);
+            usdValue = 0;
           }
         } else {
           balanceError = 'Invalid balance response from API';
@@ -75,7 +75,7 @@ module.exports = {
       if (balance !== null) {
         const balanceFormatted = balance.toLocaleString('en-US', { maximumFractionDigits: 8, minimumFractionDigits: 0 });
         const usdFormatted = usdValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-        statusLines.push(`> **Balance:** \`${balanceFormatted} ${getCurrencySymbol(currency)} ($${usdFormatted} USD)\``);
+        statusLines.push(`> **Balance:** \`${balanceFormatted} ${getCurrencySymbol(currency)}\` (**$${usdFormatted})**`);
       } else if (balanceError) {
         statusLines.push(`> **Balance:** \`Error: ${balanceError}\``);
       }
@@ -117,16 +117,16 @@ module.exports = {
 
         const msg = await message.reply({
           embeds: [
-            new EmbedBuilder()
-              .setColor('#838996')
-              .setDescription([
-                `<:allowed:1457808577786806374> <:arrows:1457808531678957784> **Wallet Already Verified**`,
-                '',
-                `> You already have a verified **Litecoin** wallet set.`,
-                `> Address: \`${obfuscateAddress(existingWallet.address)}\``,
-                '',
-                `**Do you want to verify a different wallet?**`
-              ].join('\n'))
+          new EmbedBuilder()
+            .setColor('#838996')
+            .setDescription([
+              `<:alert:1457808529200119880> <:arrows:1457808531678957784> **Wallet Already Verified**`,
+              '',
+              `> You already have a verified **Litecoin** wallet set.`,
+              `<:tree:1457808523986731008> Address: \`${obfuscateAddress(existingWallet.address)}\``,
+              '',
+              `**Do you want to verify a different wallet?**`
+            ].join('\n'))
           ],
           components: [row],
           allowedMentions: { repliedUser: false }
@@ -139,22 +139,19 @@ module.exports = {
           if (interaction.customId === 'verify_no') {
             await interaction.update({
               embeds: [
-                new EmbedBuilder()
-                  .setColor('#838996')
-                  .setDescription([
-                    `<:disallowed:1457808577786806375> <:arrows:1457808531678957784> **Cancelled**`,
-                    '',
-                    `> Verification cancelled.`
-                  ].join('\n'))
+            new EmbedBuilder()
+              .setColor('#838996')
+              .setDescription([
+                `<:disallowed:1457808577786806375> <:arrows:1457808531678957784> **Verification Cancelled**`,
+              ].join('\n'))
               ],
               components: []
             });
             return;
           }
 
-          // User clicked Yes, defer and proceed with verification
-          await interaction.deferUpdate();
-          await proceedWithVerification(message, userId, currency, prefix);
+          // User clicked Yes, proceed with verification and update the embed
+          await proceedWithVerification(message, userId, currency, prefix, interaction);
         } catch (error) {
           console.error('Error in wallet verification confirmation:', error);
           await msg.edit({ components: [] }).catch(() => {});
@@ -166,7 +163,7 @@ module.exports = {
       return await proceedWithVerification(message, userId, currency, prefix);
     }
 
-    async function proceedWithVerification(message, userId, currency, prefix) {
+    async function proceedWithVerification(message, userId, currency, prefix, interaction = null) {
       // Generate verification nonce (no address needed - user will connect wallet)
       const nonce = dbHelpers.createVerificationNonce(userId, currency, null, 10);
       const verificationUrl = process.env.VERIFICATION_URL;
@@ -175,13 +172,10 @@ module.exports = {
         return message.reply({
           embeds: [
             new EmbedBuilder()
-              .setColor('#FF6B6B')
+              .setColor('#838996')
               .setDescription([
-                `<:disallowed:1457808577786806375> <:arrows:1457808531678957784> **Configuration Error**`,
-                '',
-                `> Verification URL is not configured.`,
-                '',
-                `-# Please set \`VERIFICATION_URL\` in your bot's environment variables.`
+                `<:disallowed:1457808577786806375> <:arrows:1457808531678957784> **Verification Error**`,
+                `-# <:tree:1457808523986731008> An error occurred while generating the **verification link**.`
               ].join('\n'))
           ],
           allowedMentions: { repliedUser: false }
@@ -210,39 +204,59 @@ module.exports = {
       try {
         await message.author.send({ embeds: [dmEmbed] });
         
-        return message.reply({
-          embeds: [
-            new EmbedBuilder()
-              .setColor('#838996')
-              .setDescription([
-                `<:allowed:1457808577786806374> <:arrows:1457808531678957784> **Verification Link Sent**`,
-                '',
-                `**Check your DMs!**`,
-                '',
-                `Click the link in your DMs to connect your Litecoin wallet and verify ownership.`,
-                '',
-                `-# The link expires in **10 minutes**.`
-              ].join('\n'))
-          ],
-          allowedMentions: { repliedUser: false }
-        });
+        // If called from button interaction, update the embed. Otherwise send a new message.
+        if (interaction) {
+          await interaction.update({
+            embeds: [
+              new EmbedBuilder()
+                .setColor('#838996')
+                .setDescription([
+                  `<:check:1457808518848581858> <:arrows:1457808531678957784> **A new verification link has been sent to your DMs.**`,
+                  `-# <tree:1457808523986731008> Check your messages to connect your Litecoin wallet.`
+                ].join('\n'))
+            ],
+            components: []
+          });
+        } else {
+          return message.reply({
+            embeds: [
+              new EmbedBuilder()
+                .setColor('#838996')
+                .setDescription([
+                  `<:allowed:1457808577786806374> <:arrows:1457808531678957784> **Verification Link** sent to your **DMs**.`,
+                  `-# <tree:1457808523986731008> The link expires in **10 minutes**.`
+                ].join('\n'))
+            ],
+            allowedMentions: { repliedUser: false }
+          });
+        }
       } catch (error) {
-        // If DM fails, send in channel
-        return message.reply({
-          embeds: [
-            new EmbedBuilder()
-              .setColor('#838996')
-              .setDescription([
-                `<:allowed:1457808577786806374> <:arrows:1457808531678957784> **Verification Link**`,
-                '',
-                `**Click the link below to verify your wallet:**`,
-                `[🔗 Verify Wallet](${verificationLink})`,
-                '',
-                `-# The link expires in **10 minutes**.`
-              ].join('\n'))
-          ],
-          allowedMentions: { repliedUser: false }
-        });
+        // If DM fails, tell user to open DMs
+        if (interaction) {
+          await interaction.update({
+            embeds: [
+              new EmbedBuilder()
+                .setColor('#838996')
+                .setDescription([
+                  `<:alert:1457808529200119880> <:arrows:1457808531678957784> I couldn't send you the **verification link**.`,
+                  `-# <tree:1457808523986731008> Make sure your DMs are **enabled** for this server.`
+                ].join('\n'))
+            ],
+            components: []
+          });
+        } else {
+          return message.reply({
+            embeds: [
+              new EmbedBuilder()
+                .setColor('#838996')
+                .setDescription([
+                  `<:alert:1457808529200119880> <:arrows:1457808531678957784> I couldn't send you the **verification link**.`,
+                  `-# <tree:1457808523986731008> Make sure your DMs are **enabled** for this server.`
+                ].join('\n'))
+            ],
+            allowedMentions: { repliedUser: false }
+          });
+        }
       }
     }
 
@@ -252,10 +266,12 @@ module.exports = {
         new EmbedBuilder()
           .setColor('#838996')
           .setDescription([
-            `<:disallowed:1457808577786806375> <:arrows:1457808531678957784> **Unknown Command**`,
+            `<:disallowed:1457808577786806375> <:arrows:1457808531678957784> **Unknown Subcommand**`,
             '',
-            `> Use \`${prefix}ltc set\` to set your wallet.`,
-            `> Use \`${prefix}ltc\` to view your wallet.`
+            `-# Available commands:`,
+            `> \`${prefix}ltc\` - View your wallet`,
+            `> \`${prefix}ltc set\` - Set and verify your wallet`,
+            `> \`${prefix}ltc remove\` - Remove your wallet`
           ].join('\n'))
       ],
       allowedMentions: { repliedUser: false }

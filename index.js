@@ -1225,12 +1225,12 @@ const verificationServer = http.createServer(async (req, res) => {
           const embed = new EmbedBuilder()
             .setColor('#838996')
             .setDescription([
-              `<:allowed:1457808577786806374> <:arrows:1457808531678957784> **Wallet Verified!**`,
+              `<:verified:1457809452790186177> <:arrows:1457808531678957784> **Wallet Verified!**`,
               '',
-              `> Your ${nonceData.currency} wallet has been successfully verified!`,
+              `> Your ${nonceData.currency} wallet has been successfully verified`,
               `> Address: \`${address}\``,
               '',
-              `-# Your wallet is now marked as verified on the leaderboard.`
+              `-# follow **[tos](https://discord.com/terms)** and **[gl](https://discord.com/guidelines)**`
             ].join('\n'));
           
           await user.send({ embeds: [embed] }).catch(() => {});
