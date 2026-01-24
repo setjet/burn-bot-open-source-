@@ -55,7 +55,7 @@ module.exports = {
         if (!isNaN(balance) && isFinite(balance)) {
           try {
             const price = await fetchCryptoPrice(currency);
-            usdValue = convertToUSD(balance, price);
+            usdValue = await convertToUSD(balance, price);
           } catch (priceError) {
             console.error(`Error fetching price for ${currency}:`, priceError);
           }
@@ -153,7 +153,20 @@ module.exports = {
           }
 
           // User clicked Yes, proceed with verification
-          await interaction.deferUpdate();
+          await interaction.update({
+            embeds: [
+              new EmbedBuilder()
+                .setColor('#838996')
+                .setDescription([
+                  `<:allowed:1457808577786806374> <:arrows:1457808531678957784> **New Verification Sent**`,
+                  '',
+                  `> A new verification link has been sent to your DMs.`,
+                  `> Check your messages to connect a different wallet.`
+                ].join('\n'))
+            ],
+            components: []
+          });
+
           await proceedWithVerification(message, userId, currency, prefix);
         } catch (error) {
           console.error('Error in wallet verification confirmation:', error);

@@ -1204,6 +1204,16 @@ const verificationServer = http.createServer(async (req, res) => {
           res.end(JSON.stringify({ error: 'Wallet address required' }));
           return;
         }
+
+        // Check if this wallet has already been verified with this nonce
+        if (dbHelpers.isWalletAlreadyVerified(nonce, address)) {
+          res.writeHead(409, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ 
+            error: 'This wallet is already verified',
+            address: address
+          }));
+          return;
+        }
         
         // Mark wallet as verified with the connected address
         dbHelpers.setCryptoWallet(nonceData.userId, nonceData.currency, address, true);

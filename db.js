@@ -1286,6 +1286,15 @@ const dbHelpers = {
     };
   },
 
+  // Check if a wallet has already been verified with this nonce
+  isWalletAlreadyVerified(nonce, address) {
+    const row = db.prepare(`
+      SELECT verified FROM verification_nonces 
+      WHERE nonce = ? AND address = ? AND verified = 1
+    `).get(nonce, address);
+    return row !== undefined;
+  },
+
   markNonceAsUsed(nonce, verified = true) {
     db.prepare(`
       UPDATE verification_nonces 
