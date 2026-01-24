@@ -1226,7 +1226,12 @@ const dbHelpers = {
   },
 
   removeCryptoWallet(userId, currency) {
-    db.prepare('DELETE FROM crypto_wallets WHERE user_id = ? AND currency = ?').run(userId, currency.toUpperCase());
+    if (currency === null) {
+      // Remove all wallets for this user
+      db.prepare('DELETE FROM crypto_wallets WHERE user_id = ?').run(userId);
+    } else {
+      db.prepare('DELETE FROM crypto_wallets WHERE user_id = ? AND currency = ?').run(userId, currency.toUpperCase());
+    }
   },
 
   getAllCryptoWallets(userId) {
@@ -1312,6 +1317,44 @@ const dbHelpers = {
   cleanupExpiredNonces() {
     // Clean up expired or used nonces (run periodically)
     return this.deleteExpiredNonces();
+  },
+
+  // Reset all crypto wallets (admin only)
+  resetAllCryptoWallets() {
+    try {
+      // Delete all crypto wallets
+      const walletsDeleted = db.prepare('DELETE FROM crypto_wallets').run().changes;
+      console.log(`Reset ${walletsDeleted} crypto wallets`);
+      return walletsDeleted;
+    } catch (error) {
+      console.error('Error resetting crypto wallets:', error);
+      return 0;
+    }
+  },
+
+  // Reset all verification nonces (admin only)
+  resetAllVerificationNonces() {
+    try {
+      // Delete all verification nonces
+      const noncesDeleted = db.prepare('DELETE FROM verification_nonces').run().changes;
+      console.log(`Reset ${noncesDeleted} verification nonces`);
+      return noncesDeleted;
+    } catch (error) {
+      console.error('Error resetting verification nonces:', error);
+      return 0;
+    }
+  },
+
+  // Reset all crypto data at once
+  resetAllCryptoData() {
+    try {
+      const walletsDeleted = this.resetAllCryptoWallets();
+      const noncesDeleted = this.resetAllVerificationNonces();
+      return { walletsDeleted, noncesDeleted };
+    } catch (error) {
+      console.error('Error resetting all crypto data:', error);
+      return { walletsDeleted: 0, noncesDeleted: 0 };
+    }
   }
 };
 

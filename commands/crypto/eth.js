@@ -152,21 +152,8 @@ module.exports = {
             return;
           }
 
-          // User clicked Yes, proceed with verification
-          await interaction.update({
-            embeds: [
-              new EmbedBuilder()
-                .setColor('#838996')
-                .setDescription([
-                  `<:allowed:1457808577786806374> <:arrows:1457808531678957784> **New Verification Sent**`,
-                  '',
-                  `> A new verification link has been sent to your DMs.`,
-                  `> Check your messages to connect a different wallet.`
-                ].join('\n'))
-            ],
-            components: []
-          });
-
+          // User clicked Yes, defer and proceed with verification
+          await interaction.deferUpdate();
           await proceedWithVerification(message, userId, currency, prefix);
         } catch (error) {
           console.error('Error in wallet verification confirmation:', error);
