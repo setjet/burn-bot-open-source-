@@ -102,131 +102,8 @@ module.exports = {
     const subcommand = args[0].toLowerCase();
 
     if (subcommand === 'set') {
-      if (args.length < 1) {
-        // No additional args needed - user will connect wallet
-        // Generate verification nonce (no address needed yet - user will connect wallet)
-        const nonce = dbHelpers.createVerificationNonce(userId, currency, null, 10); // 10 minute expiry, address set during verification
-        const verificationUrl = process.env.VERIFICATION_URL;
-        if (!verificationUrl) {
-          console.error('VERIFICATION_URL is not set in environment variables!');
-          return message.reply({
-            embeds: [
-              new EmbedBuilder()
-                .setColor('#FF6B6B')
-                .setDescription([
-                  `<:disallowed:1457808577786806375> <:arrows:1457808531678957784> **Configuration Error**`,
-                  '',
-                  `> Verification URL is not configured.`,
-                  '',
-                  `-# Please set \`VERIFICATION_URL\` in your bot's environment variables.`
-                ].join('\n'))
-            ],
-            allowedMentions: { repliedUser: false }
-          });
-        }
-        const verificationLink = `${verificationUrl}/verify?discord_id=${userId}&nonce=${nonce}&currency=${currency}`;
-
-        // Send DM with verification link
-        const dmEmbed = new EmbedBuilder()
-          .setColor('#838996')
-          .setTitle('<:arrows:1457808531678957784> **Verify Your Litecoin Wallet**')
-          .setDescription([
-            `Click the link below to verify your Litecoin wallet:`,
-            `[🔗 Verify Wallet](${verificationLink})`,
-            '',
-            `**What happens next:**`,
-            `1. Click the link above`,
-            `2. Connect your Litecoin wallet (MetaMask, Ledger, etc.)`,
-            `3. That's it! Your wallet is verified automatically`,
-            `4. Verification expires in **10 minutes**`,
-            '',
-            `-# This link is **single-use** and will expire soon.`
-          ].join('\n'))
-          .setFooter({ text: 'If you did not request this, please ignore this message.' });
-
-        try {
-          await message.author.send({ embeds: [dmEmbed] });
-          
-          return message.reply({
-            embeds: [
-              new EmbedBuilder()
-                .setColor('#838996')
-                .setDescription([
-                  `<:allowed:1457808577786806374> <:arrows:1457808531678957784> **Verification Link Sent**`,
-                  '',
-                  `**Check your DMs!**`,
-                  '',
-                  `Click the link in your DMs to connect your Litecoin wallet and verify ownership.`,
-                  '',
-                  `-# The link expires in **10 minutes**.`
-                ].join('\n'))
-            ],
-            allowedMentions: { repliedUser: false }
-          });
-        } catch (error) {
-          // If DM fails, send in channel
-          return message.reply({
-            embeds: [
-              new EmbedBuilder()
-                .setColor('#838996')
-                .setDescription([
-                  `<:allowed:1457808577786806374> <:arrows:1457808531678957784> **Verification Link**`,
-                  '',
-                  `**Click the link below to verify your wallet:**`,
-                  `[🔗 Verify Wallet](${verificationLink})`,
-                  '',
-                  `-# The link expires in **10 minutes**.`
-                ].join('\n'))
-            ],
-            allowedMentions: { repliedUser: false }
-          });
-        }
-      }
-
-      const address = args[1];
-      const formatValidation = validateAddress(currency, address);
-      
-      if (!formatValidation.valid) {
-        return message.reply({
-          embeds: [
-            new EmbedBuilder()
-              .setColor('#838996')
-              .setDescription([
-                `<:disallowed:1457808577786806375> <:arrows:1457808531678957784> **Invalid Address**`,
-                '',
-                `> ${formatValidation.error}`,
-                '',
-                `-# Please provide a valid Litecoin wallet address.`
-              ].join('\n'))
-          ],
-          allowedMentions: { repliedUser: false }
-        });
-      }
-
-      // Automatically validate on-chain (check if address exists)
-      let onChainValid = false;
-      let balance = null;
-      let onChainError = null;
-      
-      try {
-        balance = await fetchCryptoBalance(currency, address);
-        if (!isNaN(balance) && isFinite(balance)) {
-          onChainValid = true;
-        } else {
-          onChainError = 'Invalid balance response from API';
-        }
-      } catch (error) {
-        onChainError = error.message || 'Failed to fetch balance';
-        if (error.message && (error.message.includes('Invalid') || error.message.includes('not found') || error.message.includes('404'))) {
-          onChainValid = false;
-        }
-      }
-
-      // Set wallet (unverified by default)
-      dbHelpers.setCryptoWallet(userId, currency, address, false);
-
-      // Generate verification nonce
-      const nonce = dbHelpers.createVerificationNonce(userId, currency, address, 10);
+      // Generate verification nonce (no address needed - user will connect wallet)
+      const nonce = dbHelpers.createVerificationNonce(userId, currency, null, 10);
       const verificationUrl = process.env.VERIFICATION_URL;
       if (!verificationUrl) {
         console.error('VERIFICATION_URL is not set in environment variables!');
@@ -247,30 +124,17 @@ module.exports = {
       }
       const verificationLink = `${verificationUrl}/verify?discord_id=${userId}&nonce=${nonce}&currency=${currency}`;
 
-      // Build validation status
-      const validationStatus = [];
-      validationStatus.push(`**Address:** \`${address}\``);
-      validationStatus.push(`**Format Valid:** <:allowed:1457808577786806374> Yes`);
-      validationStatus.push(`**On-Chain Valid:** ${onChainValid ? '<:allowed:1457808577786806374> Yes' : '<:disallowed:1457808577786806375> No'}`);
-      if (onChainValid && balance !== null) {
-        validationStatus.push(`**Balance:** \`${balance.toLocaleString('en-US', { maximumFractionDigits: 8, minimumFractionDigits: 0 })} ${getCurrencySymbol(currency)}\``);
-      } else if (onChainError) {
-        validationStatus.push(`**On-Chain Error:** ${onChainError}`);
-      }
-
       // Send DM with verification link
       const dmEmbed = new EmbedBuilder()
-        .setColor(onChainValid ? '#838996' : '#FFA500')
-        .setTitle('<:arrows:1457808531678957784> **Wallet Set & Ready to Verify**')
+        .setColor('#838996')
+        .setTitle('<:arrows:1457808531678957784> **Verify Your Litecoin Wallet**')
         .setDescription([
-          ...validationStatus,
-          '',
-          `**Click the link below to verify your wallet:**`,
+          `Click the link below to verify your Litecoin wallet:`,
           `[🔗 Verify Wallet](${verificationLink})`,
           '',
           `**What happens next:**`,
           `1. Click the link above`,
-          `2. Connect your wallet`,
+          `2. Connect your Litecoin wallet (MetaMask, Ledger, etc.)`,
           `3. That's it! Your wallet is verified automatically`,
           `4. Verification expires in **10 minutes**`,
           '',
@@ -284,15 +148,15 @@ module.exports = {
         return message.reply({
           embeds: [
             new EmbedBuilder()
-              .setColor(onChainValid ? '#838996' : '#FFA500')
+              .setColor('#838996')
               .setDescription([
-                `<:allowed:1457808577786806374> <:arrows:1457808531678957784> **Wallet Set & Ready to Verify**`,
+                `<:allowed:1457808577786806374> <:arrows:1457808531678957784> **Verification Link Sent**`,
                 '',
-                ...validationStatus,
+                `**Check your DMs!**`,
                 '',
-                `**Verification link sent via DM!**`,
+                `Click the link in your DMs to connect your Litecoin wallet and verify ownership.`,
                 '',
-                `-# Check your DMs to connect your wallet and verify. The link expires in 10 minutes.`
+                `-# The link expires in **10 minutes**.`
               ].join('\n'))
           ],
           allowedMentions: { repliedUser: false }
@@ -302,16 +166,14 @@ module.exports = {
         return message.reply({
           embeds: [
             new EmbedBuilder()
-              .setColor(onChainValid ? '#838996' : '#FFA500')
+              .setColor('#838996')
               .setDescription([
-                `<:allowed:1457808577786806374> <:arrows:1457808531678957784> **Wallet Set & Ready to Verify**`,
+                `<:allowed:1457808577786806374> <:arrows:1457808531678957784> **Verification Link**`,
                 '',
-                ...validationStatus,
+                `**Click the link below to verify your wallet:**`,
+                `[🔗 Verify Wallet](${verificationLink})`,
                 '',
-                `**Verification link:**`,
-                `[🔗 Click here to verify](${verificationLink})`,
-                '',
-                `-# Click the link, connect your wallet, and you're done! Expires in **10 minutes**.`
+                `-# The link expires in **10 minutes**.`
               ].join('\n'))
           ],
           allowedMentions: { repliedUser: false }

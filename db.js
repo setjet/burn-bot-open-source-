@@ -218,7 +218,7 @@ function initializeDatabase() {
       nonce TEXT PRIMARY KEY,
       user_id TEXT NOT NULL,
       currency TEXT NOT NULL,
-      address TEXT NOT NULL,
+      address TEXT,
       created_at INTEGER NOT NULL,
       expires_at INTEGER NOT NULL,
       used INTEGER DEFAULT 0,
@@ -467,6 +467,43 @@ function migrateDatabase() {
   } catch (error) {
     // Table might not exist yet, that's okay - it will be created with new structure
     console.error('Error migrating crypto_wallets table:', error.message);
+  }
+  
+  // Migrate verification_nonces table to make address nullable
+  try {
+    const verificationNoncesTableInfo = db.prepare("PRAGMA table_info(verification_nonces)").all();
+    const addressColumn = verificationNoncesTableInfo.find(col => col.name === 'address');
+    
+    // Check if address column is NOT NULL (notnull = 1)
+    if (addressColumn && addressColumn.notnull === 1) {
+      console.log('Migrating verification_nonces table to make address nullable...');
+      
+      // SQLite doesn't support ALTER COLUMN directly, so we need to recreate the table
+      db.exec(`
+        ALTER TABLE verification_nonces RENAME TO verification_nonces_old;
+        
+        CREATE TABLE verification_nonces (
+          nonce TEXT PRIMARY KEY,
+          user_id TEXT NOT NULL,
+          currency TEXT NOT NULL,
+          address TEXT,
+          created_at INTEGER NOT NULL,
+          expires_at INTEGER NOT NULL,
+          used INTEGER DEFAULT 0,
+          verified INTEGER DEFAULT 0
+        );
+        
+        INSERT INTO verification_nonces (nonce, user_id, currency, address, created_at, expires_at, used, verified)
+        SELECT nonce, user_id, currency, address, created_at, expires_at, used, verified FROM verification_nonces_old;
+        
+        DROP TABLE verification_nonces_old;
+      `);
+      
+      console.log('Migration complete: address column in verification_nonces is now nullable');
+    }
+  } catch (error) {
+    // Table might not exist yet or already nullable, that's okay
+    console.error('Error migrating verification_nonces table:', error.message);
   }
   
 }
