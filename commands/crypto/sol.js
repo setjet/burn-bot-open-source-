@@ -82,7 +82,7 @@ module.exports = {
       const embed = new EmbedBuilder()
         .setColor('#838996')
         .setDescription([
-          `<:arrows:1457808531678957784> **<@${targetUser.id}>'s Solana Wallet***`,
+          `<:arrows:1457808531678957784> **<@${message.author.id}>'s Solana Wallet**`,
           '',
           ...statusLines
         ].join('\n'))

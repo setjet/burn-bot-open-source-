@@ -72,11 +72,6 @@ async function fetchCryptoBalance(currency, address) {
     throw new Error(`Unsupported currency: ${currency}`);
   }
 
-  // Validate address format
-  if (!config.addressValidator(address)) {
-    throw new Error(`Invalid ${config.name} address format`);
-  }
-
   // Special handling for Solana (uses RPC instead of REST API)
   if (currency.toUpperCase() === 'SOL') {
     try {

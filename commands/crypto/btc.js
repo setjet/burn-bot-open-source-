@@ -83,7 +83,7 @@ module.exports = {
       const embed = new EmbedBuilder()
         .setColor('#838996')
         .setDescription([
-          `<:bitcoin:1464571530779431037> **<@${targetUser.id}>'s Bitcoin Wallet**`,
+          `<:bitcoin:1464571530779431037> **<@${message.author.id}>'s Bitcoin Wallet**`,
           '',
           ...statusLines
         ].join('\n'))
