@@ -195,7 +195,7 @@ module.exports = {
           `<:tree:1457808523986731008> Your wallet is verified automatically`,
           `> **Note:** Verification link expires in **10 minutes**`,
           '',
-          `-# <:excl:1457809455268888679> <:arrows:1457808531678957784> Do NOT share this link with anyone else.`
+          `-# Do **NOT** share this link with anyone else.`
         ].join('\n'))
 
       const verifyButton = new ButtonBuilder()
