@@ -1,6 +1,6 @@
 const { EmbedBuilder } = require('discord.js');
 const { dbHelpers } = require('../../db');
-const { validateAddress, getCurrencyName, getCurrencySymbol, fetchCryptoBalance } = require('./utils');
+const { validateAddress, getCurrencyName, getCurrencySymbol, fetchCryptoBalance, fetchCryptoPrice, convertToUSD, obfuscateAddress } = require('./utils');
 
 module.exports = {
   name: 'ltc',
@@ -38,59 +38,57 @@ module.exports = {
                 '',
                 `> No wallet address set.`,
                 '',
-                `-# Use \`${prefix}ltc set <address>\` to set your wallet address.`
+                `-# Use \`${prefix}ltc set\` to set your wallet address.`
               ].join('\n'))
           ],
           allowedMentions: { repliedUser: false }
         });
       }
 
-      // Re-validate address format (in case validation improved)
-      const formatValidation = validateAddress(currency, wallet.address);
-      const isValidFormat = formatValidation.valid;
-
-      // Try to fetch balance (on-chain validation)
+      // Fetch balance
       let balance = null;
       let balanceError = null;
-      let onChainValid = false;
+      let usdValue = 0;
       try {
         balance = await fetchCryptoBalance(currency, wallet.address);
+        // Validate balance is a valid number
         if (!isNaN(balance) && isFinite(balance)) {
-          onChainValid = true;
+          try {
+            const price = await fetchCryptoPrice(currency);
+            usdValue = convertToUSD(balance, price);
+          } catch (priceError) {
+            console.error(`Error fetching price for ${currency}:`, priceError);
+          }
         } else {
           balanceError = 'Invalid balance response from API';
+          balance = null;
         }
       } catch (error) {
         balanceError = error.message || 'Failed to fetch balance';
-        if (error.message && (error.message.includes('Invalid') || error.message.includes('not found') || error.message.includes('404'))) {
-          onChainValid = false;
-        }
+        console.error(`Error fetching ${currency} balance for ${wallet.address}:`, error);
       }
 
-      // Build status indicators
+      // Build wallet info
       const statusLines = [];
-      statusLines.push(`> **Address:** \`${wallet.address}\``);
-      statusLines.push(`> **Format Valid:** ${isValidFormat ? '<:allowed:1457808577786806374> Yes' : '<:disallowed:1457808577786806375> No'}`);
-      if (!isValidFormat && formatValidation.error) {
-        statusLines.push(`> **Format Error:** ${formatValidation.error}`);
-      }
-      statusLines.push(`> **On-Chain Valid:** ${onChainValid ? '<:allowed:1457808577786806374> Yes' : '<:disallowed:1457808577786806375> No'}`);
+      statusLines.push(`> **Address:** \`${obfuscateAddress(wallet.address)}\``);
       statusLines.push(`> **Verified:** ${wallet.verified ? '<:allowed:1457808577786806374> Yes' : '<:disallowed:1457808577786806375> No'}`);
       if (balance !== null) {
-        statusLines.push(`> **Balance:** \`${balance.toLocaleString('en-US', { maximumFractionDigits: 8, minimumFractionDigits: 0 })} ${getCurrencySymbol(currency)}\``);
+        const balanceFormatted = balance.toLocaleString('en-US', { maximumFractionDigits: 8, minimumFractionDigits: 0 });
+        const usdFormatted = usdValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        statusLines.push(`> **Balance:** \`${balanceFormatted} ${getCurrencySymbol(currency)} ($${usdFormatted} USD)\``);
       } else if (balanceError) {
         statusLines.push(`> **Balance:** \`Error: ${balanceError}\``);
       }
 
       const embed = new EmbedBuilder()
-        .setColor(isValidFormat && onChainValid ? '#838996' : '#FF6B6B')
+        .setColor('#838996')
         .setDescription([
           `<:arrows:1457808531678957784> **Litecoin Wallet**`,
           '',
           ...statusLines
         ].join('\n'))
         .addFields([
-          { name: '', value: `-# Use \`${prefix}ltc set <address>\` to update your wallet.`, inline: false }
+          { name: '', value: `-# Use \`${prefix}ltc set\` to update your wallet.`, inline: false }
         ]);
 
       return message.reply({ 
@@ -102,6 +100,59 @@ module.exports = {
     const subcommand = args[0].toLowerCase();
 
     if (subcommand === 'set') {
+      // Check if user already has a verified wallet
+      const existingWallet = dbHelpers.getCryptoWallet(userId, currency);
+      if (existingWallet && existingWallet.verified) {
+        return message.reply({
+          embeds: [
+            new EmbedBuilder()
+              .setColor('#838996')
+              .setDescription([
+                `<:allowed:1457808577786806374> <:arrows:1457808531678957784> **Wallet Already Verified**`,
+                '',
+                `> You already have a verified **Litecoin** wallet set.`,
+                `> Address: \`${obfuscateAddress(existingWallet.address)}\``,
+                '',
+                `**Do you want to verify a different wallet?**`,
+                `React with ✅ to proceed, or ignore to cancel.`
+              ].join('\n'))
+          ],
+          allowedMentions: { repliedUser: false }
+        }).then(async (msg) => {
+          try {
+            await msg.react('✅');
+            const filter = (reaction, user) => reaction.emoji.name === '✅' && user.id === message.author.id;
+            const collected = await msg.awaitReactions({ filter, max: 1, time: 30000 });
+            
+            if (collected.size === 0) {
+              await msg.edit({
+                embeds: [
+                  new EmbedBuilder()
+                    .setColor('#838996')
+                    .setDescription([
+                      `<:disallowed:1457808577786806375> <:arrows:1457808531678957784> **Cancelled**`,
+                      '',
+                      `> Verification cancelled.`
+                    ].join('\n'))
+                ]
+              }).catch(() => {});
+              return;
+            }
+            
+            // User confirmed, proceed with verification
+            await proceedWithVerification(message, userId, currency, prefix);
+          } catch (error) {
+            console.error('Error in wallet verification confirmation:', error);
+          }
+        }).catch(() => {});
+        return;
+      }
+
+      // Proceed with verification
+      await proceedWithVerification(message, userId, currency, prefix);
+    }
+
+    async function proceedWithVerification(message, userId, currency, prefix) {
       // Generate verification nonce (no address needed - user will connect wallet)
       const nonce = dbHelpers.createVerificationNonce(userId, currency, null, 10);
       const verificationUrl = process.env.VERIFICATION_URL;
@@ -181,129 +232,19 @@ module.exports = {
       }
     }
 
-    if (subcommand === 'verify') {
-      const wallet = dbHelpers.getCryptoWallet(userId, currency);
-      if (!wallet) {
-        return message.reply({
-          embeds: [
-            new EmbedBuilder()
-              .setColor('#838996')
-              .setDescription([
-                `<:disallowed:1457808577786806375> <:arrows:1457808531678957784> **No Wallet Set**`,
-                '',
-                `> You don't have a Litecoin wallet address set.`,
-                '',
-                `-# Use \`${prefix}ltc set <address>\` to set your wallet first.`
-              ].join('\n'))
-          ],
-          allowedMentions: { repliedUser: false }
-        });
-      }
-
-      if (wallet.verified) {
-        return message.reply({
-          embeds: [
-            new EmbedBuilder()
-              .setColor('#838996')
-              .setDescription([
-                `<:allowed:1457808577786806374> <:arrows:1457808531678957784> **Already Verified**`,
-                '',
-                `> Your Litecoin wallet is already verified.`
-              ].join('\n'))
-          ],
-          allowedMentions: { repliedUser: false }
-        });
-      }
-
-      // Generate new nonce for verification
-      const nonce = dbHelpers.createVerificationNonce(userId, currency, wallet.address, 10);
-      const verificationUrl = process.env.VERIFICATION_URL;
-      if (!verificationUrl) {
-        console.error('VERIFICATION_URL is not set in environment variables!');
-        return message.reply({
-          embeds: [
-            new EmbedBuilder()
-              .setColor('#FF6B6B')
-              .setDescription([
-                `<:disallowed:1457808577786806375> <:arrows:1457808531678957784> **Configuration Error**`,
-                '',
-                `> Verification URL is not configured.`,
-                '',
-                `-# Please set \`VERIFICATION_URL\` in your bot's environment variables.`
-              ].join('\n'))
-          ],
-          allowedMentions: { repliedUser: false }
-        });
-      }
-      const verificationLink = `${verificationUrl}/verify?discord_id=${userId}&nonce=${nonce}`;
-
-      return message.reply({
-        embeds: [
-          new EmbedBuilder()
-            .setColor('#838996')
-            .setDescription([
-              `<:arrows:1457808531678957784> **Verification Link**`,
-              '',
-              `**Click the link below to verify your wallet:**`,
-              `[🔗 Verify Wallet](${verificationLink})`,
-              '',
-              `-# This link expires in **10 minutes** and is **single-use**.`
-            ].join('\n'))
-        ],
-        allowedMentions: { repliedUser: false }
-      });
-    }
-
-    if (subcommand === 'remove' || subcommand === 'delete') {
-      const wallet = dbHelpers.getCryptoWallet(userId, currency);
-      if (!wallet) {
-        return message.reply({
-          embeds: [
-            new EmbedBuilder()
-              .setColor('#838996')
-              .setDescription([
-                `<:disallowed:1457808577786806375> <:arrows:1457808531678957784> **No Wallet Set**`,
-                '',
-                `> You don't have a Litecoin wallet address set.`
-              ].join('\n'))
-          ],
-          allowedMentions: { repliedUser: false }
-        });
-      }
-
-      dbHelpers.removeCryptoWallet(userId, currency);
-
-      return message.reply({
-        embeds: [
-          new EmbedBuilder()
-            .setColor('#838996')
-            .setDescription([
-              `<:allowed:1457808577786806374> <:arrows:1457808531678957784> **Wallet Removed**`,
-              '',
-              `> Your Litecoin wallet address has been removed.`
-            ].join('\n'))
-        ],
-        allowedMentions: { repliedUser: false }
-      });
-    }
-
     // Unknown subcommand
     return message.reply({
       embeds: [
         new EmbedBuilder()
           .setColor('#838996')
           .setDescription([
-            `<:disallowed:1457808577786806375> <:arrows:1457808531678957784> **Unknown Subcommand**`,
+            `<:disallowed:1457808577786806375> <:arrows:1457808531678957784> **Unknown Command**`,
             '',
-            `-# Available commands:`,
-            `> \`${prefix}ltc\` - View your wallet`,
-            `> \`${prefix}ltc set <address>\` - Set your wallet address`,
-            `> \`${prefix}ltc verify <signature>\` - Verify wallet ownership`,
-            `> \`${prefix}ltc remove\` - Remove your wallet address`
+            `> Use \`${prefix}ltc set\` to set your wallet.`,
+            `> Use \`${prefix}ltc\` to view your wallet.`
           ].join('\n'))
       ],
       allowedMentions: { repliedUser: false }
     });
   }
 };
-

@@ -1,6 +1,6 @@
 const { EmbedBuilder } = require('discord.js');
 const { dbHelpers } = require('../../db');
-const { validateAddress, getCurrencyName, getCurrencySymbol, fetchCryptoBalance } = require('./utils');
+const { validateAddress, getCurrencyName, getCurrencySymbol, fetchCryptoBalance, fetchCryptoPrice, convertToUSD, obfuscateAddress } = require('./utils');
 
 module.exports = {
   name: 'eth',
@@ -38,63 +38,57 @@ module.exports = {
                 '',
                 `> No wallet address set.`,
                 '',
-                `-# Use \`${prefix}eth set <address>\` to set your wallet address.`
+                `-# Use \`${prefix}eth set\` to set your wallet address.`
               ].join('\n'))
           ],
           allowedMentions: { repliedUser: false }
         });
       }
 
-      // Re-validate address format (in case validation improved)
-      const formatValidation = validateAddress(currency, wallet.address);
-      const isValidFormat = formatValidation.valid;
-
-      // Try to fetch balance (on-chain validation)
+      // Fetch balance
       let balance = null;
       let balanceError = null;
-      let onChainValid = false;
+      let usdValue = 0;
       try {
         balance = await fetchCryptoBalance(currency, wallet.address);
         // Validate balance is a valid number
-        if (isNaN(balance) || !isFinite(balance)) {
+        if (!isNaN(balance) && isFinite(balance)) {
+          try {
+            const price = await fetchCryptoPrice(currency);
+            usdValue = convertToUSD(balance, price);
+          } catch (priceError) {
+            console.error(`Error fetching price for ${currency}:`, priceError);
+          }
+        } else {
           balanceError = 'Invalid balance response from API';
           balance = null;
-        } else {
-          onChainValid = true; // Address exists on-chain if we got a balance
         }
       } catch (error) {
         balanceError = error.message || 'Failed to fetch balance';
-        // If it's a format/address error, mark as invalid
-        if (error.message && (error.message.includes('Invalid') || error.message.includes('not found') || error.message.includes('404'))) {
-          onChainValid = false;
-        }
-        console.error(`Error fetching ETH balance for ${wallet.address}:`, error);
+        console.error(`Error fetching ${currency} balance for ${wallet.address}:`, error);
       }
 
-      // Build status indicators
+      // Build wallet info
       const statusLines = [];
-      statusLines.push(`> **Address:** \`${wallet.address}\``);
-      statusLines.push(`> **Format Valid:** ${isValidFormat ? '<:allowed:1457808577786806374> Yes' : '<:disallowed:1457808577786806375> No'}`);
-      if (!isValidFormat && formatValidation.error) {
-        statusLines.push(`> **Format Error:** ${formatValidation.error}`);
-      }
-      statusLines.push(`> **On-Chain Valid:** ${onChainValid ? '<:allowed:1457808577786806374> Yes' : '<:disallowed:1457808577786806375> No'}`);
+      statusLines.push(`> **Address:** \`${obfuscateAddress(wallet.address)}\``);
       statusLines.push(`> **Verified:** ${wallet.verified ? '<:allowed:1457808577786806374> Yes' : '<:disallowed:1457808577786806375> No'}`);
       if (balance !== null) {
-        statusLines.push(`> **Balance:** \`${balance.toLocaleString('en-US', { maximumFractionDigits: 8, minimumFractionDigits: 0 })} ${getCurrencySymbol(currency)}\``);
+        const balanceFormatted = balance.toLocaleString('en-US', { maximumFractionDigits: 8, minimumFractionDigits: 0 });
+        const usdFormatted = usdValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        statusLines.push(`> **Balance:** \`${balanceFormatted} ${getCurrencySymbol(currency)} ($${usdFormatted} USD)\``);
       } else if (balanceError) {
         statusLines.push(`> **Balance:** \`Error: ${balanceError}\``);
       }
 
       const embed = new EmbedBuilder()
-        .setColor(isValidFormat && onChainValid ? '#838996' : '#FF6B6B')
+        .setColor('#838996')
         .setDescription([
           `<:arrows:1457808531678957784> **Ethereum Wallet**`,
           '',
           ...statusLines
         ].join('\n'))
         .addFields([
-          { name: '', value: `-# Use \`${prefix}eth set <address>\` to update your wallet.`, inline: false }
+          { name: '', value: `-# Use \`${prefix}eth set\` to update your wallet.`, inline: false }
         ]);
 
       return message.reply({ 
@@ -106,8 +100,61 @@ module.exports = {
     const subcommand = args[0].toLowerCase();
 
     if (subcommand === 'set') {
+      // Check if user already has a verified wallet
+      const existingWallet = dbHelpers.getCryptoWallet(userId, currency);
+      if (existingWallet && existingWallet.verified) {
+        return message.reply({
+          embeds: [
+            new EmbedBuilder()
+              .setColor('#838996')
+              .setDescription([
+                `<:allowed:1457808577786806374> <:arrows:1457808531678957784> **Wallet Already Verified**`,
+                '',
+                `> You already have a verified **Ethereum** wallet set.`,
+                `> Address: \`${obfuscateAddress(existingWallet.address)}\``,
+                '',
+                `**Do you want to verify a different wallet?**`,
+                `React with ✅ to proceed, or ignore to cancel.`
+              ].join('\n'))
+          ],
+          allowedMentions: { repliedUser: false }
+        }).then(async (msg) => {
+          try {
+            await msg.react('✅');
+            const filter = (reaction, user) => reaction.emoji.name === '✅' && user.id === message.author.id;
+            const collected = await msg.awaitReactions({ filter, max: 1, time: 30000 });
+            
+            if (collected.size === 0) {
+              await msg.edit({
+                embeds: [
+                  new EmbedBuilder()
+                    .setColor('#838996')
+                    .setDescription([
+                      `<:disallowed:1457808577786806375> <:arrows:1457808531678957784> **Cancelled**`,
+                      '',
+                      `> Verification cancelled.`
+                    ].join('\n'))
+                ]
+              }).catch(() => {});
+              return;
+            }
+            
+            // User confirmed, proceed with verification
+            await proceedWithVerification(message, userId, currency, prefix);
+          } catch (error) {
+            console.error('Error in wallet verification confirmation:', error);
+          }
+        }).catch(() => {});
+        return;
+      }
+
+      // Proceed with verification
+      await proceedWithVerification(message, userId, currency, prefix);
+    }
+
+    async function proceedWithVerification(message, userId, currency, prefix) {
       // Generate verification nonce (no address needed - user will connect wallet)
-      const nonce = dbHelpers.createVerificationNonce(userId, currency, null, 10); // 10 minute expiry, address set during verification
+      const nonce = dbHelpers.createVerificationNonce(userId, currency, null, 10);
       const verificationUrl = process.env.VERIFICATION_URL;
       if (!verificationUrl) {
         console.error('VERIFICATION_URL is not set in environment variables!');

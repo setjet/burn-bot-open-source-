@@ -17,10 +17,10 @@ const CRYPTO_CONFIG = {
   SOL: {
     name: 'Solana',
     symbol: 'SOL',
-    apiUrl: (address) => `https://api.solscan.io/account?address=${address}`,
-    balancePath: 'data.lamports',
+    apiUrl: (address) => `https://api.mainnet-beta.solana.com`,
+    balancePath: null, // We'll handle this specially for Solana RPC
     balanceConverter: (lamports) => lamports / 1e9, // Convert lamports to SOL
-    fallbackApi: (address) => `https://public-api.solana.com`, // RPC endpoint
+    fallbackApi: (address) => `https://api.solscan.io/account?address=${address}`,
     addressValidator: (address) => {
       try {
         // Use Solana's PublicKey for proper validation
@@ -280,6 +280,16 @@ async function fetchCryptoBalance(currency, address) {
     throw new Error(`Invalid ${config.name} address format`);
   }
 
+  // Special handling for Solana (uses RPC instead of REST API)
+  if (currency.toUpperCase() === 'SOL') {
+    try {
+      const balance = await fetchSolanaBalance(address);
+      return balance;
+    } catch (error) {
+      throw new Error(`Failed to fetch Solana balance: ${error.message}`);
+    }
+  }
+
   try {
     // Try primary API
     const balance = await fetchFromAPI(config.apiUrl(address), config.balancePath, config.balanceConverter, address);
@@ -296,6 +306,65 @@ async function fetchCryptoBalance(currency, address) {
     }
     throw error;
   }
+}
+
+/**
+ * Fetch Solana balance using RPC endpoint
+ */
+async function fetchSolanaBalance(address) {
+  return new Promise((resolve, reject) => {
+    const payload = JSON.stringify({
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'getBalance',
+      params: [address]
+    });
+
+    const options = {
+      hostname: 'api.mainnet-beta.solana.com',
+      path: '/',
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': payload.length,
+        'User-Agent': 'Discord-Bot/1.0'
+      }
+    };
+
+    const req = https.request(options, (res) => {
+      let data = '';
+
+      res.on('data', (chunk) => {
+        data += chunk;
+      });
+
+      res.on('end', () => {
+        try {
+          const json = JSON.parse(data);
+          if (json.error) {
+            reject(new Error(`Solana RPC error: ${json.error.message}`));
+            return;
+          }
+          if (!json.result || json.result.value === undefined) {
+            reject(new Error('Invalid Solana RPC response'));
+            return;
+          }
+          const lamports = json.result.value;
+          const sol = lamports / 1e9;
+          resolve(sol);
+        } catch (e) {
+          reject(new Error(`Failed to parse Solana balance: ${e.message}`));
+        }
+      });
+    });
+
+    req.on('error', (e) => {
+      reject(new Error(`Network error: ${e.message}`));
+    });
+
+    req.write(payload);
+    req.end();
+  });
 }
 
 /**
@@ -752,6 +821,18 @@ function verifyCryptoSignature(currency, message, signature, expectedAddress) {
   }
 }
 
+/**
+ * Obfuscate a crypto address to show only first and last few characters
+ */
+function obfuscateAddress(address) {
+  if (!address || address.length <= 10) {
+    return address;
+  }
+  const start = address.substring(0, 6);
+  const end = address.substring(address.length - 4);
+  return `${start}...${end}`;
+}
+
 module.exports = {
   fetchCryptoBalance,
   validateAddress,
@@ -762,6 +843,7 @@ module.exports = {
   convertToUSD,
   generateVerificationMessage,
   verifyCryptoSignature,
+  obfuscateAddress,
   CRYPTO_CONFIG
 };
 
