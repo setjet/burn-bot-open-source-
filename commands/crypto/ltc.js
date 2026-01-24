@@ -188,15 +188,15 @@ module.exports = {
         .setColor('#838996')
         .setTitle('<:arrows:1457808531678957784> **Verify Your Litecoin Wallet**')
         .setDescription([
-          `Click the button below to verify your Litecoin wallet:`,
+          `Click the button below to verify your **Litecoin** wallet:`,
           '',
           `**What happens next:**`,
           `<:leese:1457834970486800567> Click the button below`,
-          `<:leese:1457834970486800567> Connect your Litecoin wallet (MetaMask, Ledger, etc.)`,
-          `<:leese:1457834970486800567> Your wallet is verified automatically`,
+          `<:leese:1457834970486800567> Connect your **Litecoin** wallet (MetaMask, Ledger, etc.)`,
+          `<:tree:1457808523986731008> Your wallet is verified automatically`,
           `> **Note:** Verification link expires in **10 minutes**`,
           '',
-          `-# Do NOT share this link with anyone else.`
+          `-# <:excl:1457809455268888679> <:arrows:1457808531678957784> Do NOT share this link with anyone else.`
         ].join('\n'))
 
       const verifyButton = new ButtonBuilder()

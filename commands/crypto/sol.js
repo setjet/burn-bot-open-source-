@@ -192,10 +192,10 @@ module.exports = {
           `**What happens next:**`,
           `<:leese:1457834970486800567> Click the button below`,
           `<:leese:1457834970486800567> Connect your **Solana** wallet (Phantom, Exodus, etc.)`,
-          `<:leese:1457834970486800567> Your wallet is verified automatically`,
+          `<:tree:1457808523986731008> Your wallet is verified automatically`,
           `> **Note:** Verification link expires in **10 minutes**`,
           '',
-          `-# Do NOT share this link with anyone else.`
+          `-# <:excl:1457809455268888679> <:arrows:1457808531678957784> Do NOT share this link with anyone else.`
         ].join('\n'))
 
       const verifyButton = new ButtonBuilder()

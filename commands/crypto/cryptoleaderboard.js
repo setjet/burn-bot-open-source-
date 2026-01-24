@@ -141,7 +141,7 @@ module.exports = {
       .addFields([
         { 
           name: '', 
-          value: `-# <:arrows:1457808531678957784> Top **${sortedUsers.length}** users by highest wallet value (USD)${currencyFilter ? ` (${getCurrencyName(currencyFilter)} only)` : ''}`, 
+          value: `-# <:arrows:1457808531678957784> Top **${sortedUsers.length}** richest users by wallet value${currencyFilter ? ` (${getCurrencyName(currencyFilter)} only)` : ''}`, 
           inline: false 
         }
       ]);
