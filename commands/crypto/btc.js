@@ -163,7 +163,7 @@ module.exports = {
       }
 
       // Proceed with verification
-      await proceedWithVerification(message, userId, currency, prefix);
+      return await proceedWithVerification(message, userId, currency, prefix);
     }
 
     async function proceedWithVerification(message, userId, currency, prefix) {
