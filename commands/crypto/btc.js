@@ -211,7 +211,7 @@ module.exports = {
                 .setColor('#838996')
                 .setDescription([
                   `<:check:1457808518848581858> <:arrows:1457808531678957784> **A new verification link has been sent to your DMs.**`,
-                  `-# <tree:1457808523986731008> Check your messages to connect your Bitcoin wallet.`
+                  `-# <:tree:1457808523986731008> Check your messages to connect your Bitcoin wallet.`
                 ].join('\n'))
             ],
             components: []
@@ -223,7 +223,7 @@ module.exports = {
                 .setColor('#838996')
                 .setDescription([
                   `<:allowed:1457808577786806374> <:arrows:1457808531678957784> **Verification Link** sent to your **DMs**.`,
-                  `-# <tree:1457808523986731008> The link expires in **10 minutes**.`
+                  `-# <:tree:1457808523986731008> The link expires in **10 minutes**.`
                 ].join('\n'))
             ],
             allowedMentions: { repliedUser: false }
@@ -238,7 +238,7 @@ module.exports = {
                 .setColor('#838996')
                 .setDescription([
                   `<:alert:1457808529200119880> <:arrows:1457808531678957784> I couldn't send you the **verification link**.`,
-                  `-# <tree:1457808523986731008> Make sure your DMs are **enabled** for this server.`
+                  `-# <:tree:1457808523986731008> Make sure your DMs are **enabled** for this server.`
                 ].join('\n'))
             ],
             components: []
@@ -250,7 +250,7 @@ module.exports = {
                 .setColor('#838996')
                 .setDescription([
                   `<:alert:1457808529200119880> <:arrows:1457808531678957784> I couldn't send you the **verification link**.`,
-                  `-# <tree:1457808523986731008> Make sure your DMs are **enabled** for this server.`
+                  `-# <:tree:1457808523986731008> Make sure your DMs are **enabled** for this server.`
                 ].join('\n'))
             ],
             allowedMentions: { repliedUser: false }
