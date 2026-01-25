@@ -237,6 +237,11 @@ function initializeDatabase() {
       last_attempt_at INTEGER NOT NULL,
       UNIQUE(limit_type, identifier)
     );
+
+    -- Crypto command allowed users (bypass premium role check)
+    CREATE TABLE IF NOT EXISTS crypto_allowed_users (
+      user_id TEXT PRIMARY KEY
+    );
   `);
 }
 
@@ -1492,6 +1497,47 @@ const dbHelpers = {
     } catch (error) {
       console.error('Error storing nonce IP:', error);
       return false;
+    }
+  },
+
+  // Crypto allowed users (bypass premium role check)
+  addCryptoAllowedUser(userId) {
+    try {
+      db.prepare('INSERT OR IGNORE INTO crypto_allowed_users (user_id) VALUES (?)').run(userId);
+      return true;
+    } catch (error) {
+      console.error('Error adding crypto allowed user:', error);
+      return false;
+    }
+  },
+
+  removeCryptoAllowedUser(userId) {
+    try {
+      db.prepare('DELETE FROM crypto_allowed_users WHERE user_id = ?').run(userId);
+      return true;
+    } catch (error) {
+      console.error('Error removing crypto allowed user:', error);
+      return false;
+    }
+  },
+
+  isCryptoAllowedUser(userId) {
+    try {
+      const result = db.prepare('SELECT 1 FROM crypto_allowed_users WHERE user_id = ?').get(userId);
+      return !!result;
+    } catch (error) {
+      console.error('Error checking crypto allowed user:', error);
+      return false;
+    }
+  },
+
+  getAllCryptoAllowedUsers() {
+    try {
+      const rows = db.prepare('SELECT user_id FROM crypto_allowed_users').all();
+      return rows.map(row => row.user_id);
+    } catch (error) {
+      console.error('Error getting all crypto allowed users:', error);
+      return [];
     }
   }
 };

@@ -7,19 +7,35 @@ module.exports = {
   aliases: ['solana'],
   category: 'utilities',
   description: '<:arrows:1457808531678957784> Manage your Solana wallet address.',
-  async execute(message, args, { prefix }) {
-    // Role restriction: Only users with the specified role can use crypto commands
-    const REQUIRED_ROLE_ID = '1458579256077586453';
+  async execute(message, args, { prefix, client, dbHelpers }) {
+    // Premium feature: Check if user has premium role in bot's server OR is in allowed list
+    const BOT_SERVER_ID = '1455305225081589843'; // Bot's main server ID (where premium role exists)
+    const PREMIUM_ROLE_ID = '1458579256077586453'; // Premium role ID in bot's server
     
     // Check if command is used in a server
     if (!message.guild) {
       return; // Ignore DMs
     }
     
-    // Check if user has the required role
-    const member = message.member;
-    if (!member || !member.roles.cache.has(REQUIRED_ROLE_ID)) {
-      return; // Ignore users without the role
+    // Check if user is in allowed list (bypasses premium check)
+    if (dbHelpers.isCryptoAllowedUser(message.author.id)) {
+      // User is allowed, continue with command
+    } else {
+      // Check if user has premium role in bot's server
+      try {
+        const botServer = client.guilds.cache.get(BOT_SERVER_ID);
+        if (!botServer) {
+          return; // Bot's server not found, skip check
+        }
+        
+        const memberInBotServer = await botServer.members.fetch(message.author.id).catch(() => null);
+        if (!memberInBotServer || !memberInBotServer.roles.cache.has(PREMIUM_ROLE_ID)) {
+          return; // User doesn't have premium role in bot's server
+        }
+      } catch (error) {
+        // If check fails, silently ignore (user doesn't have access)
+        return;
+      }
     }
     
     const userId = message.author.id;
