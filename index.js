@@ -1158,7 +1158,7 @@ const verificationServer = http.createServer(async (req, res) => {
     return;
   }
   
-  // Verification result endpoint (simplified - no signature verification needed)
+  // Verification result endpoint (with rate limiting and user verification)
   if (parsedUrl.pathname === '/api/verify' && req.method === 'POST') {
     let body = '';
     req.on('data', chunk => {
@@ -1168,16 +1168,43 @@ const verificationServer = http.createServer(async (req, res) => {
     req.on('end', async () => {
       try {
         const data = JSON.parse(body);
-        const { nonce, address, secret } = data;
+        const { nonce, address, secret, discordUserId } = data;
         
-        // Verify secret
+        // Get client IP address
+        const clientIP = req.headers['x-forwarded-for']?.split(',')[0].trim() || req.socket.remoteAddress;
+        
+        // ===== RATE LIMITING (HIGH PRIORITY) =====
+        // Rate limit by nonce (5 attempts per nonce per hour)
+        const nonceRateLimit = dbHelpers.checkRateLimit('nonce', nonce, 5, 3600000);
+        if (!nonceRateLimit.allowed) {
+          res.writeHead(429, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ 
+            error: 'Too many verification attempts for this nonce',
+            message: nonceRateLimit.message,
+            retryAfter: nonceRateLimit.exponentialDelay
+          }));
+          return;
+        }
+        
+        // Rate limit by IP (10 attempts per hour)
+        const ipRateLimit = dbHelpers.checkRateLimit('ip', clientIP, 10, 3600000);
+        if (!ipRateLimit.allowed) {
+          res.writeHead(429, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ 
+            error: 'Too many verification attempts from your IP',
+            retryAfter: ipRateLimit.exponentialDelay
+          }));
+          return;
+        }
+        
+        // ===== VERIFY SECRET =====
         if (secret !== VERIFICATION_API_SECRET) {
           res.writeHead(401, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: 'Unauthorized' }));
           return;
         }
         
-        // Validate nonce
+        // ===== VALIDATE NONCE =====
         const nonceData = dbHelpers.getVerificationNonce(nonce);
         if (!nonceData) {
           res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -1197,7 +1224,18 @@ const verificationServer = http.createServer(async (req, res) => {
           return;
         }
         
-        // Verify address is provided
+        // ===== DISCORD USER AUTHENTICATION (CRITICAL) =====
+        // Verify that the Discord user requesting verification is the owner of the nonce
+        if (discordUserId && discordUserId !== nonceData.userId) {
+          res.writeHead(403, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ 
+            error: 'You are not authorized to verify this nonce',
+            message: 'This nonce belongs to a different Discord user'
+          }));
+          return;
+        }
+        
+        // ===== VERIFY ADDRESS IS PROVIDED =====
         if (!address) {
           dbHelpers.markNonceAsUsed(nonce, false);
           res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -1205,7 +1243,7 @@ const verificationServer = http.createServer(async (req, res) => {
           return;
         }
 
-        // Check if this wallet has already been verified with this nonce
+        // ===== CHECK FOR DUPLICATE VERIFICATION =====
         if (dbHelpers.isWalletAlreadyVerified(nonce, address)) {
           res.writeHead(409, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ 
@@ -1215,9 +1253,17 @@ const verificationServer = http.createServer(async (req, res) => {
           return;
         }
         
+        // ===== VERIFICATION SUCCESSFUL =====
         // Mark wallet as verified with the connected address
         dbHelpers.setCryptoWallet(nonceData.userId, nonceData.currency, address, true);
         dbHelpers.markNonceAsUsed(nonce, true);
+        
+        // Store IP address for security audit trail
+        dbHelpers.storeNonceWithIP(nonce, clientIP);
+        
+        // Note: We do NOT reset rate limits on success
+        // Rate limits should remain in place to prevent abuse
+        // Once a nonce is used, it can't be reused anyway, so rate limits naturally expire
         
         // Send DM to user
         try {
@@ -1264,6 +1310,14 @@ setInterval(() => {
     console.log(`Cleaned up ${deleted} expired nonces`);
   }
 }, 5 * 60 * 1000);
+
+// Cleanup expired rate limits every 10 minutes
+setInterval(() => {
+  const deleted = dbHelpers.cleanupExpiredRateLimits();
+  if (deleted > 0) {
+    console.log(`Cleaned up ${deleted} expired rate limit entries`);
+  }
+}, 10 * 60 * 1000);
 
 const token = process.env.DISCORD_TOKEN;
 if (!token) {

@@ -222,7 +222,20 @@ function initializeDatabase() {
       created_at INTEGER NOT NULL,
       expires_at INTEGER NOT NULL,
       used INTEGER DEFAULT 0,
-      verified INTEGER DEFAULT 0
+      verified INTEGER DEFAULT 0,
+      ip_address TEXT
+    );
+
+    -- Rate limiting for API security
+    CREATE TABLE IF NOT EXISTS rate_limits (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      limit_type TEXT NOT NULL, -- 'nonce', 'ip', 'discord_id'
+      identifier TEXT NOT NULL,
+      attempt_count INTEGER DEFAULT 1,
+      first_attempt_at INTEGER NOT NULL,
+      reset_at INTEGER NOT NULL,
+      last_attempt_at INTEGER NOT NULL,
+      UNIQUE(limit_type, identifier)
     );
   `);
 }
@@ -1365,6 +1378,120 @@ const dbHelpers = {
     } catch (error) {
       console.error('Error resetting all crypto data:', error);
       return { walletsDeleted: 0, noncesDeleted: 0 };
+    }
+  },
+
+  // ===== RATE LIMITING FUNCTIONS =====
+
+  // Check and track rate limit - returns { allowed: boolean, remainingAttempts: number, resetTime: number }
+  checkRateLimit(limitType, identifier, maxAttempts = 5, windowMs = 3600000) {
+    try {
+      const now = Date.now();
+      
+      // Get existing rate limit entry
+      const existing = db.prepare(
+        'SELECT * FROM rate_limits WHERE limit_type = ? AND identifier = ?'
+      ).get(limitType, identifier);
+      
+      if (!existing) {
+        // First attempt in this window
+        db.prepare(
+          'INSERT INTO rate_limits (limit_type, identifier, attempt_count, first_attempt_at, reset_at, last_attempt_at) VALUES (?, ?, 1, ?, ?, ?)'
+        ).run(limitType, identifier, now, now + windowMs, now);
+        
+        return {
+          allowed: true,
+          remainingAttempts: maxAttempts - 1,
+          resetTime: now + windowMs,
+          exponentialDelay: 0
+        };
+      }
+      
+      // Check if window has expired
+      if (now > existing.reset_at) {
+        // Reset the window
+        db.prepare(
+          'UPDATE rate_limits SET attempt_count = 1, first_attempt_at = ?, reset_at = ?, last_attempt_at = ? WHERE limit_type = ? AND identifier = ?'
+        ).run(now, now + windowMs, now, limitType, identifier);
+        
+        return {
+          allowed: true,
+          remainingAttempts: maxAttempts - 1,
+          resetTime: now + windowMs,
+          exponentialDelay: 0
+        };
+      }
+      
+      // Window still active - check if exceeded
+      if (existing.attempt_count >= maxAttempts) {
+        // Calculate exponential backoff delay (1s, 2s, 4s, 8s, 16s)
+        const excessAttempts = existing.attempt_count - maxAttempts;
+        const exponentialDelay = Math.min(Math.pow(2, excessAttempts - 1) * 1000, 16000);
+        
+        return {
+          allowed: false,
+          remainingAttempts: 0,
+          resetTime: existing.reset_at,
+          exponentialDelay,
+          message: `Too many attempts. Please try again in ${Math.ceil((existing.reset_at - now) / 1000)} seconds.`
+        };
+      }
+      
+      // Within limit - increment counter
+      const newCount = existing.attempt_count + 1;
+      db.prepare(
+        'UPDATE rate_limits SET attempt_count = ?, last_attempt_at = ? WHERE limit_type = ? AND identifier = ?'
+      ).run(newCount, now, limitType, identifier);
+      
+      return {
+        allowed: true,
+        remainingAttempts: maxAttempts - newCount,
+        resetTime: existing.reset_at,
+        exponentialDelay: 0
+      };
+    } catch (error) {
+      console.error('Error checking rate limit:', error);
+      return { allowed: true, remainingAttempts: maxAttempts, exponentialDelay: 0 };
+    }
+  },
+
+  // Reset rate limit for a specific identifier
+  resetRateLimit(limitType, identifier) {
+    try {
+      db.prepare(
+        'DELETE FROM rate_limits WHERE limit_type = ? AND identifier = ?'
+      ).run(limitType, identifier);
+      return true;
+    } catch (error) {
+      console.error('Error resetting rate limit:', error);
+      return false;
+    }
+  },
+
+  // Cleanup expired rate limits (call periodically)
+  cleanupExpiredRateLimits() {
+    try {
+      const now = Date.now();
+      const deleted = db.prepare(
+        'DELETE FROM rate_limits WHERE reset_at < ?'
+      ).run(now);
+      return deleted.changes;
+    } catch (error) {
+      console.error('Error cleaning up expired rate limits:', error);
+      return 0;
+    }
+  },
+
+  // Store IP address with nonce for tracking
+  storeNonceWithIP(nonce, ipAddress) {
+    try {
+      db.prepare(
+        'UPDATE verification_nonces SET ip_address = ? WHERE nonce = ?'
+      ).run(ipAddress, nonce);
+      return true;
+    } catch (error) {
+      console.error('Error storing nonce IP:', error);
+      return false;
     }
   }
 };
