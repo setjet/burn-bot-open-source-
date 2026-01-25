@@ -1104,6 +1104,39 @@ const url = require('url');
 const VERIFICATION_API_PORT = process.env.VERIFICATION_API_PORT || 3001;
 const VERIFICATION_API_SECRET = process.env.VERIFICATION_API_SECRET || require('crypto').randomBytes(32).toString('hex');
 
+// Address format validation function
+function validateAddressFormat(address, currency) {
+  if (!address || !currency) return false;
+  
+  const upperCurrency = currency.toUpperCase();
+  
+  switch (upperCurrency) {
+    case 'ETH':
+      // Ethereum: 0x followed by 40 hex characters
+      return /^0x[a-fA-F0-9]{40}$/.test(address);
+      
+    case 'SOL':
+      // Solana: Base58 encoded, 32-44 characters
+      // Base58: 1-9, A-H, J-N, P-Z, a-k, m-z (no 0, O, I, l)
+      return /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(address);
+      
+    case 'BTC':
+      // Bitcoin: Legacy (1...), SegWit (bc1...), Taproot (bc1p...)
+      return /^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$/.test(address) ||
+             /^bc1[a-z0-9]{39,59}$/.test(address) ||
+             /^bc1p[a-z0-9]{58}$/.test(address);
+      
+    case 'LTC':
+      // Litecoin: Legacy (L...), SegWit (ltc1...)
+      return /^[LM][a-km-zA-HJ-NP-Z1-9]{25,34}$/.test(address) ||
+             /^ltc1[a-z0-9]{39,59}$/.test(address) ||
+             /^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$/.test(address);
+      
+    default:
+      return false;
+  }
+}
+
 const verificationServer = http.createServer(async (req, res) => {
   // CORS headers - restrict to allowed origins only
   const allowedOrigin = process.env.VERIFICATION_FRONTEND_URL || '*';
@@ -1186,7 +1219,7 @@ const verificationServer = http.createServer(async (req, res) => {
     req.on('end', async () => {
       try {
         const data = JSON.parse(body);
-        const { nonce, address, secret, discordUserId: bodyDiscordUserId } = data;
+        const { nonce, address, secret, discordUserId: bodyDiscordUserId, currency: requestCurrency } = data;
         
         // Prefer URL parameter over body (URL is harder to tamper with)
         // Fallback to body if URL param not present (for backwards compatibility)
@@ -1271,11 +1304,45 @@ const verificationServer = http.createServer(async (req, res) => {
           return;
         }
         
+        // ===== VALIDATE CURRENCY (CRITICAL SECURITY CHECK) =====
+        // Require currency to be provided
+        if (!requestCurrency) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ 
+            error: 'Currency is required',
+            message: 'Currency must be provided in the verification request'
+          }));
+          return;
+        }
+        
+        // Validate currency matches stored currency in nonce
+        const requestedCurrency = String(requestCurrency).toUpperCase();
+        const storedCurrency = String(nonceData.currency).toUpperCase();
+        
+        if (requestedCurrency !== storedCurrency) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ 
+            error: 'Currency mismatch',
+            message: `This verification link is for ${storedCurrency}, but you specified ${requestedCurrency}. Please use the correct verification link from Discord.`
+          }));
+          return;
+        }
+        
         // ===== VERIFY ADDRESS IS PROVIDED =====
         if (!address) {
           dbHelpers.markNonceAsUsed(nonce, false);
           res.writeHead(400, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: 'Wallet address required' }));
+          return;
+        }
+        
+        // ===== VALIDATE ADDRESS FORMAT MATCHES CURRENCY =====
+        if (!validateAddressFormat(address, storedCurrency)) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ 
+            error: 'Address format mismatch',
+            message: `The wallet address format doesn't match ${storedCurrency}. Please connect a valid ${storedCurrency} wallet.`
+          }));
           return;
         }
 
