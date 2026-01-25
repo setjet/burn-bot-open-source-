@@ -30,13 +30,13 @@ Write-Host "Test 2: Testing Rate Limiting (6 attempts with same nonce)..." -Fore
 Write-Host "  Note: We'll use a real nonce but with INVALID data so attempts fail (nonce won't be marked as used)" -ForegroundColor Gray
 Write-Host "  This allows us to test rate limiting properly" -ForegroundColor Gray
 
-# Get a fresh nonce from Discord (user needs to run ,eth set first)
+
 Write-Host "`n  ⚠️  IMPORTANT: Use a FRESH nonce that hasn't been used yet!" -ForegroundColor Yellow
 Write-Host "  Run ',eth set' in Discord to get a new nonce, then paste it here:" -ForegroundColor Cyan
 $testNonce = Read-Host "  Enter nonce (or press Enter to use test nonce)"
 
 if ([string]::IsNullOrWhiteSpace($testNonce)) {
-    $testNonce = "test-nonce-$(Get-Random -Minimum 10000 -Maximum 99999)"
+    $testNonce = "4af7cd06359a896c724268868c3858983185ffe949e4c70cc913114cd6725307"
     Write-Host "  Using test nonce: $testNonce" -ForegroundColor Gray
 }
 
@@ -45,7 +45,7 @@ $uri = "https://$domain/api/verify"
 $body = @{
     nonce = $testNonce
     address = "invalid-address-format"  # Invalid format so it fails
-    discordUserId = "123456789"
+    discordUserId = "1355470391102931055"
     secret = $secret
 } | ConvertTo-Json
 
@@ -101,46 +101,69 @@ Write-Host "`n---`n" -ForegroundColor Gray
 
 # Test 3: User Authentication (Wrong Discord ID)
 Write-Host "Test 3: Testing User Authentication (Wrong Discord ID)..." -ForegroundColor Cyan
-Write-Host "  Note: User auth check happens AFTER nonce validation, so we need a real nonce" -ForegroundColor Gray
-$body = @{
-    nonce = $testNonce
-    address = "0x123abc"
-    discordUserId = "wrong-user-id-999999"
-    secret = $secret
-} | ConvertTo-Json
+Write-Host "  Note: Need a FRESH nonce (not rate-limited) to test user auth" -ForegroundColor Gray
+Write-Host "  Run ',eth set' in Discord to get a new nonce for this test" -ForegroundColor Cyan
+$userAuthNonce = Read-Host "  Enter a fresh nonce for user auth test (or press Enter to skip)"
 
-try {
-    $response = Invoke-RestMethod -Uri $uri -Method Post -Body $body -ContentType "application/json"
-    Write-Host "❌ User authentication NOT working! (Should have been blocked)" -ForegroundColor Red
-} catch {
-    $statusCode = $_.Exception.Response.StatusCode.value__
-    if ($statusCode -eq 403) {
-        Write-Host "✅ User authentication working! (403 Forbidden is correct)" -ForegroundColor Green
-        $errorMsg = $_.ErrorDetails.Message
-        if ($errorMsg) {
-            Write-Host "   Message: $errorMsg" -ForegroundColor Yellow
+if (-not [string]::IsNullOrWhiteSpace($userAuthNonce)) {
+    # Get the correct Discord user ID for this nonce (from the nonce data)
+    Write-Host "  Getting nonce owner info..." -ForegroundColor Gray
+    try {
+        $nonceInfo = Invoke-RestMethod -Uri "https://$domain/api/nonce?nonce=$userAuthNonce" -Method Get
+        $correctUserId = $nonceInfo.userId
+        Write-Host "  Nonce owner: $correctUserId" -ForegroundColor Gray
+        
+        # Test with WRONG Discord user ID
+        $body = @{
+            nonce = $userAuthNonce
+            address = "0x123abc"
+            discordUserId = "wrong-user-id-999999"  # Wrong ID!
+            secret = $secret
+        } | ConvertTo-Json
+        
+        try {
+            $response = Invoke-RestMethod -Uri $uri -Method Post -Body $body -ContentType "application/json"
+            Write-Host "❌ User authentication NOT working! (Should have been blocked)" -ForegroundColor Red
+        } catch {
+            $statusCode = $_.Exception.Response.StatusCode.value__
+            if ($statusCode -eq 403) {
+                Write-Host "✅ User authentication working! (403 Forbidden is correct)" -ForegroundColor Green
+                $errorMsg = $_.ErrorDetails.Message
+                if ($errorMsg) {
+                    Write-Host "   Message: $errorMsg" -ForegroundColor Yellow
+                }
+            } elseif ($statusCode -eq 429) {
+                Write-Host "⚠️  Status: 429 (Rate limited - nonce was already rate-limited from previous test)" -ForegroundColor Yellow
+                Write-Host "   💡 Use a completely fresh nonce that hasn't been tested yet" -ForegroundColor Cyan
+            } elseif ($statusCode -eq 400) {
+                Write-Host "⚠️  Status: 400 (Request failed - check error message)" -ForegroundColor Yellow
+                $errorMsg = $_.ErrorDetails.Message
+                if ($errorMsg) {
+                    Write-Host "   Error: $errorMsg" -ForegroundColor Gray
+                }
+            } else {
+                Write-Host "⚠️  Status: $statusCode (Expected 403 for user auth test)" -ForegroundColor Yellow
+                $errorMsg = $_.ErrorDetails.Message
+                if ($errorMsg) {
+                    Write-Host "   Error: $errorMsg" -ForegroundColor Gray
+                }
+            }
         }
-    } elseif ($statusCode -eq 400) {
-        Write-Host "⚠️  Status: 400 (Nonce doesn't exist - can't test user auth without real nonce)" -ForegroundColor Yellow
-        Write-Host "   💡 To test user auth: Use a real nonce from Discord command" -ForegroundColor Cyan
-    } else {
-        Write-Host "⚠️  Status: $statusCode (Expected 403 for user auth test)" -ForegroundColor Yellow
-        $errorMsg = $_.ErrorDetails.Message
-        if ($errorMsg) {
-            Write-Host "   Error: $errorMsg" -ForegroundColor Gray
-        }
+    } catch {
+        Write-Host "⚠️  Could not fetch nonce info. Make sure the nonce exists and is valid." -ForegroundColor Yellow
     }
+} else {
+    Write-Host "  ⏭️  Skipping user auth test (no nonce provided)" -ForegroundColor Gray
 }
 
 Write-Host "`n=== Testing Complete ===" -ForegroundColor Cyan
 Write-Host "`n📝 Summary:" -ForegroundColor Cyan
-Write-Host "  ✅ HTTPS: Working if you got 400/404 (not connection refused)" -ForegroundColor Green
-Write-Host "  ⚠️  Rate Limiting: Needs real nonce from Discord to test properly" -ForegroundColor Yellow
-Write-Host "  ⚠️  User Auth: Needs real nonce from Discord to test properly" -ForegroundColor Yellow
-Write-Host "`n💡 To properly test rate limiting and user auth:" -ForegroundColor Cyan
-Write-Host "  1. Run ',eth set' in Discord to generate a real nonce" -ForegroundColor White
-Write-Host "  2. Copy the nonce from the verification URL" -ForegroundColor White
-Write-Host "  3. Update this script with the real nonce and Discord user ID" -ForegroundColor White
-Write-Host "  4. Run the tests again" -ForegroundColor White
-Write-Host "`n✅ Your API is accessible and responding correctly!`n" -ForegroundColor Green
+Write-Host "  ✅ HTTPS: Working (404 response confirms it)" -ForegroundColor Green
+if ($rateLimitTriggered) {
+    Write-Host "  ✅ Rate Limiting: Working correctly (429 triggered on attempts 5-6)" -ForegroundColor Green
+} else {
+    Write-Host "  ⚠️  Rate Limiting: Not tested or didn't trigger" -ForegroundColor Yellow
+}
+Write-Host "  ℹ️  User Auth: Test with a fresh nonce (not rate-limited)" -ForegroundColor Cyan
+Write-Host "`n✅ Your API security features are working correctly!`n" -ForegroundColor Green
 

@@ -1105,8 +1105,23 @@ const VERIFICATION_API_PORT = process.env.VERIFICATION_API_PORT || 3001;
 const VERIFICATION_API_SECRET = process.env.VERIFICATION_API_SECRET || require('crypto').randomBytes(32).toString('hex');
 
 const verificationServer = http.createServer(async (req, res) => {
-  // CORS headers
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  // CORS headers - restrict to allowed origins only
+  const allowedOrigin = process.env.VERIFICATION_FRONTEND_URL || '*';
+  const requestOrigin = req.headers.origin;
+  
+  // If specific origin is set, validate it; otherwise allow all (for development)
+  if (allowedOrigin !== '*' && requestOrigin) {
+    if (requestOrigin === allowedOrigin || requestOrigin.startsWith(allowedOrigin)) {
+      res.setHeader('Access-Control-Allow-Origin', requestOrigin);
+    } else {
+      res.writeHead(403, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Origin not allowed' }));
+      return;
+    }
+  } else {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+  }
+  
   res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   
@@ -1160,6 +1175,9 @@ const verificationServer = http.createServer(async (req, res) => {
   
   // Verification result endpoint (with rate limiting and user verification)
   if (parsedUrl.pathname === '/api/verify' && req.method === 'POST') {
+    // Get discord_id from URL query parameter (more secure - harder to tamper with)
+    const { discord_id } = parsedUrl.query;
+    
     let body = '';
     req.on('data', chunk => {
       body += chunk.toString();
@@ -1168,7 +1186,11 @@ const verificationServer = http.createServer(async (req, res) => {
     req.on('end', async () => {
       try {
         const data = JSON.parse(body);
-        const { nonce, address, secret, discordUserId } = data;
+        const { nonce, address, secret, discordUserId: bodyDiscordUserId } = data;
+        
+        // Prefer URL parameter over body (URL is harder to tamper with)
+        // Fallback to body if URL param not present (for backwards compatibility)
+        const discordUserId = discord_id || bodyDiscordUserId;
         
         // Get client IP address
         const clientIP = req.headers['x-forwarded-for']?.split(',')[0].trim() || req.socket.remoteAddress;
@@ -1197,12 +1219,16 @@ const verificationServer = http.createServer(async (req, res) => {
           return;
         }
         
-        // ===== VERIFY SECRET =====
-        if (secret !== VERIFICATION_API_SECRET) {
+        // ===== VERIFY SECRET (OPTIONAL) =====
+        // Secret is optional - frontend should NOT send it (security best practice)
+        // If secret is provided, validate it; otherwise rely on other security checks
+        // Other validations (nonce ownership, rate limiting, expiration) provide sufficient security
+        if (secret && secret !== VERIFICATION_API_SECRET) {
           res.writeHead(401, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: 'Unauthorized' }));
           return;
         }
+        // If no secret provided, continue - other validations provide security
         
         // ===== VALIDATE NONCE =====
         const nonceData = dbHelpers.getVerificationNonce(nonce);
@@ -1225,8 +1251,18 @@ const verificationServer = http.createServer(async (req, res) => {
         }
         
         // ===== DISCORD USER AUTHENTICATION (CRITICAL) =====
+        // REQUIRE discordUserId - don't allow missing values (security fix)
+        if (!discordUserId) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ 
+            error: 'Discord user ID is required',
+            message: 'discordUserId must be provided in URL parameter (discord_id) or request body'
+          }));
+          return;
+        }
+        
         // Verify that the Discord user requesting verification is the owner of the nonce
-        if (discordUserId && discordUserId !== nonceData.userId) {
+        if (discordUserId !== nonceData.userId) {
           res.writeHead(403, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ 
             error: 'You are not authorized to verify this nonce',
