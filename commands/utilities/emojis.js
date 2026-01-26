@@ -37,13 +37,14 @@ module.exports = {
       return message.reply({
         embeds: [
           new EmbedBuilder()
-            .setColor('#838996')
-            .setDescription([
-              '<:settings:1457808572720087266> **Usage:**',
-              `\`\`\`${prefix}emoji (subcommand) (args)\`\`\``,
-              '-# <:arrows:1457808531678957784> Use `add` to add an emoji, or `delete` to remove it.',
-              '\n**Aliases:** `N/A`'
-            ].join('\n'))
+          .setColor('#838996')
+          .setDescription([
+            '<:settings:1457808572720087266> **Usage:**',
+            `\`\`\`${prefix}emoji (subcommand)\`\`\``,
+            '-# <:arrows:1457808531678957784> **__Subcommands__**\n <:leese:1457834970486800567> `add` to add an emoji.\n <:tree:1457808523986731008>  `delete` to remove an emoji.',
+            '',
+            '**Aliases:** `N/A`'
+          ].join('\n'))
         ],
         allowedMentions: { repliedUser: false }
       });

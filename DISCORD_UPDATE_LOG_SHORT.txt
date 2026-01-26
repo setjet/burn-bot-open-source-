@@ -32,7 +32,15 @@
 ,linkfilter allow discord.gg
 ```
 
-**Permissions:** Manage Guild (Logging, Link Filter) | Administrator (Raid Protection)
+📌 **Pin Messages** (`pin`)
+<:arrows:1457808531678957784> Pin messages in channels
+<:leese:1457834970486800567> Reply to a message to pin it
+<:leese:1457834970486800567> Requires Manage Channels permission
+```
+,pin (reply to a message)
+```
+
+**Permissions:** Manage Guild (Logging, Link Filter) | Administrator (Raid Protection) | Manage Channels (Pin)
 
 <:check:1457808518848581858> All settings persist to database
 <:check:1457808518848581858> Server owner excluded from filters
@@ -63,4 +71,8 @@
 <:check:1457808518848581858> **Fixed message delete logging** - Now properly logs images, videos, and file attachments
 <:check:1457808518848581858> **Fixed view display** - "Enabled Events" now shows count instead of cluttering with full list
 <:check:1457808518848581858> **Improved event organization** - Events grouped into category-based dropdowns for better UX
+<:check:1457808518848581858> **Fixed sticker command** - Resolved Sharp processing errors and syntax issues
+<:check:1457808518848581858> **Fixed GIF sticker preservation** - GIF stickers now remain animated when copied (no longer converted to static images)
+<:check:1457808518848581858> **Fixed sticker command loading** - Removed extra closing brace that prevented command from loading
+<:check:1457808518848581858> **Improved sticker error handling** - Better fallback logic when Sharp fails to process images
 

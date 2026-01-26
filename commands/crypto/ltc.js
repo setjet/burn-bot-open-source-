@@ -5,7 +5,6 @@ const { getCurrencySymbol, fetchCryptoBalance, convertToUSD, obfuscateAddress } 
 module.exports = {
   name: 'ltc',
   aliases: ['litecoin'],
-  category: 'utilities',
   description: '<:arrows:1457808531678957784> Manage your Litecoin wallet address.',
   async execute(message, args, { prefix, client, dbHelpers }) {
     // Premium feature: Check if user has premium role in bot's server OR is in allowed list
