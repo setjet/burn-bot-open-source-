@@ -18,21 +18,14 @@ module.exports = {
       return message.reply({
         embeds: [
           new EmbedBuilder()
-            .setColor('#838996')
-            .setDescription([
-              '<:settings:1457808572720087266> **Usage:**',
-              `\`\`\`${prefix}purge <amount> | <user> <amount> | <subcommand>\`\`\``,
-              '-# <:arrows:1457808531678957784> Delete messages from a channel or specific user.',
-              '',
-              `**Examples:**`,
-              `\`${prefix}purge 10\` - Delete 10 messages`,
-              `\`${prefix}purge @user 10\` - Delete 10 messages from a user`,
-              `\`${prefix}purge contains word\` - Delete messages containing a word`,
-              `\`${prefix}purge images\` - Delete messages with images`,
-              `\`${prefix}purge emojis\` - Delete messages with emojis`,
-              '',
-              '**Aliases:** `c`'
-            ].join('\n'))
+          .setColor('#838996')
+          .setDescription([
+            '<:settings:1457808572720087266> **Usage:**',
+            `\`\`\`${prefix}purge <amount>\`\`\``,
+            '-# <:arrows:1457808531678957784> **__Subcommands__**\n <:leese:1457834970486800567> `contains` Delete messages containing a word\n <:leese:1457834970486800567> `images` Delete up to 10 messages with images\n <:tree:1457808523986731008> `emojis` Delete messages with emojis',
+            '',
+            '**Aliases:** `c`'
+          ].join('\n'))
         ],
         allowedMentions: { repliedUser: false }
       });
@@ -54,25 +47,59 @@ module.exports = {
 
       const word = args[1].toLowerCase();
       const messages = await message.channel.messages.fetch({ limit: 100 });
-      const wordMessages = messages.filter(m => m.content.toLowerCase().includes(word));
-      await message.channel.bulkDelete(wordMessages, true).catch(() => {});
+      const toDelete = [];
+      for (const m of messages.values()) {
+        if (m.id === message.id) continue;
+        const content = typeof m.content === 'string' ? m.content : '';
+        if (content.toLowerCase().includes(word)) toDelete.push(m);
+      }
+      if (toDelete.length === 0) {
+        const embed = new EmbedBuilder()
+          .setColor('#838996')
+          .setDescription(`<:info:1457809654120714301> <:arrows:1457808531678957784> No messages found containing \`${word}\`.`);
+        return message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } }).catch(() => {});
+      }
+      await message.channel.bulkDelete(toDelete, true).catch(() => {});
       await message.delete().catch(() => {});
       return;
     }
 
     if (sub === 'images') {
       const messages = await message.channel.messages.fetch({ limit: 50 });
-      const imageMessages = messages.filter(m => m.attachments.size > 0).first(10);
-      for (const msg of imageMessages) await msg.delete().catch(() => {});
+      const toDelete = [];
+      for (const m of messages.values()) {
+        if (m.id === message.id) continue;
+        if (m.attachments && m.attachments.size > 0) toDelete.push(m);
+        if (toDelete.length >= 10) break;
+      }
+      if (toDelete.length === 0) {
+        const embed = new EmbedBuilder()
+          .setColor('#838996')
+          .setDescription('<:info:1457809654120714301> <:arrows:1457808531678957784> No messages with images found.');
+        return message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } }).catch(() => {});
+      }
+      await message.channel.bulkDelete(toDelete, true).catch(() => {});
       await message.delete().catch(() => {});
       return;
     }
 
     if (sub === 'emojis') {
-      const emojiRegex = /<a?:\w+:\d+>|[\u2190-\u21FF\u2300-\u27BF\u1F000-\u1FAFF]/;
+      const emojiRegex = /<a?:\w+:\d+>|[\u2600-\u26FF\u2700-\u27BF\u1F300-\u1F9FF\u1F600-\u1F64F\u1F900-\u1F9FF]/;
       const messages = await message.channel.messages.fetch({ limit: 100 });
-      const emojiMessages = messages.filter(m => emojiRegex.test(m.content));
-      await message.channel.bulkDelete(emojiMessages, true).catch(() => {});
+      const toDelete = [];
+      for (const m of messages.values()) {
+        if (m.id === message.id) continue;
+        const content = typeof m.content === 'string' ? m.content : '';
+        if (content.length === 0) continue;
+        if (emojiRegex.test(content)) toDelete.push(m);
+      }
+      if (toDelete.length === 0) {
+        const embed = new EmbedBuilder()
+          .setColor('#838996')
+          .setDescription('<:info:1457809654120714301> <:arrows:1457808531678957784> No messages with emojis found.');
+        return message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } }).catch(() => {});
+      }
+      await message.channel.bulkDelete(toDelete, true).catch(() => {});
       await message.delete().catch(() => {});
       return;
     }

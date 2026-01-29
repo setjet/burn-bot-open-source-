@@ -712,8 +712,13 @@ client.on('messageCreate', async (message) => {
     // Get the server-specific prefix
     const prefix = getPrefix(message.guild.id);
 
-    // Check if bot is mentioned
-    if (message.mentions.has(client.user) && !message.content.startsWith(prefix)) {
+    // Only reply if the message mentions ONLY the bot (not @everyone, @here, or others)
+    if (
+      message.mentions.has(client.user) &&
+      !message.mentions.everyone && // Prevent reply if @everyone is present
+      message.mentions.users.size === 1 && // Only bot is mentioned
+      !message.content.startsWith(prefix)
+    ) {
       return message.reply(`Hi, my prefix is \`${prefix}\`.`).catch(() => {});
     }
 

@@ -9,13 +9,13 @@ module.exports = {
    
     let role;
     if (!args[0]) {
-      
       const member = await message.guild.members.fetch(message.author.id);
       role = member.roles.highest;
-      if (!role) {
+      const isEveryone = role && role.id === message.guild.id;
+      if (!role || isEveryone) {
         const embed = new EmbedBuilder()
           .setColor('#838996')
-          .setDescription("❌ You don't have any roles to check.");
+          .setDescription("<:disallowed:1457808577786806375> <:arrows:1457808531678957784> You don't have **any roles** to check.");
         return message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } });
       }
     } else {
@@ -28,11 +28,15 @@ module.exports = {
     if (!role) {
       const embed = new EmbedBuilder()
         .setColor('#838996')
-        .setDescription('❌ Role not found. Please mention the role or use its exact name.');
+        .setDescription('<:info:1457809654120714301> <:arrows:1457808531678957784> Role not found. \n-# <:tree:1457808523986731008> Please **mention the role** or use its **exact name**.');
       return message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } });
     }
 
-    
+    if (role.id === message.guild.id) {
+      await message.react('🚫').catch(() => {});
+      return;
+    }
+
     const members = [];
     const fetchedMembers = await message.guild.members.fetch();
     fetchedMembers.forEach(member => {
