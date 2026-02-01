@@ -112,7 +112,7 @@ module.exports = {
                 .setDescription([
                   `This server has been **blacklisted** from using **burn**.`,
                   '',
-                  `<:arrows:1457808531678957784> If you believe this was a **mistake**, please join our **[support server](https://discord.gg/RDNk935Jzy)** and open a **support ticket**.`,
+                  `If you believe this was a **mistake**, please join our **[support server](https://discord.gg/ZNSNyy3xQr)** and open a **support ticket**.`,
                   '',
                   '-# The bot will now leave this server.'
                 ].join('\n'));
