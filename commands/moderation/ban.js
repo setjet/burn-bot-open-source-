@@ -163,7 +163,7 @@ module.exports = {
       let errorDescription = '<:disallowed:1457808577786806375> <:arrows:1457808531678957784> **Failed to ban the user**.';
 
       if (err.code === 50013) {
-        errorDescription = '<:disallowed:1457808577786806375> <:arrows:1457808531678957784> I **lack permissions** to **ban** this user.';
+        errorDescription = '<:disallowed:1457808577786806375> <:arrows:1457808531678957784> I **lack permissions** to ban this user. Ensure I have **Ban Members** and my role is **above** the user\'s highest role.';
       } else if (err.code === 50001) {
         errorDescription = '<:disallowed:1457808577786806375> <:arrows:1457808531678957784> I cannot interact with users **with higher roles than mine**.';
       }
@@ -171,7 +171,7 @@ module.exports = {
       const embed = new EmbedBuilder()
         .setColor('#838996')
         .setDescription(errorDescription);
-      await message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } });
+      message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } }).catch(() => {});
     }
   }
 };

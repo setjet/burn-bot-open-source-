@@ -17,7 +17,8 @@ const client = new Client({
     GatewayIntentBits.MessageContent,
     GatewayIntentBits.GuildMembers,
     GatewayIntentBits.GuildEmojisAndStickers,
-    GatewayIntentBits.GuildBans
+    GatewayIntentBits.GuildBans,
+    GatewayIntentBits.GuildVoiceStates
   ]
 });
 
@@ -486,10 +487,10 @@ client.once('ready', async () => {
   console.log(`Logged in as ${client.user.tag}!`);
   client.user.setPresence({
     activities: [{
-      name: 'Hey there!',
+      name: 'burn.rip',
       type: ActivityType.Watching,
     }],
-    status: 'online'
+    status: 'dnd'
   });
 
   autorespond.listenForTriggers(client, autoResponses, dbHelpers);
@@ -529,6 +530,12 @@ client.once('ready', async () => {
   if (linkFilterCommand && linkFilterCommand.setup) {
     linkFilterCommand.setup(client);
   }
+
+  // Initialize VoiceMaster (temp voice channels)
+  const voicemasterCommand = client.commands.get('voicemaster');
+  if (voicemasterCommand && voicemasterCommand.setup) {
+    voicemasterCommand.setup(client);
+  }
 });
 
 const ticketCommand = client.commands.get('ticket');
@@ -555,7 +562,7 @@ client.on('guildCreate', async (guild) => {
           .setDescription([
             `This server has been **blacklisted** from using **burn**.`,
             '',
-            `If you believe this was a **mistake**, please join our [support server](https://discord.gg/ZNSNyy3xQr) and open a **support ticket**.`,
+            `If you believe this was a **mistake**, please join our **[support server](https://discord.gg/ZNSNyy3xQr)** and open a **support ticket**.`,
             '',
             '-# The bot will now leave this server.'
           ].join('\n'));

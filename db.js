@@ -242,6 +242,39 @@ function initializeDatabase() {
     CREATE TABLE IF NOT EXISTS crypto_allowed_users (
       user_id TEXT PRIMARY KEY
     );
+
+    -- VoiceMaster: per-guild config (join-to-create channel, panel channel, defaults)
+    CREATE TABLE IF NOT EXISTS voicemaster_config (
+      guild_id TEXT PRIMARY KEY,
+      join_channel_id TEXT NOT NULL,
+      panel_channel_id TEXT NOT NULL,
+      category_id TEXT,
+      default_name TEXT DEFAULT '{user.display_name}''s channel',
+      default_bitrate INTEGER DEFAULT 64000,
+      default_region TEXT,
+      join_role_id TEXT,
+      music_mode INTEGER DEFAULT 0
+    );
+
+    -- VoiceMaster: temporary voice channels (channel_id, owner, settings)
+    CREATE TABLE IF NOT EXISTS voicemaster_channels (
+      channel_id TEXT PRIMARY KEY,
+      guild_id TEXT NOT NULL,
+      owner_id TEXT NOT NULL,
+      locked INTEGER DEFAULT 0,
+      hidden INTEGER DEFAULT 0,
+      user_limit INTEGER DEFAULT 0,
+      music_mode INTEGER DEFAULT 0,
+      permitted_ids TEXT DEFAULT '[]'
+    );
+
+    -- VoiceMaster: rename rate limit (per user per guild)
+    CREATE TABLE IF NOT EXISTS voicemaster_rename_cooldowns (
+      guild_id TEXT,
+      user_id TEXT,
+      last_rename_at INTEGER NOT NULL,
+      PRIMARY KEY (guild_id, user_id)
+    );
   `);
 }
 
@@ -522,6 +555,42 @@ function migrateDatabase() {
   } catch (error) {
     // Table might not exist yet or already nullable, that's okay
     console.error('Error migrating verification_nonces table:', error.message);
+  }
+
+  // VoiceMaster tables
+  try {
+    db.prepare('SELECT 1 FROM voicemaster_config LIMIT 1').get();
+  } catch (error) {
+    db.exec(`
+      CREATE TABLE voicemaster_config (
+        guild_id TEXT PRIMARY KEY,
+        join_channel_id TEXT NOT NULL,
+        panel_channel_id TEXT NOT NULL,
+        category_id TEXT,
+        default_name TEXT DEFAULT '{user.display_name}''s channel',
+        default_bitrate INTEGER DEFAULT 64000,
+        default_region TEXT,
+        join_role_id TEXT,
+        music_mode INTEGER DEFAULT 0
+      );
+      CREATE TABLE voicemaster_channels (
+        channel_id TEXT PRIMARY KEY,
+        guild_id TEXT NOT NULL,
+        owner_id TEXT NOT NULL,
+        locked INTEGER DEFAULT 0,
+        hidden INTEGER DEFAULT 0,
+        user_limit INTEGER DEFAULT 0,
+        music_mode INTEGER DEFAULT 0,
+        permitted_ids TEXT DEFAULT '[]'
+      );
+      CREATE TABLE voicemaster_rename_cooldowns (
+        guild_id TEXT,
+        user_id TEXT,
+        last_rename_at INTEGER NOT NULL,
+        PRIMARY KEY (guild_id, user_id)
+      );
+    `);
+    console.log('Migration complete: added VoiceMaster tables');
   }
   
 }
@@ -1539,6 +1608,98 @@ const dbHelpers = {
       console.error('Error getting all crypto allowed users:', error);
       return [];
     }
+  },
+
+  // ===== VOICEMASTER =====
+
+  getVoiceMasterConfig(guildId) {
+    const row = db.prepare('SELECT * FROM voicemaster_config WHERE guild_id = ?').get(guildId);
+    if (!row) return null;
+    return {
+      guildId: row.guild_id,
+      joinChannelId: row.join_channel_id,
+      panelChannelId: row.panel_channel_id,
+      categoryId: row.category_id || null,
+      defaultName: row.default_name || '{user.display_name}\'s channel',
+      defaultBitrate: row.default_bitrate || 64000,
+      defaultRegion: row.default_region || null,
+      joinRoleId: row.join_role_id || null,
+      musicMode: row.music_mode === 1
+    };
+  },
+
+  setVoiceMasterConfig(guildId, config) {
+    db.prepare(`
+      INSERT OR REPLACE INTO voicemaster_config
+      (guild_id, join_channel_id, panel_channel_id, category_id, default_name, default_bitrate, default_region, join_role_id, music_mode)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      guildId,
+      config.joinChannelId || '',
+      config.panelChannelId || '',
+      config.categoryId || null,
+      config.defaultName || '{user.display_name}\'s channel',
+      config.defaultBitrate || 64000,
+      config.defaultRegion || null,
+      config.joinRoleId || null,
+      config.musicMode ? 1 : 0
+    );
+  },
+
+  getVoiceMasterChannel(channelId) {
+    const row = db.prepare('SELECT * FROM voicemaster_channels WHERE channel_id = ?').get(channelId);
+    if (!row) return null;
+    let permittedIds = [];
+    try {
+      permittedIds = row.permitted_ids ? JSON.parse(row.permitted_ids) : [];
+    } catch (e) {}
+    return {
+      channelId: row.channel_id,
+      guildId: row.guild_id,
+      ownerId: row.owner_id,
+      locked: row.locked === 1,
+      hidden: row.hidden === 1,
+      userLimit: row.user_limit || 0,
+      musicMode: row.music_mode === 1,
+      permittedIds: Array.isArray(permittedIds) ? permittedIds : []
+    };
+  },
+
+  setVoiceMasterChannel(channelId, data) {
+    const permittedIdsJson = JSON.stringify(data.permittedIds || []);
+    db.prepare(`
+      INSERT OR REPLACE INTO voicemaster_channels
+      (channel_id, guild_id, owner_id, locked, hidden, user_limit, music_mode, permitted_ids)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      channelId,
+      data.guildId,
+      data.ownerId,
+      data.locked ? 1 : 0,
+      data.hidden ? 1 : 0,
+      data.userLimit || 0,
+      data.musicMode ? 1 : 0,
+      permittedIdsJson
+    );
+  },
+
+  deleteVoiceMasterChannel(channelId) {
+    db.prepare('DELETE FROM voicemaster_channels WHERE channel_id = ?').run(channelId);
+  },
+
+  getVoiceMasterChannelsByGuild(guildId) {
+    const rows = db.prepare('SELECT channel_id FROM voicemaster_channels WHERE guild_id = ?').all(guildId);
+    return rows.map(r => r.channel_id);
+  },
+
+  getVoiceMasterRenameCooldown(guildId, userId) {
+    const row = db.prepare('SELECT last_rename_at FROM voicemaster_rename_cooldowns WHERE guild_id = ? AND user_id = ?').get(guildId, userId);
+    return row ? row.last_rename_at : null;
+  },
+
+  setVoiceMasterRenameCooldown(guildId, userId) {
+    const now = Date.now();
+    db.prepare('INSERT OR REPLACE INTO voicemaster_rename_cooldowns (guild_id, user_id, last_rename_at) VALUES (?, ?, ?)').run(guildId, userId, now);
   }
 };
 

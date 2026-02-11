@@ -13,6 +13,7 @@ module.exports = {
       { label: 'utilities', value: 'utilities', emoji: '<:settings:1457808572720087266>' },
       { label: 'moderation', value: 'moderation', emoji: '<:moderation:1363214605987483759>' },
       { label: 'antinuke', value: 'antinuke', emoji: '<:sh1eld:1363214433136021948>' },
+      { label: 'voicemaster', value: 'voicemaster', emoji: '🔊' },
       { label: 'miscellaneous', value: 'miscellaneous', emoji: '<:miscellaneous:1363962180101341344>' },
     ];
 

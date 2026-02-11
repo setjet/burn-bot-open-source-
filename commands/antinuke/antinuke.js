@@ -1171,6 +1171,9 @@ function setupAuditListeners(client) {
       // Server owner cannot trigger antinuke
       if (userId === guild.ownerId) return;
       
+      // Bot itself cannot trigger antinuke (e.g. VoiceMaster creating/deleting channels)
+      if (userId === client.user.id) return;
+      
       const member = await guild.members.fetch(userId).catch(() => null);
       
       if (!member) return;
@@ -1219,6 +1222,9 @@ function setupAuditListeners(client) {
       // Server owner cannot trigger antinuke
       if (userId === channel.guild.ownerId) return;
       
+      // Bot itself cannot trigger antinuke (e.g. VoiceMaster creating/deleting channels)
+      if (userId === client.user.id) return;
+      
       const member = await channel.guild.members.fetch(userId).catch(() => null);
       
       if (!member) return;
@@ -1264,6 +1270,8 @@ function setupAuditListeners(client) {
       
       // Server owner cannot trigger antinuke
       if (userId === role.guild.ownerId) return;
+      // Bot itself cannot trigger antinuke
+      if (userId === client.user.id) return;
       
       const member = await role.guild.members.fetch(userId).catch(() => null);
       if (member && isWhitelistedForAntinuke(member, config)) return;
@@ -1307,6 +1315,8 @@ function setupAuditListeners(client) {
       
       // Server owner cannot trigger antinuke
       if (userId === role.guild.ownerId) return;
+      // Bot itself cannot trigger antinuke
+      if (userId === client.user.id) return;
       
       const member = await role.guild.members.fetch(userId).catch(() => null);
       if (member && isWhitelistedForAntinuke(member, config)) return;
@@ -1350,6 +1360,8 @@ function setupAuditListeners(client) {
       
       // Server owner cannot trigger antinuke
       if (userId === ban.guild.ownerId) return;
+      // Bot itself cannot trigger antinuke
+      if (userId === client.user.id) return;
       
       const member = await ban.guild.members.fetch(userId).catch(() => null);
       if (member && isWhitelistedForAntinuke(member, config)) return;
@@ -1393,6 +1405,8 @@ function setupAuditListeners(client) {
       
       // Server owner cannot trigger antinuke
       if (userId === member.guild.ownerId) return;
+      // Bot itself cannot trigger antinuke
+      if (userId === client.user.id) return;
       
       const executorMember = await member.guild.members.fetch(userId).catch(() => null);
       if (executorMember && isWhitelistedForAntinuke(executorMember, config)) return;
@@ -1436,6 +1450,8 @@ function setupAuditListeners(client) {
       
       // Server owner cannot trigger antinuke
       if (userId === emoji.guild.ownerId) return;
+      // Bot itself cannot trigger antinuke
+      if (userId === client.user.id) return;
       
       const member = await emoji.guild.members.fetch(userId).catch(() => null);
       if (member && isWhitelistedForAntinuke(member, config)) return;
@@ -1468,6 +1484,8 @@ function setupAuditListeners(client) {
           
           // Server owner cannot trigger antinuke
           if (userId === newGuild.ownerId) return;
+          // Bot itself cannot trigger antinuke
+          if (userId === client.user.id) return;
           
           const member = await newGuild.members.fetch(userId).catch(() => null);
           if (member && isWhitelistedForAntinuke(member, config)) return;
