@@ -76,3 +76,19 @@
 <:check:1457808518848581858> **Fixed sticker command loading** - Removed extra closing brace that prevented command from loading
 <:check:1457808518848581858> **Improved sticker error handling** - Better fallback logic when Sharp fails to process images
 
+---
+
+🛡️ **Antinuke — Bot Excluded**
+<:arrows:1457808531678957784> The bot no longer triggers antinuke when it performs actions
+<:leese:1457834970486800567> Channel create/delete, role create/delete, ban, kick, emoji delete, vanity change
+<:check:1457808518848581858> Prevents "Antinuke Action Failed" when the bot creates or deletes channels
+
+📛 **Ban Command**
+<:arrows:1457808531678957784> **Safer error handling** — Failed ban no longer crashes the process (reply in catch is safe)
+<:leese:1457834970486800567> **Clearer 50013 message** — Tells you to ensure bot has Ban Members and role above target
+<:check:1457808518848581858> Missing Permissions (50013) now replies to the user instead of terminating
+
+🐛 **Recent Bug Fixes**
+<:check:1457808518848581858> **Antinuke bot trigger** — Bot is excluded from all antinuke audit listeners (channel, role, ban, kick, emoji, vanity)
+<:check:1457808518848581858> **Ban command crash** — Catch block reply wrapped so unhandled rejection doesn’t terminate the process
+

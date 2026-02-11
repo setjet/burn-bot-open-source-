@@ -19,7 +19,7 @@ module.exports = {
           } else {
             const errorEmbed = new EmbedBuilder()
               .setColor('#838996')
-              .setDescription(`<:disallowed:1457808577786806375> <:arrows:1457808531678957784> User \`${args[0]}\` not found.\n -# Try using their **user ID** or **mention** for better results.`);
+              .setDescription(`<:disallowed:1457808577786806375> <:arrows:1457808531678957784> User \`${args[0]}\` not found.\n-# <:tree:1457808523986731008> Try using their **user ID** or **mention** for better results.`);
             return message.reply({ embeds: [errorEmbed], allowedMentions: { repliedUser: false } }).catch(() => {});
           }
         } catch (error) {
