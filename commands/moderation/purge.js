@@ -22,7 +22,7 @@ module.exports = {
           .setDescription([
             '<:settings:1457808572720087266> **Usage:**',
             `\`\`\`${prefix}purge <amount>\`\`\``,
-            '-# <:arrows:1457808531678957784> **__Subcommands__**\n <:leese:1457834970486800567> `contains` Delete messages containing a word\n <:leese:1457834970486800567> `images` Delete up to 10 messages with images\n <:tree:1457808523986731008> `emojis` Delete messages with emojis',
+            '-# <:arrows:1457808531678957784> **__Subcommands__**\n <:leese:1457834970486800567> `contains` Delete a specific word\n <:leese:1457834970486800567> `images` Delete messages with images\n <:tree:1457808523986731008> `emojis` Delete messages with emojis',
             '',
             '**Aliases:** `c`'
           ].join('\n'))

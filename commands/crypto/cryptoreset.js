@@ -84,9 +84,7 @@ module.exports = {
     // Reset user's crypto data
     try {
       dbHelpers.removeCryptoWallet(userId, null); // Pass null to remove all currencies
-      
-      // Also delete any pending verification nonces for this user
-      const noncesDeleted = dbHelpers.deleteUserNonces(userId);
+      dbHelpers.deleteUserNonces(userId);
 
       return message.reply({
         embeds: [

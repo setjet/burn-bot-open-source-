@@ -57,6 +57,10 @@ module.exports = {
         .setLabel('Support Server')
         .setStyle(ButtonStyle.Link)
         .setURL('https://discord.gg/N6nyKxZmCS'),
+      new ButtonBuilder()
+        .setLabel('Website')
+        .setStyle(ButtonStyle.Link)
+        .setURL('https://burn.rip/')
     );
 
     const menu = new StringSelectMenuBuilder()

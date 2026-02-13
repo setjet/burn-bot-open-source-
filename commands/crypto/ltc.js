@@ -36,7 +36,7 @@ module.exports = {
         return;
       }
     }
-    
+
     const userId = message.author.id;
     const currency = 'LTC';
 

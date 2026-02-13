@@ -536,6 +536,7 @@ client.once('ready', async () => {
   if (voicemasterCommand && voicemasterCommand.setup) {
     voicemasterCommand.setup(client);
   }
+
 });
 
 const ticketCommand = client.commands.get('ticket');

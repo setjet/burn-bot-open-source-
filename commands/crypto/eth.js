@@ -36,7 +36,7 @@ module.exports = {
         return;
       }
     }
-    
+
     const userId = message.author.id;
     const currency = 'ETH';
 
@@ -103,7 +103,7 @@ module.exports = {
           ...statusLines
         ].join('\n'))
         .addFields([
-          { name: '', value: `-# follow **[tos](https://discord.com/terms)** and **[gl](https://discord.com/guidelines)**`, inline: false }
+          { name: '', value: `-# follow **[Terms of Service](https://burn.rip/terms)**`, inline: false }
         ]);
 
       return message.reply({ 

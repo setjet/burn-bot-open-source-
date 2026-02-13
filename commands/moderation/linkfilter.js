@@ -659,8 +659,80 @@ module.exports = {
   },
 
   setup: (client) => {
-    // URL regex pattern
+    // URL regex pattern (used on normalized text)
     const urlRegex = /(https?:\/\/[^\s]+)/gi;
+    // Discord invite patterns (match after normalizing: collapse whitespace, strip obfuscation)
+    const discordInviteRegex = /discord\.(gg|com\/invite)\/[a-zA-Z0-9]{2,20}/g;
+
+    // Homoglyphs: Unicode lookalikes (Cyrillic, Greek, Armenian, fullwidth, etc.) -> ASCII for link detection
+    const HOMOGLYPHS = {
+      '\u0430': 'a', '\u0432': 'b', '\u0435': 'e', '\u0437': 'z', '\u0438': 'i', '\u0439': 'i',
+      '\u043A': 'k', '\u043C': 'm', '\u043D': 'n', '\u043E': 'o', '\u043F': 'p', '\u0440': 'r',
+      '\u0441': 'c', '\u0442': 't', '\u0443': 'y', '\u0445': 'x', '\u0444': 'f', '\u0455': 's',
+      '\u0456': 'i', '\u0457': 'i', '\u0491': 'g', '\u03B1': 'a', '\u03B2': 'b', '\u03BF': 'o',
+      '\u03C0': 'p', '\u03C1': 'r', '\u03C3': 's', '\u03C4': 't', '\u0433': 'r', '\u0501': 'd',
+      '\u0261': 'g', '\u037E': '.', '\u2024': '.', '\u0486': 'c', '\u04CF': 'i', '\u051B': 'g',
+      '\u04B1': 'i', '\u04AF': 'y', '\u04E9': 'e', '\u04BB': 'h', '\u04A5': 'x', '\u04D9': 'e',
+      '\uFF0E': '.', '\uFF0F': '/', '\uFF1A': ':', '\uFF41': 'a', '\uFF42': 'b', '\uFF43': 'c',
+      '\uFF44': 'd', '\uFF45': 'e', '\uFF46': 'f', '\uFF47': 'g', '\uFF48': 'h', '\uFF49': 'i',
+      '\uFF4A': 'j', '\uFF4B': 'k', '\uFF4C': 'l', '\uFF4D': 'm', '\uFF4E': 'n', '\uFF4F': 'o',
+      '\uFF50': 'p', '\uFF51': 'q', '\uFF52': 'r', '\uFF53': 's', '\uFF54': 't', '\uFF55': 'u',
+      '\uFF56': 'v', '\uFF57': 'w', '\uFF58': 'x', '\uFF59': 'y', '\uFF5A': 'z'
+    };
+    // Modifier / superscript / subscript letters (e.g. ᵈᶦˢᶜᵒʳᵈ, ᵀʰᶦˢ) -> ASCII
+    const MODIFIER_LETTERS = {
+      '\u1D43': 'a', '\u1D47': 'b', '\u1D9C': 'c', '\u1D48': 'd', '\u1D49': 'e', '\u1DA0': 'f',
+      '\u1D4D': 'g', '\u02B0': 'h', '\u2071': 'i', '\u02B2': 'j', '\u1D4F': 'k', '\u02E1': 'l',
+      '\u1D50': 'm', '\u207F': 'n', '\u1D52': 'o', '\u1D56': 'p', '\u02B3': 'r', '\u02E2': 's',
+      '\u1D57': 't', '\u02B7': 'w', '\u02B8': 'y', '\u02E3': 'x', '\u1DBB': 'z',
+      '\u1D62': 'i', '\u1D63': 'r', '\u1D64': 'u', '\u1D65': 'v', '\u1D66': 'b', '\u1D67': 'g',
+      '\u1D68': 'p', '\u1D69': 'f', '\u1D6A': 'x', '\u2070': '0', '\u00B9': '1', '\u00B2': '2',
+      '\u00B3': '3', '\u2074': '4', '\u2075': '5', '\u2076': '6', '\u2077': '7', '\u2078': '8', '\u2079': '9',
+      '\u1D40': 't', '\u1D41': 'u', '\u1D42': 'v', '\u1D44': 'b', '\u1D45': 'c', '\u1D46': 'd',
+      '\u1D4A': 'f', '\u1D4B': 'g', '\u1D4C': 'h', '\u1D4E': 'l', '\u1D51': 'n', '\u1D53': 'p',
+      '\u1D54': 'q', '\u1D55': 'r', '\u1D58': 'w', '\u1D59': 'y', '\u1D5A': 'z', '\u1DA6': 'i'
+    };
+
+    function applyCharMap(str, map) {
+      return str.split('').map(c => map[c] ?? c).join('');
+    }
+
+    // Normalize content to catch split/obfuscated links and special fonts (zero-width, newlines, homoglyphs, superscript)
+    function normalizeForLinkCheck(text) {
+      if (!text || typeof text !== 'string') return '';
+      let s = text
+        .replace(/[\u200B-\u200D\uFEFF\u2060\u00AD\u034F]/g, '') // zero-width, soft hyphen, combining grapheme joiner
+        .normalize('NFKD')
+        .replace(/[\u0300-\u036F\u1AB0-\u1AFF\u20D0-\u20FF]/g, ''); // strip combining marks (NFKD decomposes accents)
+      s = applyCharMap(s, MODIFIER_LETTERS);
+      s = applyCharMap(s, HOMOGLYPHS);
+      return s
+        .replace(/\s+/g, '') // collapse all whitespace and newlines
+        .toLowerCase();
+    }
+
+    // Extract domains from normalized content: standard URLs + discord.gg/invite
+    function extractLinkDomains(normalized) {
+      const domains = new Set();
+      // Standard URLs
+      const urlMatches = normalized.match(urlRegex);
+      if (urlMatches) {
+        for (const url of urlMatches) {
+          try {
+            const urlObj = new URL(url);
+            const host = urlObj.hostname.replace(/^www\./, '');
+            if (host) domains.add(host);
+          } catch (e) { /* skip */ }
+        }
+      }
+      // Discord invite pattern (discord.gg/xxx or discord.com/invite/xxx)
+      const inviteMatches = normalized.match(discordInviteRegex);
+      if (inviteMatches && inviteMatches.length > 0) {
+        domains.add('discord.gg');
+      }
+      discordInviteRegex.lastIndex = 0; // reset global regex for next use
+      return domains;
+    }
 
     client.on(Events.MessageCreate, async (message) => {
       if (!message.guild || message.author.bot) return;
@@ -674,28 +746,19 @@ module.exports = {
       // Check if user is whitelisted
       if (config.whitelist && config.whitelist.includes(message.author.id)) return;
 
-      // Check for URLs in message
-      const urls = message.content.match(urlRegex);
-      if (!urls || urls.length === 0) return;
+      const normalized = normalizeForLinkCheck(message.content);
+      const linkDomains = extractLinkDomains(normalized);
 
-      // Check if any URL is in allowed domains
-      let hasAllowedDomain = false;
+      // No links found (including obfuscated discord invites)
+      if (linkDomains.size === 0) return;
+
+      // If all detected domains are allowed, don't trigger
       if (config.allowedDomains && config.allowedDomains.length > 0) {
-        for (const url of urls) {
-          try {
-            const urlObj = new URL(url);
-            const domain = urlObj.hostname.replace(/^www\./, '');
-            if (config.allowedDomains.some(allowed => domain.includes(allowed) || allowed.includes(domain))) {
-              hasAllowedDomain = true;
-              break;
-            }
-          } catch (e) {
-            // Invalid URL, continue
-          }
-        }
+        const allAllowed = [...linkDomains].every(domain =>
+          config.allowedDomains.some(a => domain.includes(a) || a.includes(domain))
+        );
+        if (allAllowed) return;
       }
-
-      if (hasAllowedDomain) return;
 
       // Execute all enabled actions
       try {
