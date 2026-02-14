@@ -41,7 +41,7 @@ module.exports = {
               `\`\`\`${prefix}antinuke admin (user)\`\`\``,
               '-# <:arrows:1457808531678957784> Grants permission to **configure antinuke settings**.',
               '',
-              `**Example:** \`${prefix}antinuke admin @ben\``,
+              `**Example:** \`${prefix}antinuke admin @luca\``,
               '\n**Aliases:** `N/A`'
             ].join('\n'))
         ]

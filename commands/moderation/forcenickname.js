@@ -23,7 +23,7 @@ module.exports = {
               `\`\`\`${prefix}forcenickname <user> <nickname>\`\`\``,
               '-# <:arrows:1457808531678957784> Forcefully changes a user\'s nickname.',
               '',
-              `**Example:** \`${prefix}forcenickname @ben goat\``,
+              `**Example:** \`${prefix}forcenickname @luca goat\``,
               '\n**Aliases:** `fn`'
             ].join('\n'))
         ],

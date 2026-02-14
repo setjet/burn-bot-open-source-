@@ -45,7 +45,7 @@ module.exports = {
                 try {
                     targetUser = await client.users.fetch(targetArg);
                 } catch {
-                    return message.reply("Couldn't find that user.");
+                    return message.channel.send("Couldn't find that user.");
                 }
             }
 
@@ -54,20 +54,20 @@ module.exports = {
             const niggerMatch = input.match(/nigger:\s*(\d+)/i);
 
             if (!niggaMatch || !niggerMatch) {
-                return message.reply('Invalid format.`');
+                return message.channel.send('Invalid format.`');
             }
 
             const niggaCount = parseInt(niggaMatch[1]);
             const niggerCount = parseInt(niggerMatch[1]);
 
             if (isNaN(niggaCount) || isNaN(niggerCount)) {
-                return message.reply('Invalid numbers');
+                return message.channel.send('Invalid numbers');
             }
 
             setSlurCount(targetUser.id, 'nigga', niggaCount);
             setSlurCount(targetUser.id, 'nigger', niggerCount);
 
-            return message.reply(`Updated ${targetUser.username}'s counts: nigga=${niggaCount}, nigger=${niggerCount}`);
+            return message.channel.send(`Updated ${targetUser.username}'s counts: nigga=${niggaCount}, nigger=${niggerCount}`);
         }
 
  
@@ -83,14 +83,14 @@ module.exports = {
                 try {
                     targetUser = await client.users.fetch(targetArg);
                 } catch {
-                    return message.reply("Mention a user to reset their stats.");
+                    return message.channel.send("Mention a user to reset their stats.");
                 }
             }
 
             setSlurCount(targetUser.id, 'nigga', 0);
             setSlurCount(targetUser.id, 'nigger', 0);
 
-            return message.reply(`👍`);
+            return message.channel.send(`👍`);
         }
 
         const targetUser = message.mentions.users.first() || message.author;
@@ -104,11 +104,11 @@ module.exports = {
             .setTitle('how racist are you?')
             .setDescription(`<@${targetUser.id}> has said the nword **${totalCount}** times\n**${countNigger}** of those were the **Hard R**\n-# im arab, that means i can say the nword right?`)
             .setFooter({ 
-                text: `${message.author.tag} | credits to jesse ♡ `, 
+                text: `${message.author.tag}`, 
                 iconURL: message.author.displayAvatarURL({ dynamic: true }) 
             });
 
-        await message.reply({ embeds: [embed] });
+        await message.channel.send({ embeds: [embed] });
     },
 
     messageListener: async (message) => {

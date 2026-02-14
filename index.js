@@ -537,6 +537,9 @@ client.once('ready', async () => {
     voicemasterCommand.setup(client);
   }
 
+  // Fun: RPS button handler
+  const rpsCommand = client.commands.get('rps');
+  if (rpsCommand && rpsCommand.setup) rpsCommand.setup(client);
 });
 
 const ticketCommand = client.commands.get('ticket');

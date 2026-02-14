@@ -17,7 +17,7 @@ module.exports = {
               `\`\`\`${prefix}pay <user> <amount>\`\`\``,
               '-# <:arrows:1457808531678957784> Send money to another user.',
               '',
-              `**Example:** \`${prefix}pay @ben 1000\``,
+              `**Example:** \`${prefix}pay @luca 1000\``,
               '\n**Aliases:** `transfer`, `give`'
             ].join('\n'))
         ],

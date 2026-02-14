@@ -10,6 +10,8 @@ npm-debug.log*
 
 commands/voicemaster/
 
+wheel.js 
+
 # OS files
 .DS_Store
 Thumbs.db
