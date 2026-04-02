@@ -1,4 +1,4 @@
-# burn
+# burn bot
 
 Discord bot built with [discord.js](https://discord.js.org/) v14 and SQLite (`better-sqlite3`). Moderation, antinuke, fun commands, crypto wallet helpers, tickets, and more.
 
@@ -6,11 +6,11 @@ Discord bot built with [discord.js](https://discord.js.org/) v14 and SQLite (`be
 
 I built this thing, ran it, tweaked it, and then hit the part of the project where you’re supposed to **promote** it and **grow** it and **explain** why strangers should add it to their server. I looked at that to-do list, sighed, and chose the path of least resistance: **open source it** and let the internet do whatever it wants with it.
 
-So here you go. If you ship it harder than I did, you’re officially doing better than me. No royalties required—just don’t blame me if your verification flow does something weird at 3 a.m.
+So here you go. If you ship it harder than I did, you’re officially doing better than me. No royalties required—just don’t blame me if your verification flow does something weird.
 
 ### A word on the crypto commands
 
-The wallet stuff (`btc`, `eth`, `sol`, `ltc`, verification, nonces, “is this address even valid,” API quirks, rate limits, and the general feeling of talking to blockchains that do not care about your sleep schedule) ate **an unreasonable number of hours**. Like, *embarrassingly* long. If you read that code and think “this could be simpler,” you’re probably right—but you didn’t spend half your life convincing four different chains to return a number in a format you can parse. Enjoy the fruits of that labor.
+The wallet stuff (`btc`, `eth`, `sol`, `ltc`, verification, nonces, “is this address even valid,” API quirks, rate limits, and the general feeling of talking to blockchains that do not care about your sleep schedule) ate **an unreasonable number of hours**. Like, *embarrassingly* long. If you read that code and think “this could be simpler,” you’re probably right but you didn’t spend half your life convincing four different chains to return a number in a format you can parse. Enjoy the fruits of that labor.
 
 ### Embeds, chat formatting, and “does this look good in a channel?”
 
@@ -20,10 +20,10 @@ The **visual** side took ages too—not just what the bot *does*, but how it *re
 
 I **never finished** this. It dragged on forever, I lost steam, got bored, and wandered off to something shinier. What’s in that folder is whatever state it was in when motivation clocked out—fork it, fix it, or treat it as a cautionary tale about scope creep.
 
-### Other cool facts (trust me bro)
+### Other cool facts 
 
 - **SQLite** means you’re one `bot.db` away from either glory or data-loss anxiety. Back it up if you care about your economy tables.
-- **Antinuke** exists because someone, somewhere, will always try to speedrun your server settings. This bot tries to say “no.”
+- **Antinuke** exists because someone, somewhere, will always try to speedrun your server settings lol. This bot tries to stop it.
 - If something breaks, the error might be Discord, the API, the network, cosmic rays, or you. Debug in that order.
 
 ## Requirements
@@ -69,4 +69,5 @@ The bot starts a small HTTP server (default port **`VERIFICATION_API_PORT`**, de
 
 ## License
 
-Specify your license here (e.g. MIT) when you publish the repo.
+
+"# burn-bot-open-source-" 
