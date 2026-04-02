@@ -70,4 +70,4 @@ The bot starts a small HTTP server (default port **`VERIFICATION_API_PORT`**, de
 ## License
 
 
-"# burn-bot-open-source-" 
+MIT
