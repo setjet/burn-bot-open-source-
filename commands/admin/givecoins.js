@@ -1,7 +1,18 @@
+/*
+ * givecoins (aliases: gc, addcoins) — Bot owner only (BOT_OWNER_ID).
+ *
+ * Grants economy coins to a user, or resets their balance to 0.
+ *
+ * Usage:
+ *   <prefix>givecoins <user> <amount>
+ *   <prefix>givecoins reset <user>
+ */
+
+// economy math: easy. embed spacing: twelve iterations 😭
+
 const { EmbedBuilder } = require('discord.js');
 const { dbHelpers } = require('../../db');
-
-const AUTHORIZED_USER_ID = '1355470391102931055';
+const config = require('../../config');
 
 module.exports = {
   name: 'givecoins',
@@ -9,9 +20,8 @@ module.exports = {
   category: 'admin',
   description: '<:arrows:1363099226375979058> Give coins to a user (Admin only).',
   async execute(message, args, { prefix, getUser }) {
-    // Only allow authorized user
-    if (message.author.id !== AUTHORIZED_USER_ID) {
-      return; // Silently ignore other users
+    if (!config.botOwnerId || message.author.id !== config.botOwnerId) {
+      return;
     }
 
     // Check for reset subcommand

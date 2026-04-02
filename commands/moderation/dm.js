@@ -1,6 +1,8 @@
 const { EmbedBuilder, PermissionsBitField, Events } = require('discord.js');
 const { dbHelpers } = require('../../db');
 
+// join dms vs server rules vs "why is bot spamming" — the holy war 😭
+
 module.exports = {
   name: 'dm',
   category: 'moderation',

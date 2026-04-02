@@ -11,6 +11,7 @@ const KISS_GIFS = [
 ];
 
 function shuffle(arr) {
+  // statistically you still see the same gif twice in a row sometimes — rng is rude 😭
   const a = [...arr];
   for (let i = a.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -56,6 +57,7 @@ module.exports = {
     }
 
     if (target.id === message.author.id) {
+      // self-kiss blocked; get a mirror bot for that arc 😭
       return message.reply({
         embeds: [
           new EmbedBuilder()
@@ -79,6 +81,7 @@ module.exports = {
 
     const files = [];
     if (KISS_GIFS.length > 0) {
+      // filename kiss.gif must match attachment://kiss.gif — discord mime drama 😭
       const attachment = await fetchGifAsAttachment(shuffle(KISS_GIFS), 'kiss.gif');
       if (attachment) {
         files.push(attachment);

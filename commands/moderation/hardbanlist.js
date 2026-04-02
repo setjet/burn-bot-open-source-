@@ -1,6 +1,8 @@
 const { EmbedBuilder, PermissionFlagsBits } = require('discord.js');
 const { dbHelpers } = require('../../db');
 
+// listing ids is easy; making it readable wasn't 😭
+
 module.exports = {
   name: 'hardbanlist',
   aliases: ['hbl'],

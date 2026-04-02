@@ -3,6 +3,8 @@ const { dbHelpers, db } = require('../../db');
 
 const DEFAULT_PREFIX = ',';
 
+// second linkfilter-sized ui; i aged in dog years here 😭
+
 // Store active collectors and message states
 const activeCollectors = new Map();
 const messageStates = new Map(); // messageId -> { view: 'main' | 'config', guildId, userId }

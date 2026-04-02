@@ -1,5 +1,7 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 
+// paging 500 members broke my embed character limit spirit 😭
+
 module.exports = {
   name: 'inrole',
   aliases: ['ir'],

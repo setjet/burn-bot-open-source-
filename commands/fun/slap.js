@@ -44,6 +44,7 @@ module.exports = {
     }
 
     const target = await getUser(message, targetInput);
+    // resolve failed → either typo or they're blocking the universe, hard to say 😭
     if (!target) {
       return message.reply({
         embeds: [
@@ -56,6 +57,7 @@ module.exports = {
     }
 
     if (target.id === message.author.id) {
+      // self-slap prevention — discord self-care, automated 😭
       return message.reply({
         embeds: [
           new EmbedBuilder()
@@ -79,6 +81,7 @@ module.exports = {
 
     const files = [];
     if (SLAP_GIFS.length > 0) {
+      // attachment name must match embed image url — one mismatch = broken image and tears 😭
       const attachment = await fetchGifAsAttachment(shuffle(SLAP_GIFS), 'slap.gif');
       if (attachment) {
         files.push(attachment);

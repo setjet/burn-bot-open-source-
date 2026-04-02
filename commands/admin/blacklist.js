@@ -1,8 +1,18 @@
+/*
+ * blacklist (alias: bl) — Bot owner only (BOT_OWNER_ID).
+ *
+ * Global bot blacklist: block users or entire servers from using the bot.
+ * Server adds notify in-channel (if possible) then the bot leaves.
+ *
+ * Usage:
+ *   <prefix>blacklist add <@user|user id|server id>
+ *   <prefix>blacklist remove <@user|user id|server id>
+ *   <prefix>blacklist list
+ */
+
 const { EmbedBuilder, ChannelType } = require('discord.js');
 const { dbHelpers } = require('../../db');
-
-const AUTHORIZED_USER_ID = '1355470391102931055';
-const LOG_CHANNEL_ID = '1457555286452600832';
+const config = require('../../config');
 
 module.exports = {
   name: 'blacklist',
@@ -10,10 +20,10 @@ module.exports = {
   category: 'admin',
   description: '<:arrows:1363099226375979058> Manage the bot blacklist (Admin only).',
   async execute(message, args, { prefix }) {
-    // Only allow authorized user
-    if (message.author.id !== AUTHORIZED_USER_ID) {
-      return; // Silently ignore other users
+    if (!config.botOwnerId || message.author.id !== config.botOwnerId) {
+      return;
     }
+    // silent return on wrong user — stealth mode because spamming "no" felt worse 😭
 
     if (!args.length) {
       return message.reply({
@@ -54,6 +64,7 @@ module.exports = {
       const input = args[1];
       let id;
       let isServer = false;
+      // "is this a user or a guild id" — guesswork until fetch proves you wrong 😭
 
       // Check if it's a mention
       if (input.startsWith('<@') && input.endsWith('>')) {
@@ -112,7 +123,7 @@ module.exports = {
                 .setDescription([
                   `This server has been **blacklisted** from using **burn**.`,
                   '',
-                  `If you believe this was a **mistake**, please join our **[support server](https://discord.gg/ZNSNyy3xQr)** and open a **support ticket**.`,
+                  `If you believe this was a **mistake**, please join our **[support server](${config.supportServerUrl})** and open a **support ticket**.`,
                   '',
                   '-# The bot will now leave this server.'
                 ].join('\n'));
@@ -144,8 +155,9 @@ module.exports = {
         dbHelpers.addBlacklistedUser(id);
       }
 
-      // Send blacklist report
-      const logChannel = await message.client.channels.fetch(LOG_CHANNEL_ID).catch(() => null);
+      const logChannel = config.blacklistCommandLogChannelId
+        ? await message.client.channels.fetch(config.blacklistCommandLogChannelId).catch(() => null)
+        : null;
       if (logChannel) {
         let reportEmbed;
         
@@ -283,8 +295,9 @@ module.exports = {
         dbHelpers.setBlacklistExpiration(id, null);
       }
 
-      // Send blacklist removal report
-      const logChannel = await message.client.channels.fetch(LOG_CHANNEL_ID).catch(() => null);
+      const logChannel = config.blacklistCommandLogChannelId
+        ? await message.client.channels.fetch(config.blacklistCommandLogChannelId).catch(() => null)
+        : null;
       if (logChannel) {
         let reportEmbed;
         

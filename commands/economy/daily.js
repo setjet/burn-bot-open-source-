@@ -5,6 +5,8 @@ const DAILY_COOLDOWN = 24 * 60 * 60 * 1000; // 24 hours
 const DAILY_REWARD_MIN = 100;
 const DAILY_REWARD_MAX = 500;
 
+// timezone + cooldown math made me consider a career in farming 😭
+
 module.exports = {
   name: 'daily',
   aliases: ['claim'],

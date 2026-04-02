@@ -1,6 +1,8 @@
 const { EmbedBuilder } = require('discord.js');
 const { dbHelpers } = require('../../db');
 
+// "just read an integer from sqlite" — famous last words before bigint formatting debates 😭
+
 module.exports = {
   name: 'balance',
   aliases: ['bal', 'money', 'wallet'],

@@ -2,6 +2,9 @@ const { EmbedBuilder } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const config = require('../../config');
+
+// uptime math off by one timezone twice; i'm fine 😭
 
 
 module.exports = {
@@ -31,11 +34,11 @@ module.exports = {
           `-# <:leese:1457834970486800567> **Members:** ${totalUsers.toLocaleString()}`,
           `-# <:leese:1457834970486800567> **Guilds:** ${totalGuilds.toLocaleString()}`,
           `-# <:tree:1457808523986731008> **Version:** ${botVersion}`,
-        ].join('\n'))
-        .addFields({
-          name: '',
-          value: `-# <:arrows:1457808531678957784> [@usync](https://discord.com/users/1355470391102931055) (Bot Developer)`
-        });
+        ].join('\n'));
+
+      if (config.developerCreditLine) {
+        embed.addFields({ name: '', value: config.developerCreditLine });
+      }
 
       await message.reply({ 
         embeds: [embed],

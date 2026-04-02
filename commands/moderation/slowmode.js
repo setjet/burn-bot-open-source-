@@ -1,5 +1,7 @@
 const { PermissionFlagsBits, EmbedBuilder } = require('discord.js');
 
+// seconds vs minutes vs "slow" as a vibe — users tested all three wrong 😭
+
 module.exports = {
   name: 'slowmode',
   aliases: ['sm'],

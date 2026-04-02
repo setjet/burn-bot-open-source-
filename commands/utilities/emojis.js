@@ -1,5 +1,7 @@
 const { PermissionFlagsBits, EmbedBuilder } = require('discord.js');
 
+// add/remove emoji urls vs attachments — users tested every wrong format 😭
+
 module.exports = {
   name: 'emoji',
   aliases: ['ea', 'ed'],

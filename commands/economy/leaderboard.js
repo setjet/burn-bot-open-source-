@@ -1,6 +1,8 @@
 const { EmbedBuilder } = require('discord.js');
 const { db } = require('../../db');
 
+// filtering banned ids here so the lb doesn't become drama central 😭
+
 module.exports = {
   name: 'leaderboard',
   aliases: ['lb', 'rich', 'top'],

@@ -1,5 +1,7 @@
 const { EmbedBuilder } = require('discord.js');
 
+// wrote 40 roast lines instead of fixing real bugs 😭 (worth it)
+
 const LINES = [
   'Absolutely unhinged. I respect it.',
   'This is fine. Everything is fine.',

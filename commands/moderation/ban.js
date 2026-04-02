@@ -14,6 +14,7 @@ module.exports = {
       return message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } });
     }
 
+    // bot-side perm check first so the error isn't "mysterious failure" 😭
     if (!message.guild.members.me.permissions.has(PermissionFlagsBits.BanMembers)) {
       const embed = new EmbedBuilder()
         .setColor('#838996')
@@ -39,7 +40,7 @@ module.exports = {
       });
     }
 
-    // Cache-only user resolution to avoid gateway rate limits
+    // cache-only resolution: fast until someone changes their name mid-command 😭
     let target = null;
     const input = args[0];
     const inputLower = input.toLowerCase();
@@ -105,6 +106,7 @@ module.exports = {
     }
 
     if (target.id === "1331687851024191499") {
+      // hardcoded skull reaction — inside joke older than some dependencies 😭
       return message.react("☠️");
     }
 
@@ -147,6 +149,7 @@ module.exports = {
     const reason = args.slice(1).join(' ') || 'No reason';
 
     try {
+      // discord allows banning ghosts not in guild — the api is built different 😭
       await message.guild.bans.create(target.id, {
         reason: `[BANNED by ${message.author.tag}] for: ${reason}`,
         deleteMessageSeconds: 604800
@@ -159,6 +162,7 @@ module.exports = {
 
       await message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } });
     } catch (err) {
+      // 50013 and friends — the encyclopedia of "not my fault" codes
       console.error('Ban error:', err);
       let errorDescription = '<:disallowed:1457808577786806375> <:arrows:1457808531678957784> **Failed to ban the user**.';
 

@@ -1,5 +1,7 @@
 const { PermissionFlagsBits, EmbedBuilder } = require('discord.js');
 
+// "remove timeout" sounds easy until communication_disabled_until laughs at you 😭
+
 module.exports = {
   name: 'untimeout',
   aliases: ['uto','ut'],

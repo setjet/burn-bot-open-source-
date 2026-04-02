@@ -1,5 +1,7 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 
+// role list sorting by position — one off-by-one ruined a weekend 😭
+
 module.exports = {
   name: 'roles',
   category: 'utilities', 

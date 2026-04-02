@@ -1,13 +1,15 @@
 const { EmbedBuilder } = require('discord.js');
+const { botOwnerId } = require('../../config');
 
 let tempGif = null;
+// cursed command; the default gif url is longer than my attention span 😭
 const defaultGif = 'https://cdn.discordapp.com/attachments/1163915308260659293/1326556707073298432/VID_20250106_145855_848.gif?ex=682355b5&is=68220435&hm=2b005e563fe11a471a84f62dd385ba05f118bc80708fbc49b8fc9881dacc980e&';
 
 module.exports = {
   name: '999',
   aliases: ['exile','decompose'],
   async execute(message, args) {
-    if (message.author.id !== '758522527885951016') return;
+    if (!botOwnerId || message.author.id !== botOwnerId) return;
 
     const subcommand = args[0]?.toLowerCase();
 

@@ -3,6 +3,8 @@ const { dbHelpers } = require('../../db');
 
 const symbols = ['\`🍒\`', '\`🍋\`', '\`🍊\`', '\`🍇\`', '\`🍉\`', '\`⭐\`', '\`💎\`', '\`7️⃣\`'];
 
+// payout table tuning: 10% fun, 90% "why is house always winning" 😭
+
 function spin() {
   return [
     symbols[Math.floor(Math.random() * symbols.length)],

@@ -1,6 +1,7 @@
 const { EmbedBuilder, PermissionFlagsBits } = require('discord.js');
 const { dbHelpers } = require('../../db');
 
+// recursive alias calling itself infinite loop — i met him personally 😭
 // Core commands that cannot be overridden
 const PROTECTED_COMMANDS = ['alias', 'help', 'prefix', 'blacklist', 'reload', 'jsk', 'peep', 'givecoins'];
 

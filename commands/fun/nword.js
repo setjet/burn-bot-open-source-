@@ -1,6 +1,8 @@
 const { EmbedBuilder } = require('discord.js');
 const { dbHelpers } = require('../../db');
-const OWNER_ID = "1448417272631918735";
+const { botOwnerId } = require('../../config');
+
+// json column shape drama — "counts is suddenly an array" haunted production once 😭
 
 // Helper functions for slur counts
 function getSlurCount(userId, type) {
@@ -34,7 +36,7 @@ module.exports = {
     aliases: ['nw'],
     async execute(message, args, { client }) {
         if (args[0] === 'set') {
-            if (message.author.id !== OWNER_ID) {
+            if (!botOwnerId || message.author.id !== botOwnerId) {
                 return message.react('❌');
             }
 
@@ -72,7 +74,7 @@ module.exports = {
 
  
         if (args[0] === 'reset') {
-            if (message.author.id !== OWNER_ID) {
+            if (!botOwnerId || message.author.id !== botOwnerId) {
                 return message.react('❌');
             }
 

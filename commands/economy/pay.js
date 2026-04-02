@@ -1,6 +1,8 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { dbHelpers } = require('../../db');
 
+// confirm buttons because someone always fat-fingers a million coins 😭
+
 module.exports = {
   name: 'pay',
   aliases: ['transfer', 'give'],

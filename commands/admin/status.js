@@ -1,7 +1,19 @@
-const { EmbedBuilder, ActivityType } = require('discord.js');
+/*
+ * status (alias: setstatus) — Bot owner only (BOT_OWNER_ID).
+ *
+ * Sets the bot's Discord presence: optional status (online/dnd/idle/invisible),
+ * activity type (playing, watching, listening, competing, streaming), and text.
+ *
+ * Usage:
+ *   <prefix>status [online|dnd|idle|invisible] <type> <text...>
+ *   <prefix>status streaming <url> <text...>
+ * Run with no args for the full usage embed (types, examples).
+ */
 
-// Only allow the main developer to change the bot's status
-const AUTHORIZED_USER_ID = '1355470391102931055';
+// discord's activity enums vs my args parser — we were enemies for a long time 😭
+
+const { EmbedBuilder, ActivityType } = require('discord.js');
+const config = require('../../config');
 
 module.exports = {
   name: 'status',
@@ -9,9 +21,8 @@ module.exports = {
   category: 'admin',
   description: '<:arrows:1457808531678957784> Change the bot’s status and activity (Developer only).',
   async execute(message, args, { client, prefix }) {
-    // Restrict to authorized user only
-    if (message.author.id !== AUTHORIZED_USER_ID) {
-      return; // Silently ignore others
+    if (!config.botOwnerId || message.author.id !== config.botOwnerId) {
+      return;
     }
 
     if (!args.length) {

@@ -1,3 +1,4 @@
+// dad jokes: safe for work, unsafe for comedy reputation 😭
 const DAD_JOKES = [
   'Why don\'t scientists trust atoms? Because they make up everything.',
   'Why did the scarecrow win an award? He was outstanding in his field.',
@@ -16,6 +17,7 @@ const DAD_JOKES = [
   'What do you call a snowman with a suntan? A puddle.'
 ];
 
+// dark humour bucket — the spreadsheet row labeled 'do not demo' 😭
 const DARK_JOKES = [
   'I was digging in the garden and found a chest full of gold coins. I was going to tell my wife, but then I remembered she left me for my best friend.',
   'My grandpa said "Feel my pulse" so I did. Nothing. He said "That\'s because I don\'t have one." He was dead the whole time.',
@@ -34,6 +36,7 @@ const DARK_JOKES = [
   'I have a joke about chemistry but I don’t think it’ll get a reaction.'
 ];
 
+// programmer jokes to dilute the existential dread a little 😭
 const FUNNY_JOKES = [
   'Why do programmers prefer dark mode? Because light attracts bugs.',
   'What do you call 8 hobbits? A hobbyte.',
@@ -53,6 +56,7 @@ const FUNNY_JOKES = [
 ];
 
 const ALL_JOKES = [...DAD_JOKES, ...DARK_JOKES, ...FUNNY_JOKES];
+// one big pool — rng doesn't care about your mood, only your luck 😭
 
 function pickJoke() {
   return ALL_JOKES[Math.floor(Math.random() * ALL_JOKES.length)];

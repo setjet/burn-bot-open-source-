@@ -1,6 +1,8 @@
 const { EmbedBuilder, ButtonBuilder, ActionRowBuilder, ButtonStyle, ComponentType } = require('discord.js');
 const { getAntinukeConfig, saveAntinukeConfig, getUserFromMention, canConfigureAntinuke } = require('../utils');
 
+// whitelist UX: "trust this id" — users trusted wrong id for hours 😭
+
 module.exports = {
   category: ['antinuke'],
   execute: async (message, args, { prefix }) => {

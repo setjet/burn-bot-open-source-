@@ -1,7 +1,21 @@
+/*
+ * lbban (aliases: leaderboardban, lbb) — Bot owner only (BOT_OWNER_ID).
+ *
+ * Bans users from appearing on the economy leaderboard (balance still exists; they’re hidden from the board).
+ *
+ * Usage:
+ *   <prefix>lbban add <user>
+ *   <prefix>lbban remove <user>
+ *   <prefix>lbban list
+ *   <prefix>lbban check <user>
+ * Run with no subcommand for the full help embed.
+ */
+
+// leaderboard ban list rendering used to truncate wrong and i cried 😭
+
 const { EmbedBuilder } = require('discord.js');
 const { dbHelpers } = require('../../db');
-
-const AUTHORIZED_USER_ID = '1355470391102931055';
+const config = require('../../config');
 
 module.exports = {
   name: 'lbban',
@@ -9,9 +23,8 @@ module.exports = {
   category: 'admin',
   description: '<:arrows:1457808531678957784> Ban users from the economy leaderboard (Admin only).',
   async execute(message, args, { prefix, getUser }) {
-    // Only allow authorized user
-    if (message.author.id !== AUTHORIZED_USER_ID) {
-      return; // Silently ignore other users
+    if (!config.botOwnerId || message.author.id !== config.botOwnerId) {
+      return;
     }
 
     const subcommand = args[0]?.toLowerCase();

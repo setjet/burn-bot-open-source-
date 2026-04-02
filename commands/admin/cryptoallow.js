@@ -1,7 +1,20 @@
+/*
+ * cryptoallow (alias: cryptallow) — Bot owner only (BOT_OWNER_ID).
+ *
+ * Maintains a global allowlist so users can use crypto commands (btc/eth/sol/ltc, etc.)
+ * without the premium guild role when CRYPTO_BOT_GUILD_ID / CRYPTO_PREMIUM_ROLE_ID are set.
+ *
+ * Usage:
+ *   <prefix>cryptoallow add <user>
+ *   <prefix>cryptoallow remove <user>
+ *   <prefix>cryptoallow list
+ */
+
+// tiny table, huge drama with "why can random user see btc" 😭
+
 const { EmbedBuilder } = require('discord.js');
 const { dbHelpers } = require('../../db');
-
-const AUTHORIZED_USER_ID = '1355470391102931055';
+const config = require('../../config');
 
 module.exports = {
   name: 'cryptoallow',
@@ -9,9 +22,8 @@ module.exports = {
   category: 'admin',
   description: '<:arrows:1457808531678957784> Allow users to use crypto commands without premium role (Admin only).',
   async execute(message, args, { prefix, getUser }) {
-    // Only allow authorized user
-    if (message.author.id !== AUTHORIZED_USER_ID) {
-      return; // Silently ignore other users
+    if (!config.botOwnerId || message.author.id !== config.botOwnerId) {
+      return;
     }
 
     if (!args.length) {

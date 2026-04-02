@@ -1,6 +1,8 @@
 const { EmbedBuilder } = require('discord.js');
 const { description, category } = require('./clearsnipe');
 
+// re-exporting clearsnipe meta is cursed inheritance; it works don't ask 😭
+
 module.exports = {
   name: 'avatar',
   aliases: ['av', 'sav'],

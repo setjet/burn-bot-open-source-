@@ -1,5 +1,7 @@
 const { EmbedBuilder } = require('discord.js');
 
+// user.fetch(true) for banner — the "true" mattered more than my degree 😭
+
 module.exports = {
   name: 'banner',
   aliases: ['bn', 'sb'],

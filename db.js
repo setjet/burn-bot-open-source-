@@ -1,13 +1,12 @@
 const Database = require('better-sqlite3');
 const path = require('path');
 const fs = require('fs');
+const { railwayVolumeMountPath } = require('./config');
 
-// Determine database path (Railway volume or local)
-const dbPath = process.env.RAILWAY_VOLUME_MOUNT_PATH 
-  ? path.join(process.env.RAILWAY_VOLUME_MOUNT_PATH, 'bot.db')
+const dbPath = railwayVolumeMountPath
+  ? path.join(railwayVolumeMountPath, 'bot.db')
   : path.join(__dirname, 'bot.db');
 
-// Ensure directory exists
 const dbDir = path.dirname(dbPath);
 if (!fs.existsSync(dbDir)) {
   fs.mkdirSync(dbDir, { recursive: true });

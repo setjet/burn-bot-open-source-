@@ -1,5 +1,7 @@
 const { PermissionFlagsBits, EmbedBuilder } = require('discord.js');
 
+// stripping roles in the right order took longer than the ban command 😭
+
 module.exports = {
   name: 'stripstaff',
   aliases: ['ss'],

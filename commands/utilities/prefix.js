@@ -1,6 +1,8 @@
 const { EmbedBuilder, PermissionFlagsBits } = require('discord.js');
 const { dbHelpers } = require('../../db');
 
+// one char change, infinite "bot broke" tickets if sqlite hiccups 😭
+
 module.exports = {
   name: 'prefix',
   aliases: [],

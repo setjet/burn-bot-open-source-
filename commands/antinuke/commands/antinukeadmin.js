@@ -71,7 +71,7 @@ module.exports = {
       });
     }
 
-    // Show confirmation dialog
+    // yes/no buttons because granting antinuke admin is basically handing someone the keys 😭
     const warningEmbed = new EmbedBuilder()
       .setColor('#838996')
       .setTitle('<:alert:1457808529200119880><:arrows:1457808531678957784> Grant Antinuke Admin?')
@@ -104,7 +104,7 @@ module.exports = {
       allowedMentions: { repliedUser: false }
     });
 
-    // Create collector for button interactions
+    // collector timeout 60s — long enough to panic, short enough to forget 😭
     const collector = confirmationMessage.createMessageComponentCollector({
       componentType: ComponentType.Button,
       filter: i => i.user.id === message.author.id,
@@ -143,7 +143,7 @@ module.exports = {
           return;
         }
 
-        // Add user as admin
+        // one string id in an array — what could go wrong (famous last thought)
         currentConfig.admins.push(user.id);
         saveAntinukeConfig(message.guild.id, currentConfig);
 
@@ -162,6 +162,7 @@ module.exports = {
     });
 
     collector.on('end', async (collected, reason) => {
+      // idle timeout: the UI equivalent of "are you still there" ghosting 😭
       if (reason === 'time') {
         try {
           await confirmationMessage.edit({

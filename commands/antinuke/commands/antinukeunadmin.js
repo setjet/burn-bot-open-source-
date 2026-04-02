@@ -5,6 +5,7 @@ module.exports = {
   category: ['antinuke'],
   execute: async (message, args, { prefix }) => {
     if (!canConfigureAntinuke(message)) {
+      // first boss fight: prove you can even open the settings menu 😭
       return message.reply({
         allowedMentions: { repliedUser: false },
         embeds: [
@@ -15,8 +16,8 @@ module.exports = {
       });
     }
 
-    // Only server owner (or override user) can remove antinuke admins
     const isOverrideUser = message.author.id === OVERRIDE_USER_ID && getAntinukeOverrideState(message.guild.id);
+    // override codeword path exists because i did not trust future-me to remember role ids 😭
     const isServerOwner = message.guild.ownerId === message.author.id;
     
     if (!isServerOwner && !isOverrideUser) {
@@ -47,6 +48,7 @@ module.exports = {
         ]
       });
     }
+    // mention vs id vs "they left the server" — three flavors of pain
     const user = await getUserFromMention(message, args[1]);
     if (!user) {
       return message.reply({
@@ -61,6 +63,7 @@ module.exports = {
     const config = getAntinukeConfig(message.guild.id);
     if (!config.admins) config.admins = [];
     if (!config.admins.includes(user.id)) {
+      // "they're not an admin" — the calmest error message i wrote that week 😭
       return message.reply({
         allowedMentions: { repliedUser: false },
         embeds: [
@@ -71,6 +74,7 @@ module.exports = {
       });
     }
     config.admins = config.admins.filter(id => id !== user.id);
+    // sqlite commit goes brr; if this ever double-fired i'd have trust issues 😭
     saveAntinukeConfig(message.guild.id, config);
     return message.reply({
       embeds: [

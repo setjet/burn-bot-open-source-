@@ -1,5 +1,23 @@
+/*
+ * burnwelcome (alias: bw) — Bot owner only (BOT_OWNER_ID). Server (guild) only.
+ *
+ * Configure optional welcome messages posted to a channel when members join (channel, enable/disable,
+ * view settings, test, remove). Uses per-guild settings in the database.
+ *
+ * Usage:
+ *   <prefix>burnwelcome channel <#channel>
+ *   <prefix>burnwelcome toggle | on | off
+ *   <prefix>burnwelcome view
+ *   <prefix>burnwelcome test
+ *   <prefix>burnwelcome remove
+ * Run with no subcommand for the full usage embed.
+ */
+
+// welcome embed channel mentions + env ids — "works on my server" the command 😭
+
 const { EmbedBuilder, PermissionsBitField, Events, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { dbHelpers } = require('../../db');
+const appConfig = require('../../config');
 
 module.exports = {
   name: 'burnwelcome',
@@ -7,9 +25,7 @@ module.exports = {
   aliases: ['bw'],
   description: '<:arrows:1457808531678957784> Manage the server\'s welcome DM messages.',
   async execute(message, args, { prefix }) {
-    // Only allow authorized user
-    const AUTHORIZED_USER_ID = '1355470391102931055';
-    if (message.author.id !== AUTHORIZED_USER_ID) {
+    if (!appConfig.botOwnerId || message.author.id !== appConfig.botOwnerId) {
       return message.reply({
         embeds: [
           new EmbedBuilder()
@@ -302,27 +318,22 @@ module.exports = {
   }
 };
 
-// Helper function to create the welcome embed
 function createWelcomeEmbed(user, guild) {
-  // Hardcoded channel IDs
-  const supportChannelId = '1457554726802427948';
-  const howToUseChannelId = '1457554702727254128';
-  const suggestionsChannelId = '1458617211538243594';
-  const updatesChannelId = '1457553821776744508';
-  
-  // Verify channels exist in the guild
-  const supportChannel = guild.channels.cache.get(supportChannelId);
-  const howToUseChannel = guild.channels.cache.get(howToUseChannelId);
-  const suggestionsChannel = guild.channels.cache.get(suggestionsChannelId);
-  const updatesChannel = guild.channels.cache.get(updatesChannelId);
-  
-  // Build channel list with clickable mentions
-  const channelList = [
-    `<:arrows:1457808531678957784> <#${supportChannelId}> - open tickets`,
-    `<:arrows:1457808531678957784> <#${howToUseChannelId}> - setup bot`,
-    `<:arrows:1457808531678957784> <#${suggestionsChannelId}> - send suggestions`,
-    `<:arrows:1457808531678957784> <#${updatesChannelId}> new features + bug fixes`
-  ].join('\n');
+  const rows = [
+    { id: appConfig.welcomeSupportChannelId, text: 'open tickets' },
+    { id: appConfig.welcomeGuideChannelId, text: 'setup bot' },
+    { id: appConfig.welcomeSuggestionsChannelId, text: 'send suggestions' },
+    { id: appConfig.welcomeUpdatesChannelId, text: 'new features + bug fixes' }
+  ]
+    .filter((r) => r.id && guild.channels.cache.has(r.id))
+    .map(
+      (r) => `<:arrows:1457808531678957784> <#${r.id}> - ${r.text}`
+    );
+
+  const channelList =
+    rows.length > 0
+      ? rows.join('\n')
+      : '-# <:arrows:1457808531678957784> Check the server channels for support, guides, and updates.';
 
   const embed = new EmbedBuilder()
     .setColor('#838996')
@@ -336,11 +347,9 @@ function createWelcomeEmbed(user, guild) {
   return embed;
 }
 
-// Helper function to create the invite button
 function createInviteButton(client) {
   if (!client.user) return null;
-  
-  // Create OAuth2 invite URL with bot and applications.commands scopes
+
   const clientId = client.user.id;
   const inviteUrl = `https://discord.com/api/oauth2/authorize?client_id=${clientId}&permissions=8&scope=bot%20applications.commands`;
   

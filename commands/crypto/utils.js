@@ -1,14 +1,15 @@
 const https = require('https');
 const http = require('http');
+const config = require('../../config');
 
-// Cache for crypto prices (update every 5 minutes)
+// this file is why i have trust issues with third-party apis 😭 (etherscan vs ethplorer dance took forever)
+
 const priceCache = {
   prices: {},
   lastUpdate: 0,
   cacheDuration: 5 * 60 * 1000 // 5 minutes
 };
 
-// Crypto API endpoints and configurations
 const CRYPTO_CONFIG = {
   SOL: {
     name: 'Solana',
@@ -22,7 +23,7 @@ const CRYPTO_CONFIG = {
     name: 'Ethereum',
     symbol: 'ETH',
     apiUrl: (address) => {
-      const apiKey = process.env.ETHERSCAN_API_KEY || '';
+      const apiKey = config.etherscanApiKey || '';
       if (!apiKey) {
         return `https://api.ethplorer.io/getAddressInfo/${address}?apiKey=freekey`;
       }
@@ -72,7 +73,7 @@ async function fetchCryptoBalance(currency, address) {
     throw new Error(`Unsupported currency: ${currency}`);
   }
 
-  // Special handling for Solana (uses RPC instead of REST API)
+  // sol doesn't play nice with the same code path as the rest — spent ages thinking i was dumb 😭
   if (currency.toUpperCase() === 'SOL') {
     try {
       const balance = await fetchSolanaBalance(address);

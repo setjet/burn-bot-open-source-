@@ -8,9 +8,6 @@ node_modules/
 *.log
 npm-debug.log*
 
-commands/voicemaster/
-
-wheel.js 
 
 # OS files
 .DS_Store

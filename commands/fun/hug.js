@@ -11,6 +11,7 @@ const HUG_GIFS = [
 ];
 
 function shuffle(arr) {
+  // same shuffle as slap — ctrl+c ctrl+v is a design pattern 😭
   const a = [...arr];
   for (let i = a.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -56,6 +57,7 @@ module.exports = {
     }
 
     if (target.id === message.author.id) {
+      // self-hug denied — bot is not your therapist (legally) 😭
       return message.reply({
         embeds: [
           new EmbedBuilder()
@@ -79,6 +81,7 @@ module.exports = {
 
     const files = [];
     if (HUG_GIFS.length > 0) {
+      // giphy urls are long enough to be their own zip codes 😭
       const attachment = await fetchGifAsAttachment(shuffle(HUG_GIFS), 'hug.gif');
       if (attachment) {
         files.push(attachment);

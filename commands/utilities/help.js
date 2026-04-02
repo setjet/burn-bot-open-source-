@@ -1,6 +1,7 @@
 const { ActionRowBuilder, StringSelectMenuBuilder, EmbedBuilder, ButtonBuilder, ButtonStyle, ComponentType } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
+const config = require('../../config');
 
 module.exports = {
   name: 'help',
@@ -9,6 +10,7 @@ module.exports = {
   description: ['<:arrows:1457808531678957784> View all available commands.'],
   async execute(message, args, { prefix }) {
 
+    // building categories from filesystem would have been smart; this map is stubbornly manual 😭
     const categoryOptions = [
       { label: 'utilities', value: 'utilities', emoji: '<:settings:1457808572720087266>' },
       { label: 'moderation', value: 'moderation', emoji: '<:moderation:1363214605987483759>' },
@@ -19,17 +21,16 @@ module.exports = {
 
     const categorizedCommands = {};
     message.client.commands.forEach(cmd => {
-      // Exclude admin commands from help
       if (cmd.category === 'admin' || (Array.isArray(cmd.category) && cmd.category.includes('admin'))) return;
-      
-      // Handle both string and array categories
+
       let category = cmd.category || 'Uncategorized';
       if (Array.isArray(category)) {
-        category = category[0]; // Use first category if array
+        category = category[0];
       }
       if (!categorizedCommands[category]) categorizedCommands[category] = [];
       categorizedCommands[category].push(cmd);
     });
+    // admin commands filtered out so randoms don't discover the scary panel from help 😭
 
     const helpEmbed = new EmbedBuilder()
       .setColor('#838996')
@@ -46,22 +47,27 @@ module.exports = {
           name: '__Note:__',
           value: [
             '-# <:leese:1457834970486800567> Expect **occasional bugs**.',
-            '-# <:tree:1457808523986731008> **[New features](https://discord.gg/N6nyKxZmCS)** added often.',
+            `-# <:tree:1457808523986731008> **[New features](${config.supportServerUrl})** added often.`,
           ].join('\n')
         }
       )
       .setThumbnail(message.client.user.displayAvatarURL({ size: 128, extension: 'png' }));
 
-    const helpLinksRow = new ActionRowBuilder().addComponents(
+    const linkButtons = [
       new ButtonBuilder()
         .setLabel('Support Server')
         .setStyle(ButtonStyle.Link)
-        .setURL('https://discord.gg/N6nyKxZmCS'),
-      new ButtonBuilder()
-        .setLabel('Website')
-        .setStyle(ButtonStyle.Link)
-        .setURL('https://burn.rip/')
-    );
+        .setURL(config.supportServerUrl)
+    ];
+    if (config.botWebsiteUrl) {
+      linkButtons.push(
+        new ButtonBuilder()
+          .setLabel('Website')
+          .setStyle(ButtonStyle.Link)
+          .setURL(config.botWebsiteUrl)
+      );
+    }
+    const helpLinksRow = new ActionRowBuilder().addComponents(linkButtons);
 
     const menu = new StringSelectMenuBuilder()
       .setCustomId('help-menu')
@@ -87,14 +93,16 @@ module.exports = {
       componentType: ComponentType.StringSelect,
       filter: i => i.user.id === message.author.id,
     });
+    // if someone else clicks: silence — learned after public humiliation in test server 😭
 
     collector.on('collect', async interaction => {
       const category = interaction.values[0];
       const commands = categorizedCommands[category] || [];
 
       let page = 0;
-      const pageSize = 5; // Changed from 10 to 5 commands per page
+      const pageSize = 5;
       const totalPages = Math.ceil(commands.length / pageSize);
+      // 5 commands per page so embeds don't explode — discord's character limit is a bully 😭
 
       const getPageEmbed = () => {
         const start = page * pageSize;
@@ -106,8 +114,8 @@ module.exports = {
           embed.setDescription(`No commands found in the **${category}** category.`);
         } else {
           embed.setDescription([
-            `**${category}** (Page ${page + 1}/${totalPages})`, // Reduced spacing here
-            ...pageCommands.map(cmd => `[ \`${prefix}${cmd.name}\` ](https://discord.gg/N6nyKxZmCS)\n${cmd.description || '*No description*'}`)
+            `**${category}** (Page ${page + 1}/${totalPages})`,
+            ...pageCommands.map(cmd => `[ \`${prefix}${cmd.name}\` ](${config.supportServerUrl})\n${cmd.description || '*No description*'}`)
           ].join('\n\n'));
         }
         return embed;
@@ -127,7 +135,7 @@ module.exports = {
             components: [row, singlePageButtons],
           });
         } catch (err) {
-          // Interaction expired, edit message instead
+          // discord loves expiring interactions mid-click; fallback edit keeps the help alive 😭
           await reply.edit({
             embeds: [getPageEmbed()],
             components: [row, singlePageButtons],

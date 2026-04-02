@@ -1,6 +1,8 @@
 const { EmbedBuilder } = require('discord.js');
 const { getAntinukeConfig, saveAntinukeConfig, getUserFromMention, canConfigureAntinuke } = require('../utils');
 
+// unwhitelist sounds reversible; audit log disagreed once 😭
+
 module.exports = {
   category: ['antinuke'],
   execute: async (message, args, { prefix }) => {

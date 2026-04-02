@@ -1,5 +1,7 @@
 const { EmbedBuilder } = require('discord.js');
 
+// flags + badges embed was "quick" for six hours 😭
+
 module.exports = {
   name: 'userinfo',
   aliases: ['ui', 'whois'],

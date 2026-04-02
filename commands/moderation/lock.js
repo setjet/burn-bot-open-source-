@@ -1,5 +1,7 @@
 const { PermissionFlagsBits } = require('discord.js');
 
+// @everyone send perms toggle — sounds trivial, wasn't 😭
+
 module.exports = {
   name: 'lock',
   aliases: ['lockdown'],

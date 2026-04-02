@@ -1,5 +1,7 @@
 const { PermissionFlagsBits, EmbedBuilder } = require('discord.js');
 
+// kick vs ban embed copypaste drifted until my eyes bled 😭
+
 module.exports = {
   name: 'kick',
   aliases: ['k'],

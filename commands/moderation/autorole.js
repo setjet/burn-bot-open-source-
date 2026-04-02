@@ -1,6 +1,7 @@
 const { EmbedBuilder, PermissionsBitField, Events } = require('discord.js');
 const { dbHelpers } = require('../../db');
 
+// big permission bitmask because "is mod" is never one flag 😭
 
 const MODERATOR_PERMISSIONS = [
   PermissionsBitField.Flags.Administrator,

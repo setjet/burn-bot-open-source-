@@ -1,5 +1,7 @@
 const { EmbedBuilder } = require('discord.js');
 
+// simplest command; still typo'd memberCount once 😭
+
 module.exports = {
   name: 'mc',
   description: '<:arrows:1457808531678957784> Show server member count.',

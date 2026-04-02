@@ -1,3 +1,5 @@
+// custom discord emoji parsing regex lived rent-free in my head 😭
+
 module.exports = {
     name: 'enlarge',
     aliases: ['e'],

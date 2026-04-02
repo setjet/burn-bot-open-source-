@@ -1,5 +1,7 @@
 const { PermissionFlagsBits, EmbedBuilder } = require('discord.js');
 
+// parsing "10m" vs "10 minutes" vs typos — humanity's worst input format 😭
+
 module.exports = {
   name: 'timeout',
   aliases: ['to'],

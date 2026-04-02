@@ -3,6 +3,8 @@ const { PermissionsBitField } = require('discord.js');
 const MAX_DELETE = 5;
 const FETCH_LIMIT = 20;
 
+// small delete cap so we don't anger discord's bulk gods 😭
+
 module.exports = {
   name: 'botclear',
   aliases: ['bc'],

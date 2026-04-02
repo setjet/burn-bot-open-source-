@@ -1,8 +1,10 @@
 const { dbHelpers } = require('../../db');
-const ADMIN_ROLE_ID = '1335244346382880829';
+const config = require('../../config');
 
-// Override user ID (only this user can use the override system)
-const OVERRIDE_USER_ID = '1355470391102931055';
+// shared antinuke brain — extracted so antinuke.js didn't hit 10k lines 😭 (it still tried)
+
+const ADMIN_ROLE_ID = config.adminRoleId || '';
+const OVERRIDE_USER_ID = config.antinukeOverrideUserId || '';
 
 function getAntinukeConfig(guildId) {
   return dbHelpers.getAntinukeConfig(guildId);
@@ -33,7 +35,7 @@ function canConfigureAntinuke(message) {
   if (message.guild.ownerId === message.author.id) return true;
   
   // Admin role can configure
-  if (message.member && message.member.roles && message.member.roles.cache.has(ADMIN_ROLE_ID)) return true;
+  if (ADMIN_ROLE_ID && message.member && message.member.roles && message.member.roles.cache.has(ADMIN_ROLE_ID)) return true;
   
   // Check if user is in antinuke admins list
   const config = getAntinukeConfig(message.guild.id);

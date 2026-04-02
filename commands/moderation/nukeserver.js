@@ -1,5 +1,7 @@
 const { EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder, PermissionFlagsBits } = require('discord.js');
 
+// nuclear confirm flow because one mistype should not delete civilization 😭
+
 module.exports = {
   name: 'servernuke',
   aliases: ['sn'],

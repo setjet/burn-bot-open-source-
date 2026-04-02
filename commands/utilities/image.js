@@ -2,6 +2,8 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('
 const axios = require('axios');
 const cheerio = require('cheerio');
 
+// google images scrape breaks when google breathes; delays are denial coping 😭
+
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 module.exports = {

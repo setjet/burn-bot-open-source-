@@ -1,3 +1,5 @@
+// websocket latency vs api roundtrip — everyone argues, nobody wins 😭
+
 module.exports = {
   name: 'ping',
   aliases: ['p'],

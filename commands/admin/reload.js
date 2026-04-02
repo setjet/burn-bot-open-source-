@@ -1,11 +1,22 @@
+/*
+ * reload — Bot owner only (BOT_OWNER_ID).
+ *
+ * Lightweight dev/ops ping: reacts with 🙈 if you're authorized. Does not hot-reload code.
+ *
+ * Usage:
+ *   <prefix>reload
+ */
+
+// the illusion of productivity (real hot reload never shipped) 😭
+
+const config = require('../../config');
+
 module.exports = {
     name: 'reload',
     category: 'admin',
     async execute(message) {
-      // Only allow authorized user
-      const AUTHORIZED_USER_ID = '1355470391102931055';
-      if (message.author.id !== AUTHORIZED_USER_ID) {
-        return; // Silently ignore other users
+      if (!config.botOwnerId || message.author.id !== config.botOwnerId) {
+        return;
       }
       
       

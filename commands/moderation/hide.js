@@ -1,5 +1,7 @@
 const { PermissionFlagsBits, EmbedBuilder } = require('discord.js');
 
+// overwrite math: overwrites math 😭
+
 module.exports = {
   name: 'hide',
   aliases: [],

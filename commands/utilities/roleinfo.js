@@ -1,5 +1,7 @@
 const { EmbedBuilder } = require('discord.js');
 
+// permission flags as readable text took longer than the embed color 😭
+
 module.exports = {
   name: 'roleinfo',
   aliases: ['ri'],

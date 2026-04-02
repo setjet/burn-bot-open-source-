@@ -1,6 +1,8 @@
 const { EmbedBuilder } = require('discord.js');
 const { getAntinukeConfig } = require('../utils');
 
+// read-only list; the calm command in a storm of buttons 😭
+
 module.exports = {
   category: ['antinuke'],
   execute: async (message, args, { prefix }) => {

@@ -1,5 +1,7 @@
 const { PermissionFlagsBits } = require('discord.js');
 
+// pair of lock; kept drifting out of sync until i cried 😭
+
 module.exports = {
   name: 'unlock',
   aliases: ['ul'],

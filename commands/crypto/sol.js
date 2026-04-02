@@ -1,41 +1,15 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
-const { dbHelpers } = require('../../db');
+const config = require('../../config');
 const { getCurrencySymbol, fetchCryptoBalance, convertToUSD, obfuscateAddress } = require('./utils');
+const { assertCryptoPremium } = require('./premiumCheck');
 
 module.exports = {
   name: 'sol',
   aliases: ['solana'],
   description: '<:arrows:1457808531678957784> Manage your Solana wallet address.',
   async execute(message, args, { prefix, client, dbHelpers }) {
-    // Premium feature: Check if user has premium role in bot's server OR is in allowed list
-    const BOT_SERVER_ID = '1455305225081589843'; // Bot's main server ID (where premium role exists)
-    const PREMIUM_ROLE_ID = '1458579256077586453'; // Premium role ID in bot's server
-    
-    // Check if command is used in a server
-    if (!message.guild) {
-      return; // Ignore DMs
-    }
-    
-    // Check if user is in allowed list (bypasses premium check)
-    if (dbHelpers.isCryptoAllowedUser(message.author.id)) {
-      // User is allowed, continue with command
-    } else {
-      // Check if user has premium role in bot's server
-      try {
-        const botServer = client.guilds.cache.get(BOT_SERVER_ID);
-        if (!botServer) {
-          return; // Bot's server not found, skip check
-        }
-        
-        const memberInBotServer = await botServer.members.fetch(message.author.id).catch(() => null);
-        if (!memberInBotServer || !memberInBotServer.roles.cache.has(PREMIUM_ROLE_ID)) {
-          return; // User doesn't have premium role in bot's server
-        }
-      } catch (error) {
-        // If check fails, silently ignore (user doesn't have access)
-        return;
-      }
-    }
+    if (!(await assertCryptoPremium(message, client, dbHelpers))) return;
+    // lamports look like integers until they don't — solana keeps you humble 😭
 
     const userId = message.author.id;
     const currency = 'SOL';
@@ -60,7 +34,7 @@ module.exports = {
         });
       }
 
-      // Fetch balance
+      // rpc jsonrpc batching: poetry. my parser: prose. mostly errors.
       let balance = null;
       let balanceError = null;
       let usdValue = 0;
@@ -178,11 +152,11 @@ module.exports = {
     }
 
     async function proceedWithVerification(message, userId, currency, prefix, interaction = null) {
-      // Generate verification nonce (no address needed - user will connect wallet)
       const nonce = dbHelpers.createVerificationNonce(userId, currency, null, 10);
-      const verificationUrl = process.env.VERIFICATION_URL;
+      // phantom users think verification is one click; the backend disagrees sometimes 😭
+      const verificationUrl = config.verificationUrl;
       if (!verificationUrl) {
-        console.error('VERIFICATION_URL is not set in environment variables!');
+        console.error('VERIFICATION_URL is not set');
         return message.reply({
           embeds: [
             new EmbedBuilder()
@@ -222,7 +196,8 @@ module.exports = {
 
       try {
         await message.author.send({ embeds: [dmEmbed], components: [row] });
-        
+        // same dm pipeline as eth/btc — copy-paste saved lives, not dignity 😭
+
         // If called from button interaction, update the embed. Otherwise send a new message.
         if (interaction) {
           await interaction.update({
@@ -279,7 +254,7 @@ module.exports = {
       }
     }
 
-    // Unknown subcommand
+    // not `sol moon` — wrong bot, same disappointment
     return message.reply({
       embeds: [
         new EmbedBuilder()

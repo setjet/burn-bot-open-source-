@@ -1,5 +1,7 @@
 const { PermissionFlagsBits, EmbedBuilder } = require('discord.js');
 
+// bulk delete + "message is too old" discord rules = classic duo 😭
+
 module.exports = {
   name: 'purge',
   aliases: ['c'],

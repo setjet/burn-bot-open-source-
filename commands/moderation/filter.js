@@ -1,5 +1,7 @@
 const { EmbedBuilder, AutoModerationRuleTriggerType, AutoModerationRuleEventType, PermissionsBitField } = require('discord.js');
 
+// auto mod api vs manual word list — we juggle both and my brain filed for leave 😭
+
 module.exports = {
   name: 'filter',
   category: 'moderation',

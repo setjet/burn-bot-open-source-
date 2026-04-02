@@ -2,6 +2,8 @@ const { PermissionFlagsBits, EmbedBuilder, AttachmentBuilder } = require('discor
 const axios = require('axios');
 const sharp = require('sharp');
 
+// lottie vs png stickers wanted different pipelines; i aged 😭
+
 module.exports = {
   name: 'sticker',
   category: 'utilities', 

@@ -2,6 +2,8 @@ const { EmbedBuilder, PermissionsBitField } = require('discord.js');
 
 const processingCommands = new Set();
 
+// race conditions on the word "hi" — never again 😭
+
 // Helper function to get or load autoresponses for a guild
 function getGuildAutoResponses(guildId, autoResponses, dbHelpers) {
   let guildAutoResponses = autoResponses.get(guildId);

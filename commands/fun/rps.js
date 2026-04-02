@@ -1,5 +1,7 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 
+// button collectors expiring mid-game was my villain arc 😭
+
 const CHOICES = ['rock', 'paper', 'scissors'];
 const EMOJI = { rock: '🪨', paper: '📄', scissors: '✂️' };
 

@@ -2,6 +2,8 @@ const { EmbedBuilder } = require('discord.js');
 const moment = require('moment-timezone');
 const { dbHelpers } = require('../../db');
 
+// us state → tz table: longer than the command logic 😭
+
 const stateToTimezone = {
     "alabama": "America/Chicago",
     "alaska": "America/Anchorage",

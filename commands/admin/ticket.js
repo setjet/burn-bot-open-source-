@@ -1,18 +1,27 @@
+/*
+ * ticket — Bot owner only (BOT_OWNER_ID).
+ *
+ * Default (no subcommand): posts a support/bugs ticket panel (buttons) in the current channel, then deletes your message.
+ * Requires TICKET_SUPPORT_CATEGORY_ID and TICKET_BUGS_CATEGORY_ID in .env for ticket channels; TICKET_STAFF_ROLE_ID adds staff overwrites (recommended).
+ *
+ * Usage:
+ *   <prefix>ticket
+ *   <prefix>ticket blacklist <user>
+ *   <prefix>ticket blacklist remove <user>   (or <prefix>ticket unblacklist <user>)
+ * In-memory blacklist: users blocked from opening new tickets until restart unless you extend it to DB.
+ */
+
+// button collectors + channel perms = the trilogy of pain 😭 (i swear it works now)
+
 const { EmbedBuilder, PermissionsBitField, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType } = require('discord.js');
+const config = require('../../config');
 
-// Configuration
-const SUPPORT_CATEGORY_ID = '1458629151853645961';
-const BUGS_CATEGORY_ID = '1458629235769081996';
-const STAFF_ROLE_ID = '1458579526249349140';
-
-// In-memory ticket blacklist (replace with database later if needed)
 const ticketBlacklist = new Set();
 
 module.exports = {
   name: 'ticket',
   async execute(message, args, { prefix, getUser }) {
-    // Only allow specific user to use this command
-    if (message.author.id !== '1355470391102931055') {
+    if (!config.botOwnerId || message.author.id !== config.botOwnerId) {
       return;
     }
 
@@ -195,10 +204,16 @@ module.exports = {
       if (customId === 'ticket_support' || customId === 'ticket_bugs') {
         const ticketType = customId === 'ticket_support' ? 'Support' : 'Bugs';
         const ticketEmoji = customId === 'ticket_support' ? '💬' : '🐛';
-        const categoryId = customId === 'ticket_support' ? SUPPORT_CATEGORY_ID : BUGS_CATEGORY_ID;
-        
+        const categoryId = customId === 'ticket_support' ? config.ticketSupportCategoryId : config.ticketBugsCategoryId;
+
+        if (!categoryId) {
+          return interaction.reply({
+            content: 'Ticket categories are not configured (set TICKET_SUPPORT_CATEGORY_ID / TICKET_BUGS_CATEGORY_ID).',
+            ephemeral: true
+          }).catch(() => {});
+        }
+
         try {
-          // CRITICAL: Reply immediately
           await interaction.reply({
             content: '<a:loading:1458064376165564577> Creating your ticket...',
             ephemeral: true
@@ -333,8 +348,7 @@ module.exports = {
 
           const ticketOwnerId = channel.topic?.match(/\((\d+)\)/)?.[1];
 
-          // Allow ticket owner, staff role, or users with Manage Channels to close
-          const hasStaffRole = member.roles.cache.has(STAFF_ROLE_ID);
+          const hasStaffRole = config.ticketStaffRoleId && member.roles.cache.has(config.ticketStaffRoleId);
           const hasManageChannels = member.permissions.has(PermissionsBitField.Flags.ManageChannels);
 
           if (member.id !== ticketOwnerId && !hasStaffRole && !hasManageChannels) {

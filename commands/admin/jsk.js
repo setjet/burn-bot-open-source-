@@ -1,16 +1,28 @@
+/*
+ * jsk (aliases: js, javascript) — Bot owner only (BOT_OWNER_ID).
+ *
+ * Inspects bot source: finds `<name>.js` under `commands/` or the project root, shows a confirmation embed,
+ * then serves the file (with restrictions on critical paths like index). Compound command names supported
+ * (e.g. two args if a single registered command matches).
+ *
+ * Usage:
+ *   <prefix>jsk <fileOrCommandName> [secondWord]
+ */
+
+// recursive file hunt + confirm button because one accidental paste almost leaked everything 😭
+
 const fs = require('fs');
 const path = require('path');
 const { EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder, AttachmentBuilder } = require('discord.js');
+const config = require('../../config');
 
 module.exports = {
   name: 'jsk',
   aliases: ['js', 'javascript'],
   category: 'admin',
   async execute(message, args, { client }) {
-    // Only allow authorized user
-    const AUTHORIZED_USER_ID = '1355470391102931055';
-    if (message.author.id !== AUTHORIZED_USER_ID) {
-      return; // Silently ignore other users
+    if (!config.botOwnerId || message.author.id !== config.botOwnerId) {
+      return;
     }
 
     if (!args.length) {

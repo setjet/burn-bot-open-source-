@@ -1,5 +1,7 @@
 const { PermissionFlagsBits, EmbedBuilder } = require('discord.js');
 
+// queued role ops because discord rate limits had me in a chokehold 😭
+
 // Rate limit queue for role operations per guild
 const roleOperationQueues = new Map();
 const ROLE_OPERATION_DELAY = 1200; // 1.2 second delay between role operations per guild

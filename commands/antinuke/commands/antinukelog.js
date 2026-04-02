@@ -1,6 +1,8 @@
 const { EmbedBuilder } = require('discord.js');
 const { getAntinukeConfig, saveAntinukeConfig, canConfigureAntinuke, OVERRIDE_USER_ID, getAntinukeOverrideState } = require('../utils');
 
+// picking a log channel should be one line; discord made it a novel 😭
+
 module.exports = {
   category: ['antinuke'],
   execute: async (message, args, { prefix }) => {

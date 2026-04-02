@@ -1,5 +1,7 @@
 const { EmbedBuilder } = require('discord.js');
 
+// snipe's awkward cousin; storing before/after hurt my feelings 😭
+
 module.exports = {
   name: 'editsnipe',
   aliases: ['es'],

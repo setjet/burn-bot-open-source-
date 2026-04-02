@@ -1,5 +1,7 @@
 const { EmbedBuilder } = require('discord.js');
 
+// nukes the snipe map; mods love it, my past self forgot it existed 😭
+
 module.exports = {
   name: 'clearsnipe',
   aliases: ['cs'],

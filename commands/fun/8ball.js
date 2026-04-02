@@ -1,5 +1,7 @@
 const { EmbedBuilder } = require('discord.js');
 
+// rng that definitely predicts the future (no it doesn't) 😭
+
 const RESPONSES = [
   'Yes.', 'No.', 'Maybe.', 'Definitely.', 'Absolutely not.', 'Without a doubt.',
   'Signs point to yes.', 'Signs point to no.', 'Reply hazy, try again.',

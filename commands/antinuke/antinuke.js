@@ -5,6 +5,8 @@ const { canConfigureAntinuke, getAntinukeConfig, saveAntinukeConfig, ADMIN_ROLE_
 
 const DEFAULT_PREFIX = ',';
 
+// yes this file is huge; no i don't want to talk about it 😭
+
 // Antinuke tracking
 const antinukeActivity = new Map(); // guildId -> userId -> { ban: [], kick: [], role: [], channel: [], etc. }
 
@@ -80,7 +82,7 @@ async function trackCommandAction(guild, userId, commandName) {
 function isWhitelistedForAntinuke(member, config) {
   if (!member || !config) return false;
   // Admin role is always immune
-  if (member.roles.cache.has(ADMIN_ROLE_ID)) return true;
+  if (ADMIN_ROLE_ID && member.roles.cache.has(ADMIN_ROLE_ID)) return true;
   // Check user whitelist
   if (config.whitelist && config.whitelist.includes(member.id)) return true;
   return false;

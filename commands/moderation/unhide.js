@@ -1,5 +1,7 @@
 const { PermissionFlagsBits, EmbedBuilder } = require('discord.js');
 
+// inverse of hide except when it isn't — discord permissions are poetry 😭
+
 module.exports = {
   name: 'unhide',
   aliases: [],

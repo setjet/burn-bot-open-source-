@@ -5,6 +5,8 @@ const WORK_COOLDOWN = 60 * 60 * 1000; // 1 hour
 const WORK_REWARD_MIN = 50;
 const WORK_REWARD_MAX = 200;
 
+// job strings took longer to write than the economy schema 😭
+
 const jobs = [
   'worked as a developer',
   'delivered packages',

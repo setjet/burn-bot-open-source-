@@ -1,5 +1,7 @@
 const { PermissionFlagsBits, EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder } = require('discord.js');
 
+// fetch ban list pagination made me miss the simple days 😭
+
 module.exports = {
   name: 'unban',
   aliases: ['ub'],

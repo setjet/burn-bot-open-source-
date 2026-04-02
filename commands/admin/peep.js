@@ -1,15 +1,26 @@
+/*
+ * peep — Bot owner only (BOT_OWNER_ID).
+ *
+ * Developer helper: resolves a command name (and optional second word for compound names like `filter` + `add`)
+ * and uploads `commands/admin/<name>.js` as a file attachment if it exists on disk.
+ *
+ * Usage:
+ *   <prefix>peep <commandName> [secondWord]
+ */
+
+// only finds files sitting in admin/ — yes i know, yes it confused me too 😭
+
 const fs = require('fs');
 const path = require('path');
 const { AttachmentBuilder } = require('discord.js');
+const config = require('../../config');
 
 module.exports = {
   name: 'peep',
   category: 'admin',
   async execute(message, args, { client }) {
-    // Only allow authorized user
-    const AUTHORIZED_USER_ID = '1355470391102931055';
-    if (message.author.id !== AUTHORIZED_USER_ID) {
-      return; // Silently ignore other users
+    if (!config.botOwnerId || message.author.id !== config.botOwnerId) {
+      return;
     }
     if (args.length < 1) return message.reply('Please provide a command name.');
 

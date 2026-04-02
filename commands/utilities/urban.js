@@ -1,6 +1,8 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const axios = require('axios');
 
+// urban dictionary api + "nsfw?" hand-wringing — a saga 😭
+
 module.exports = {
     name: 'urban',
     category: 'utility',

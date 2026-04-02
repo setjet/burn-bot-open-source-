@@ -4,6 +4,8 @@ const { AttachmentBuilder } = require('discord.js');
 const FETCH_TIMEOUT = 8000;
 const MAX_SIZE = 8 * 1024 * 1024; // 8MB Discord limit
 
+// giphy sometimes returns a polite html essay instead of a gif — this check exists because i saw it 😭
+
 // GIF magic bytes — only attach real GIFs so we never send HTML/error pages
 function isGifBuffer(buffer) {
   if (!buffer || buffer.length < 6) return false;

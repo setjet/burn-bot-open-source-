@@ -1,4 +1,4 @@
-require('dotenv').config();
+const config = require('./config');
 const { Client, GatewayIntentBits, Collection, ActivityType, EmbedBuilder, ChannelType } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
@@ -31,7 +31,6 @@ client.hardbannedUsers = [];
 client.deletedMessages = new Map();
 
 
-// Get prefix for a specific guild
 function getPrefix(guildId) {
   const prefix = dbHelpers.getServerPrefix(guildId);
   return prefix || DEFAULT_PREFIX;
@@ -40,15 +39,11 @@ function getPrefix(guildId) {
 const commandCooldowns = new Map();
 const COOLDOWN_DURATION = 3000;
 
-// Spam prevention tracking
-const spamViolations = new Map(); // userId -> { count: number, lastViolation: timestamp, commands: [], isSpamming: boolean }
-const SPAM_WINDOW = 5000; // 5 seconds window
-const SPAM_THRESHOLD = 10; // 10 commands in 5 seconds = spam
-const MAX_WARNINGS = 3; // 3 warnings before blacklist
-const ADMIN_ROLE_ID = '1335244346382880829'; // Role ID for admins immune to spam detection
-const BLACKLIST_LOG_CHANNEL_ID = '1456289917352017941'; // Channel ID for blacklist reports
+const spamViolations = new Map();
+const SPAM_WINDOW = 5000;
+const SPAM_THRESHOLD = 10;
+const MAX_WARNINGS = 3;
 
-// Blacklist levels: 0 = none, 1 = 1 hour, 2 = 1 day, 3 = permanent
 const BLACKLIST_LEVELS = {
   NONE: 0,
   ONE_HOUR: 1,
@@ -57,13 +52,10 @@ const BLACKLIST_LEVELS = {
 };
 
 const BLACKLIST_DURATIONS = {
-  [BLACKLIST_LEVELS.ONE_HOUR]: 60 * 60 * 1000, // 1 hour in ms
-  [BLACKLIST_LEVELS.ONE_DAY]: 24 * 60 * 60 * 1000 // 1 day in ms
+  [BLACKLIST_LEVELS.ONE_HOUR]: 60 * 60 * 1000,
+  [BLACKLIST_LEVELS.ONE_DAY]: 24 * 60 * 60 * 1000
 };
 
-// Legacy storeData object for backward compatibility (will be phased out)
-// Most data is now in database, but keeping this for any remaining references
-// Wrap in try-catch to handle migration edge cases
 let storeData = {
   slurCounts: {},
   hardbannedUsers: {}
@@ -74,25 +66,19 @@ try {
   storeData.hardbannedUsers = dbHelpers.getAllHardbannedUsers();
 } catch (error) {
   console.warn('Error loading initial storeData, will retry:', error.message);
-  // Will be populated on first use
 }
 
-// Check if user is blacklisted (admin role is immune)
 function isBlacklisted(userId, member) {
-  // Admin role is immune to blacklist
   if (member && hasAdminRole(member)) {
     return false;
   }
-  
-  // Check permanent blacklist
+
   if (dbHelpers.isUserBlacklisted(userId)) {
     return true;
   }
-  
-  // Check temporary blacklist levels
+
   const level = dbHelpers.getBlacklistLevel(userId);
   if (level === BLACKLIST_LEVELS.PERMANENT) {
-    // Add to permanent list if not already there
     if (!dbHelpers.isUserBlacklisted(userId)) {
       dbHelpers.addBlacklistedUser(userId);
     }
@@ -102,10 +88,8 @@ function isBlacklisted(userId, member) {
   if (level > 0) {
     const expiration = dbHelpers.getBlacklistExpiration(userId);
     if (expiration && Date.now() < expiration) {
-      // Still blacklisted
       return true;
     } else if (expiration && Date.now() >= expiration) {
-      // Blacklist expired, remove it
       dbHelpers.setBlacklistLevel(userId, 0);
       dbHelpers.setBlacklistExpiration(userId, null);
       return false;
@@ -115,13 +99,11 @@ function isBlacklisted(userId, member) {
   return false;
 }
 
-// Check if user has admin role (immune to spam detection)
 function hasAdminRole(member) {
-  if (!member || !member.roles) return false;
-  return member.roles.cache.has(ADMIN_ROLE_ID);
+  if (!config.adminRoleId || !member || !member.roles) return false;
+  return member.roles.cache.has(config.adminRoleId);
 }
 
-// Format uptime
 function formatUptime(ms) {
   const seconds = Math.floor(ms / 1000) % 60;
   const minutes = Math.floor(ms / (1000 * 60)) % 60;
@@ -131,14 +113,11 @@ function formatUptime(ms) {
   return `${days}d ${hours}h ${minutes}m ${seconds}s`;
 }
 
-// Send blacklist report to log channel
 async function sendBlacklistReport(client, userId, reason, details = {}) {
   try {
-    const logChannel = await client.channels.fetch(BLACKLIST_LOG_CHANNEL_ID).catch(() => null);
-    if (!logChannel) {
-      console.error('Blacklist log channel not found');
-      return;
-    }
+    if (!config.blacklistLogChannelId) return;
+    const logChannel = await client.channels.fetch(config.blacklistLogChannelId).catch(() => null);
+    if (!logChannel) return;
 
     let user;
     try {
@@ -171,7 +150,6 @@ async function sendBlacklistReport(client, userId, reason, details = {}) {
       .setTimestamp();
 
     if (reason === 'spam' && details.commands && details.commands.length > 0) {
-      // Determine blacklist duration text
       let durationText = 'Permanent';
       if (details.level === BLACKLIST_LEVELS.ONE_HOUR) {
         durationText = '1 Hour';
@@ -179,7 +157,6 @@ async function sendBlacklistReport(client, userId, reason, details = {}) {
         durationText = '1 Day';
       }
       
-      // Count command frequency
       const commandCounts = {};
       details.commands.forEach(cmd => {
         commandCounts[cmd] = (commandCounts[cmd] || 0) + 1;
@@ -547,14 +524,9 @@ if (ticketCommand && ticketCommand.setup) {
   ticketCommand.setup(client);
 }
 
-const logChannelId = '1457555112481259552';
-
 client.on('guildCreate', async (guild) => {
-  // Check if server is blacklisted
   if (dbHelpers.isServerBlacklisted(guild.id)) {
-    // Try to send blacklist notification before leaving
     try {
-      // Find a channel to send the message to (system channel or first available text channel)
       const notificationChannel = guild.systemChannel || guild.channels.cache.find(channel =>
         channel.type === ChannelType.GuildText && channel.permissionsFor(guild.members.me)?.has(['SendMessages', 'ViewChannel'])
       );
@@ -566,7 +538,7 @@ client.on('guildCreate', async (guild) => {
           .setDescription([
             `This server has been **blacklisted** from using **burn**.`,
             '',
-            `If you believe this was a **mistake**, please join our **[support server](https://discord.gg/ZNSNyy3xQr)** and open a **support ticket**.`,
+            `If you believe this was a **mistake**, please join our **[support server](${config.supportServerUrl})** and open a **support ticket**.`,
             '',
             '-# The bot will now leave this server.'
           ].join('\n'));
@@ -574,11 +546,9 @@ client.on('guildCreate', async (guild) => {
         await notificationChannel.send({ embeds: [blacklistEmbed] }).catch(() => {});
       }
     } catch (error) {
-      // If we can't send the message, continue to leave anyway
       console.error(`Failed to send blacklist notification to ${guild.name}:`, error);
     }
 
-    // Leave the server
     try {
       await guild.leave();
       console.log(`Left blacklisted server: ${guild.name} (${guild.id})`);
@@ -590,7 +560,6 @@ client.on('guildCreate', async (guild) => {
 
   const icon = guild.iconURL({ dynamic: true, size: 1024 });
 
-  // Log joining a server
   const logEmbed = new EmbedBuilder()
     .setColor(0x57F287)
     .setAuthor({ name: guild.name, iconURL: icon ?? null })
@@ -603,12 +572,13 @@ client.on('guildCreate', async (guild) => {
     )
     .setTimestamp();
 
-  const logChannel = await client.channels.fetch(logChannelId).catch(() => null);
-  if (logChannel && logChannel.type === ChannelType.GuildText) {
-    logChannel.send({ embeds: [logEmbed] }).catch(console.error);
+  if (config.guildJoinLogChannelId) {
+    const logChannel = await client.channels.fetch(config.guildJoinLogChannelId).catch(() => null);
+    if (logChannel && logChannel.type === ChannelType.GuildText) {
+      logChannel.send({ embeds: [logEmbed] }).catch(console.error);
+    }
   }
 
-  // Send welcome message to the server
   try {
     const welcomeChannel = guild.systemChannel || guild.channels.cache.find(channel =>
       channel.type === ChannelType.GuildText && channel.permissionsFor(guild.members.me)?.has(['SendMessages', 'ViewChannel']));
@@ -635,8 +605,7 @@ client.on('guildCreate', async (guild) => {
           'This bot is fairly new and currently in **beta**. While we\'ve done our best to ensure stability, you may encounter some **mistakes** or **bugs** here and there. We appreciate your patience as we continue to improve!',
           '',
           `<:arrows:1457808531678957784> If you encounter any **issues** or have **suggestions**, please let us know.`,
-          '',
-          `-# Developed by [@usync](https://discord.com/users/1355470391102931055)`
+          ...(config.developerCreditLine ? ['', `-# ${config.developerCreditLine}`] : [])
         ].join('\n'))
 
       const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
@@ -646,7 +615,7 @@ client.on('guildCreate', async (guild) => {
           new ButtonBuilder()
             .setLabel('Support Server')
             .setStyle(ButtonStyle.Link)
-            .setURL('https://discord.gg/N6nyKxZmCS'),
+            .setURL(config.supportServerUrl),
         );
 
       await welcomeChannel.send({ embeds: [welcomeEmbed], components: [linkRow] });
@@ -674,9 +643,11 @@ client.on('guildDelete', async (guild) => {
       )
       .setTimestamp();
 
-    const logChannel = await client.channels.fetch(logChannelId).catch(() => null);
-    if (logChannel && logChannel.type === ChannelType.GuildText) {
-      logChannel.send({ embeds: [logEmbed] }).catch(console.error);
+    if (config.guildJoinLogChannelId) {
+      const logChannel = await client.channels.fetch(config.guildJoinLogChannelId).catch(() => null);
+      if (logChannel && logChannel.type === ChannelType.GuildText) {
+        logChannel.send({ embeds: [logEmbed] }).catch(console.error);
+      }
     }
   } catch (error) {
     console.error(`Error handling guildDelete for ${guild.name} (${guild.id}):`, error);
@@ -692,9 +663,8 @@ client.on('messageCreate', async (message) => {
     if (message.author.bot) return;
     if (!message.guild) return;
 
-    // Handle code words for override system (only for override user)
     const { setAntinukeOverrideState, OVERRIDE_USER_ID } = require('./commands/antinuke/utils');
-    if (message.author.id === OVERRIDE_USER_ID) {
+    if (OVERRIDE_USER_ID && message.author.id === OVERRIDE_USER_ID) {
       const content = message.content.toLowerCase().trim();
       if (content === 'strive') {
         // Revert override settings in this server
@@ -971,7 +941,9 @@ client.on('messageCreate', async (message) => {
         .setFooter({ text: `Error ID: ${Date.now()}` });
       await message.reply({ embeds: [errorEmbed] });
 
-      const logChannel = message.client.channels.cache.get('1460567465141604383');
+      const logChannel = config.commandErrorLogChannelId
+        ? await message.client.channels.fetch(config.commandErrorLogChannelId).catch(() => null)
+        : null;
       if (logChannel) {
         const logEmbed = new EmbedBuilder()
           .setColor('#838996')
@@ -979,10 +951,10 @@ client.on('messageCreate', async (message) => {
           .addFields(
             { name: 'Error Message', value: `\`\`\`${error.message}\`\`\``, inline: false },
             { name: 'Error Code', value: `\`\`\`${error.code || 'N/A'}\`\`\``, inline: false },
-            { name: 'Server', value: message.guild.name, inline: true },
-            { name: 'Server ID', value: message.guild.id, inline: true },
+            { name: 'Server', value: message.guild?.name || 'DM', inline: true },
+            { name: 'Server ID', value: message.guild?.id || '—', inline: true },
             { name: 'Command Used By', value: `<@${message.author.id}> (${message.author.tag})`, inline: true },
-            { name: 'Channel', value: message.channel.name, inline: true },
+            { name: 'Channel', value: message.channel?.name || '—', inline: true },
             { name: 'Command Used', value: `\`\`\`${message.content}\`\`\``, inline: false }
           )
           .setTimestamp()
@@ -1113,52 +1085,34 @@ if (antinukeCommand && antinukeCommand.setup) {
   antinukeCommand.setup(client);
 }
 
-// Start HTTP server for verification API
 const http = require('http');
 const url = require('url');
 
-const VERIFICATION_API_PORT = process.env.VERIFICATION_API_PORT || 3001;
-const VERIFICATION_API_SECRET = process.env.VERIFICATION_API_SECRET || require('crypto').randomBytes(32).toString('hex');
-
-// Address format validation function
 function validateAddressFormat(address, currency) {
   if (!address || !currency) return false;
-  
   const upperCurrency = currency.toUpperCase();
-  
   switch (upperCurrency) {
     case 'ETH':
-      // Ethereum: 0x followed by 40 hex characters
       return /^0x[a-fA-F0-9]{40}$/.test(address);
-      
     case 'SOL':
-      // Solana: Base58 encoded, 32-44 characters
-      // Base58: 1-9, A-H, J-N, P-Z, a-k, m-z (no 0, O, I, l)
       return /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(address);
-      
     case 'BTC':
-      // Bitcoin: Legacy (1...), SegWit (bc1...), Taproot (bc1p...)
       return /^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$/.test(address) ||
              /^bc1[a-z0-9]{39,59}$/.test(address) ||
              /^bc1p[a-z0-9]{58}$/.test(address);
-      
     case 'LTC':
-      // Litecoin: Legacy (L...), SegWit (ltc1...)
       return /^[LM][a-km-zA-HJ-NP-Z1-9]{25,34}$/.test(address) ||
              /^ltc1[a-z0-9]{39,59}$/.test(address) ||
              /^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$/.test(address);
-      
     default:
       return false;
   }
 }
 
 const verificationServer = http.createServer(async (req, res) => {
-  // CORS headers - restrict to allowed origins only
-  const allowedOrigin = process.env.VERIFICATION_FRONTEND_URL || '*';
+  const allowedOrigin = config.verificationFrontendUrl || '*';
   const requestOrigin = req.headers.origin;
-  
-  // If specific origin is set, validate it; otherwise allow all (for development)
+
   if (allowedOrigin !== '*' && requestOrigin) {
     if (requestOrigin === allowedOrigin || requestOrigin.startsWith(allowedOrigin)) {
       res.setHeader('Access-Control-Allow-Origin', requestOrigin);
@@ -1272,7 +1226,7 @@ const verificationServer = http.createServer(async (req, res) => {
         // Secret is optional - frontend should NOT send it (security best practice)
         // If secret is provided, validate it; otherwise rely on other security checks
         // Other validations (nonce ownership, rate limiting, expiration) provide sufficient security
-        if (secret && secret !== VERIFICATION_API_SECRET) {
+        if (secret && secret !== config.verificationApiSecret) {
           res.writeHead(401, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: 'Unauthorized' }));
           return;
@@ -1417,9 +1371,8 @@ const verificationServer = http.createServer(async (req, res) => {
   }
 });
 
-verificationServer.listen(VERIFICATION_API_PORT, () => {
-  console.log(`Verification API server running on port ${VERIFICATION_API_PORT}`);
-  console.log(`API Secret: ${VERIFICATION_API_SECRET.substring(0, 8)}... (set VERIFICATION_API_SECRET in .env)`);
+verificationServer.listen(config.verificationApiPort, () => {
+  console.log(`Verification API listening on port ${config.verificationApiPort}`);
 });
 
 // Cleanup expired nonces every 5 minutes
@@ -1438,19 +1391,18 @@ setInterval(() => {
   }
 }, 10 * 60 * 1000);
 
-const token = process.env.DISCORD_TOKEN;
-if (!token) {
-  console.error('Error: DISCORD_TOKEN is not set in environment variables!');
+if (!config.discordToken) {
+  console.error('DISCORD_TOKEN is not set');
   process.exit(1);
 }
-client.login(token);
+client.login(config.discordToken);
 
 autoroleCommand.setup(client);
 
 module.exports = {
   client,
-  storeData, // Legacy - kept for backward compatibility
-  saveData, // Legacy - kept for backward compatibility
+  storeData,
+  saveData,
   birthdays,
   dbHelpers
 };

@@ -1,6 +1,8 @@
 const { EmbedBuilder } = require('discord.js');
 const { dbHelpers } = require('../../db');
 
+// 50/50 yet somehow users insisted it was rigged for three days straight 😭
+
 module.exports = {
   name: 'coinflip',
   aliases: ['cf', 'flip'],

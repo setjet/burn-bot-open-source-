@@ -1,7 +1,9 @@
 const { EmbedBuilder } = require('discord.js');
 const moment = require('moment');
 const { dbHelpers } = require('../../db');
-const OWNER_ID = "758522527885951016";
+const { botOwnerId } = require('../../config');
+
+// date parsing is cursed; moment helped until it didn't 😭
 
 module.exports = {
   name: 'birthday',
@@ -16,11 +18,11 @@ module.exports = {
 
       const mention = message.mentions.users.first();
       if (mention) {
-        if (message.author.id !== OWNER_ID) {
-      return message.reply({
-        embeds: [new EmbedBuilder().setColor('#FF0000').setDescription("<:disallowed:1457808577786806375> <:arrows:1457808531678957784> You don't have **permission** to set birthdays for others.")],
-        allowedMentions: { repliedUser: false }
-      });
+        if (!botOwnerId || message.author.id !== botOwnerId) {
+          return message.reply({
+            embeds: [new EmbedBuilder().setColor('#FF0000').setDescription("<:disallowed:1457808577786806375> <:arrows:1457808531678957784> You don't have **permission** to set birthdays for others.")],
+            allowedMentions: { repliedUser: false }
+          });
         }
         target = mention;
         dateStartIndex = 2;

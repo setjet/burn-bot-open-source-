@@ -1,6 +1,8 @@
 const { PermissionFlagsBits, EmbedBuilder } = require('discord.js');
 const { dbHelpers } = require('../../db');
 
+// db + ban so they can't sneak back in; integration testing was not fun 😭
+
 module.exports = {
   name: 'hardban',
   aliases: ['hb'],

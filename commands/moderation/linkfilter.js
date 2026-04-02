@@ -3,6 +3,8 @@ const { dbHelpers, db } = require('../../db');
 
 const DEFAULT_PREFIX = ',';
 
+// entire interactive ui for links — longest file in moderation by emotional damage 😭
+
 // Store active collectors and message states
 const activeCollectors = new Map();
 const messageStates = new Map(); // messageId -> { view: 'main' | 'config', guildId, userId }

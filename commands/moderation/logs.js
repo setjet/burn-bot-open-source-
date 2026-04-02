@@ -3,6 +3,8 @@ const { dbHelpers, db } = require('../../db');
 
 const DEFAULT_PREFIX = ',';
 
+// log viewer + file attachments — "just show logs" my naive past self said 😭
+
 // Helper function to format bytes
 function formatBytes(bytes) {
   if (bytes === 0) return '0 Bytes';

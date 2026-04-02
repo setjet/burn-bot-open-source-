@@ -4,6 +4,8 @@ const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
 
+// sharp + temp files + discord attachment limits = spa day 😭
+
 module.exports = {
   name: 'togif',
   aliases: ['gif'],

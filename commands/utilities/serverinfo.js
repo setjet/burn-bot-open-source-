@@ -1,6 +1,8 @@
 const { EmbedBuilder } = require('discord.js');
 const axios = require('axios');
 
+// vanity check api calls taught me patience (i failed) 😭
+
 module.exports = {
   name: 'serverinfo',
   aliases: ['si'],

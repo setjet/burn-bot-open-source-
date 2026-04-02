@@ -1,5 +1,7 @@
 const { PermissionFlagsBits, EmbedBuilder } = require('discord.js');
 
+// fetch message by id + pin permission edge cases 😭
+
 module.exports = {
   name: 'pin',
   category: 'utilities',

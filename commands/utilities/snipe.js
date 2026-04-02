@@ -8,6 +8,7 @@ module.exports = {
     const snipedMessages = context.client.deletedMessages.get(message.channel.id);
 
     if (!snipedMessages || snipedMessages.length === 0) {
+      // nothing deleted recently — either a quiet channel or someone cleared snipes 😭
       return message.reply({
         embeds: [
           new EmbedBuilder()
@@ -20,7 +21,8 @@ module.exports = {
 
     
     const index = Math.max(0, Math.min((parseInt(args[0]) || 1) - 1, snipedMessages.length - 1));
-    
+    // clamp so `snipe 999` doesn't invent a parallel timeline 😭
+
     const sniped = snipedMessages[index];
 
     function timeAgo(timestamp) {
@@ -57,6 +59,7 @@ module.exports = {
     if (sniped.attachment) {
       embed.setImage(sniped.attachment);
     }
+    // image snipes: where moderation and chaos share a thumbnail 😭
 
     embed.setFooter({ text: `Deleted ${timeAgo(sniped.timestamp)} • Message ${index + 1} of ${snipedMessages.length}` });
 

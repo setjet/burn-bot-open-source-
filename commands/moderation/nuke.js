@@ -1,5 +1,7 @@
 const { PermissionFlagsBits, ChannelType, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 
+// channel.clone() permissions haunted me longer than the channel lived 😭
+
 module.exports = {
   name: 'nuke',
   aliases: ['n'],

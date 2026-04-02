@@ -1,5 +1,7 @@
 const { PermissionFlagsBits, EmbedBuilder } = require('discord.js');
 
+// managed roles + nickname perms = discord saying "no" in twelve dialects 😭
+
 module.exports = {
   name: 'forcenickname',
   aliases: ['fn'],
